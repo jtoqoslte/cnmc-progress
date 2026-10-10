@@ -264,25 +264,27 @@
           <h2 style="margin: 0;">DBN_NDBN Avail Interactive Operational Report</h2>
           <span style="font-size: 12px; color: #64748b;">Interactive slicers & pivots active directly below</span>
         </div>
-        <!-- Bypasses mobile app interceptors by opening in Office Online Web Reader -->
-        <a href="https://view.officeapps.live.com/op/view.aspx?src=https%3A%2F%2Fonedrive.live.com%2Fdownload%3Fresid%3D7CF6ABB2CBC6695D%21106%26authkey%3D%21AF9cpEotjnRUFvU" 
+        <!-- Working full-screen link that opens directly without login or app prompts -->
+        <a href="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQAanksCu2fNRY5p_dJ8RYNxAV9cpEotjnRUFvXT7Zs9JVQ?em=2" 
            target="_blank" 
            rel="noopener noreferrer" 
            class="btn btn-primary btn-sm">
-          ↗ Force Browser Web View (No App)
+          ↗ Open Full Screen (Browser Mode)
         </a>
       </div>
       
-      <!-- In-Page Embedded Viewer (Slicers remain active directly on the page) -->
+      <!-- Embedded Excel Viewer with Full Sandbox & Cookie Permissions -->
       <div style="position: relative; width: 100%; height: 84vh; min-height: 650px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #ffffff;">
         <iframe 
           id="excel-embed-iframe"
-          src="https://onedrive.live.com/embed?resid=7CF6ABB2CBC6695D%21106&authkey=%21AF9cpEotjnRUFvU&em=2&wdAllowInteractivity=True&wdHideGridlines=True&wdDownloadButton=True" 
+          data-src="https://onedrive.live.com/embed?resid=7CF6ABB2CBC6695D!106&authkey=!AF9cpEotjnRUFvU&em=2&wdAllowInteractivity=True&wdHideGridlines=True&wdDownloadButton=True"
+          src="about:blank"
           width="100%" 
           height="100%" 
           frameborder="0" 
           scrolling="yes"
           allowfullscreen="true"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
           style="width: 100%; height: 100%; border: none; display: block;">
         </iframe>
       </div>
@@ -349,7 +351,7 @@
     return indices;
   }
 
-  // Module Switching with Dynamic Iframe Reflow
+  // Module Switching: Lazy loads iframe on user click
   function switchModule(modId, btn) {
     document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("mod-infra").style.display = "none";
@@ -358,12 +360,12 @@
     document.getElementById(modId).style.display = "block";
     btn.classList.add("active");
 
-    // Dynamic reflow so OneDrive embeds render cleanly without blanking
+    // Only load OneDrive embed when tab is clicked to avoid hidden iframe timeout
     if (modId === "mod-dbn") {
       const iframe = document.getElementById("excel-embed-iframe");
-      if (iframe) {
-        iframe.style.height = "99.9%";
-        setTimeout(() => { iframe.style.height = "100%"; }, 100);
+      if (iframe && !iframe.getAttribute("data-loaded")) {
+        iframe.setAttribute("data-loaded", "true");
+        iframe.src = iframe.getAttribute("data-src");
       }
     }
   }
@@ -586,7 +588,7 @@
         <td class="num">${d.total}</td>
         <td class="num">${d.notStarted}</td>
         <td class="num">${d.inProgress}</td>
-        <td class="num">${d.completed}</td>
+        <td class="num">${completed}</td>
         <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
         <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
       `;
