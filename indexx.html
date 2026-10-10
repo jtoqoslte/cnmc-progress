@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNMC Site Parameter Progress Dashboard</title>
+  <!-- PapaParse for high-speed CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; padding: 20px; background: var(--bg); color: var(--text); }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
+    h1 { margin: 0; font-size: 22px; color: var(--primary); }
+    .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
+    
+    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-upload { background: #0284c7; color: white; cursor: pointer; }
+    .btn-upload:hover { background: #0369a1; }
+    
+    .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .kpi-card { background: var(--card-bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .kpi-card .title { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+    .kpi-card .value { font-size: 24px; font-weight: bold; margin-top: 6px; color: var(--primary); }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab-btn { background: #e2e8f0; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; color: #475569; }
+    .tab-btn.active { background: var(--primary); color: white; }
+
+    .section { background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    h2 { font-size: 17px; margin-top: 0; margin-bottom: 14px; color: var(--text); }
+
+    .filter-bar { display: flex; gap: 12px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+    .filter-bar select, .filter-bar input { padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #f1f5f9; font-weight: 600; color: #334155; position: sticky; top: 0; z-index: 1; }
+    tr:hover { background: #f8fafc; }
+    .num { text-align: right; }
+    .circle-row { font-weight: bold; background: #e2e8f0; }
+
+    .progress-track { background: #e2e8f0; border-radius: 4px; height: 16px; width: 100px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+    .progress-fill { height: 100%; }
+    .progress-fill.high { background: #22c55e; }
+    .progress-fill.mid { background: #f59e0b; }
+    .progress-fill.low { background: #ef4444; }
+
+    .table-container { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+    .heat-cell { text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>CNMC Parameter Fill Tracker</h1>
+      <div class="status-bar" id="status-bar">Initializing...</div>
+    </div>
+    <div class="header-actions">
+      <!-- File Picker fallback for local desktop testing -->
+      <label class="btn btn-upload">
+        📁 Open Local CSV File
+        <input type="file" id="local-file-input" accept=".csv" style="display: none;" onchange="handleLocalFile(event)">
+      </label>
+      <button class="btn btn-primary" onclick="fetchAndRender()">↻ Refresh Live Sheet</button>
+    </div>
+  </div>
+
+  <!-- KPI Overview -->
+  <div class="kpi-container">
+    <div class="kpi-card"><div class="title">Total Sites</div><div class="value" id="kpi-total">-</div></div>
+    <div class="kpi-card"><div class="title">Completed (100%)</div><div class="value" id="kpi-completed">-</div></div>
+    <div class="kpi-card"><div class="title">In Progress</div><div class="value" id="kpi-inprogress">-</div></div>
+    <div class="kpi-card"><div class="title">Not Started</div><div class="value" id="kpi-notstarted">-</div></div>
+    <div class="kpi-card"><div class="title">Circle Overall %</div><div class="value" id="kpi-circle-pct">-</div></div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('oa-view', this)">1. OA / SSA Summary</button>
+    <button class="tab-btn" onclick="switchTab('owner-view', this)">2. L1 / In-Charge Summary</button>
+    <button class="tab-btn" onclick="switchTab('param-view', this)">3. Parameter Heatmap</button>
+  </div>
+
+  <!-- VIEW 1: OA SUMMARY -->
+  <div class="section" id="oa-view">
+    <h2>OA / SSA-Wise Completion Status</h2>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>BA Name</th>
+            <th>OA / SSA Name</th>
+            <th class="num">Total Sites</th>
+            <th class="num">Not Started</th>
+            <th class="num">In Progress</th>
+            <th class="num">Completed</th>
+            <th class="num">Progress Bar</th>
+            <th class="num">Avg Fill %</th>
+          </tr>
+        </thead>
+        <tbody id="oa-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VIEW 2: OWNER SUMMARY -->
+  <div class="section" id="owner-view" style="display:none;">
+    <h2>Site In-Charge (L1 / L2) Progress</h2>
+    <div class="filter-bar">
+      <label><strong>Filter by SSA:</strong></label>
+      <select id="owner-ssa-filter" onchange="renderOwnerTable()"><option value="ALL">All SSAs</option></select>
+      <input type="text" id="owner-search" placeholder="Search In-Charge Name..." onkeyup="renderOwnerTable()" />
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>SSA Name</th>
+            <th>L1 In-charge</th>
+            <th>L2 In-charge</th>
+            <th class="num">Total Assigned</th>
+            <th class="num">Not Started</th>
+            <th class="num">In Progress</th>
+            <th class="num">Completed</th>
+            <th class="num">Progress Bar</th>
+            <th class="num">Completion %</th>
+          </tr>
+        </thead>
+        <tbody id="owner-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VIEW 3: PARAMETER HEATMAP -->
+  <div class="section" id="param-view" style="display:none;">
+    <h2>Mandatory Parameter Fill % Heatmap Matrix</h2>
+    <div class="table-container">
+      <table>
+        <thead id="param-thead"></thead>
+        <tbody id="param-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  // =========================================================================
+  // PASTE YOUR PUBLISHED GOOGLE SHEET CSV LINK OR EXPORT LINK INSIDE THE QUOTES:
+  // =========================================================================
+  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
+
+  // Excluded columns: P (index 15), AF:AK (31 to 36), AQ:AZ (42 to 51)
+  const EXCLUDED_INDICES = new Set([15, 31, 32, 33, 34, 35, 36, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]);
+
+  let globalDataRows = [];
+  let globalHeaders = [];
+
+  function getMandatoryIndices(totalCols) {
+    const indices = [];
+    const maxLimit = Math.min(totalCols - 1, 64); // Columns up to BM (index 64)
+    for (let i = 7; i <= maxLimit; i++) { // Starting from Col H (index 7)
+      if (!EXCLUDED_INDICES.has(i)) indices.push(i);
+    }
+    return indices;
+  }
+
+  // Handle local file loading for testing on desktop
+  function handleLocalFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = document.getElementById("status-bar");
+    status.innerText = "Parsing local file: " + file.name + "...";
+
+    Papa.parse(file, {
+      skipEmptyLines: true,
+      complete: function(results) {
+        if (!results.data || results.data.length < 2) {
+          status.innerText = "⚠️ Selected file is empty or invalid.";
+          return;
+        }
+        processAllData(results.data);
+        status.innerText = "Loaded local file: " + file.name + " (" + (results.data.length - 1) + " rows)";
+      },
+      error: function(err) {
+        status.innerText = "⚠️ Error parsing file: " + err.message;
+      }
+    });
+  }
+
+  // Live Sheet Fetching with CORS Proxy Fallbacks
+  async function fetchAndRender() {
+    const status = document.getElementById("status-bar");
+    status.innerText = "Connecting to live sheet...";
+
+    if (!SHEET_CSV_URL || SHEET_CSV_URL.includes("PASTE_YOUR")) {
+      status.innerHTML = `⚠️ No URL provided in line 163. Use <strong>"📁 Open Local CSV File"</strong> above to test your file immediately.`;
+      return;
+    }
+
+    const cacheBuster = (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + new Date().getTime();
+    const targetUrl = SHEET_CSV_URL + cacheBuster;
+
+    // Direct fetch first, then CORS fallback proxies
+    const urlsToTry = [
+      targetUrl,
+      "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
+      "https://corsproxy.io/?" + encodeURIComponent(targetUrl)
+    ];
+
+    let csvText = null;
+
+    for (const url of urlsToTry) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          csvText = await res.text();
+          if (csvText && csvText.trim().length > 50 && !csvText.includes("<!DOCTYPE html>")) {
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn("Fetch attempt failed for:", url);
+      }
+    }
+
+    if (!csvText) {
+      status.innerHTML = `<span style="color:#b91c1c; font-weight:bold;">⚠️ Could not fetch data.</span> Local browser security blocks direct web fetch on <code>file:///</code>. Please use the <strong>"📁 Open Local CSV File"</strong> button above to test on your computer, or host on GitHub Pages.`;
+      return;
+    }
+
+    Papa.parse(csvText, {
+      skipEmptyLines: true,
+      complete: function(results) {
+        if (!results.data || results.data.length < 2) {
+          status.innerText = "⚠️ Received sheet data is empty or invalid.";
+          return;
+        }
+        processAllData(results.data);
+        status.innerText = "Last updated: " + new Date().toLocaleTimeString();
+      },
+      error: function(err) {
+        status.innerText = "⚠️ Error parsing CSV: " + err.message;
+      }
+    });
+  }
+
+  function processAllData(rows) {
+    if (!rows || rows.length < 2) return;
+    globalHeaders = rows[0];
+    globalDataRows = rows.slice(1);
+
+    const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
+    const mandatoryCount = mandatoryIndices.length; // 41 fields
+
+    let circleSites = 0, circleNotStarted = 0, circleInProgress = 0, circleCompleted = 0, circleFilledSum = 0;
+    const ssaMap = {};
+    const ownerMap = {};
+    const ssaSet = new Set();
+
+    globalDataRows.forEach(row => {
+      const ba = (row[1] || "").trim();
+      const ssa = (row[2] || "").trim();
+      if (!ssa) return;
+      ssaSet.add(ssa);
+
+      // Col BR = L1 (index 69), Col BS = L2 (index 70)
+      const l1 = (row[69] || "Unassigned").trim();
+      const l2 = (row[70] || "-").trim();
+
+      circleSites++;
+      let filled = 0;
+      mandatoryIndices.forEach(idx => {
+        if (row[idx] && row[idx].toString().trim() !== "") filled++;
+      });
+
+      // OA Aggregation
+      if (!ssaMap[ssa]) {
+        ssaMap[ssa] = { ba: ba, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, fieldCounts: {} };
+        mandatoryIndices.forEach(idx => ssaMap[ssa].fieldCounts[idx] = 0);
+      }
+      ssaMap[ssa].total++;
+      ssaMap[ssa].filledFieldsSum += filled;
+      circleFilledSum += filled;
+
+      if (filled === 0) { ssaMap[ssa].notStarted++; circleNotStarted++; }
+      else if (filled === mandatoryCount) { ssaMap[ssa].completed++; circleCompleted++; }
+      else { ssaMap[ssa].inProgress++; circleInProgress++; }
+
+      mandatoryIndices.forEach(idx => {
+        if (row[idx] && row[idx].toString().trim() !== "") ssaMap[ssa].fieldCounts[idx]++;
+      });
+
+      // Owner Aggregation (SSA + L1 Key)
+      const ownerKey = ssa + "____" + l1;
+      if (!ownerMap[ownerKey]) {
+        ownerMap[ownerKey] = { ssa: ssa, l1: l1, l2: l2, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0 };
+      }
+      ownerMap[ownerKey].total++;
+      ownerMap[ownerKey].filledFieldsSum += filled;
+      if (filled === 0) ownerMap[ownerKey].notStarted++;
+      else if (filled === mandatoryCount) ownerMap[ownerKey].completed++;
+      else ownerMap[ownerKey].inProgress++;
+    });
+
+    const circlePct = circleSites > 0 ? (circleFilledSum / (circleSites * mandatoryCount)) * 100 : 0;
+
+    // Render KPIs
+    document.getElementById("kpi-total").innerText = circleSites.toLocaleString();
+    document.getElementById("kpi-completed").innerText = circleCompleted.toLocaleString();
+    document.getElementById("kpi-inprogress").innerText = circleInProgress.toLocaleString();
+    document.getElementById("kpi-notstarted").innerText = circleNotStarted.toLocaleString();
+    document.getElementById("kpi-circle-pct").innerText = circlePct.toFixed(1) + "%";
+
+    // Render View 1: OA Table
+    renderOATable(ssaMap, circleSites, circleNotStarted, circleInProgress, circleCompleted, circlePct, mandatoryCount);
+
+    // Save & Render View 2: Owner Table
+    window.cachedOwnerMap = ownerMap;
+    populateSSADropdown(ssaSet);
+    renderOwnerTable();
+
+    // Render View 3: Heatmap Table
+    renderHeatmap(globalHeaders, ssaMap, mandatoryIndices, circleSites);
+  }
+
+  function renderOATable(ssaMap, circleSites, circleNotStarted, circleInProgress, circleCompleted, circlePct, mandatoryCount) {
+    const tbody = document.getElementById("oa-tbody");
+    tbody.innerHTML = "";
+    Object.keys(ssaMap).sort().forEach(ssa => {
+      const d = ssaMap[ssa];
+      const pct = (d.filledFieldsSum / (d.total * mandatoryCount)) * 100;
+      const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${d.ba}</td>
+          <td><strong>${ssa}</strong></td>
+          <td class="num">${d.total}</td>
+          <td class="num">${d.notStarted}</td>
+          <td class="num">${d.inProgress}</td>
+          <td class="num">${d.completed}</td>
+          <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
+          <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
+        </tr>`;
+    });
+
+    tbody.innerHTML += `
+      <tr class="circle-row">
+        <td>TOTAL</td>
+        <td>CIRCLE (ALL SSAs)</td>
+        <td class="num">${circleSites}</td>
+        <td class="num">${circleNotStarted}</td>
+        <td class="num">${circleInProgress}</td>
+        <td class="num">${circleCompleted}</td>
+        <td class="num"><div class="progress-track"><div class="progress-fill ${circlePct >= 80 ? 'high' : 'mid'}" style="width:${circlePct}%"></div></div></td>
+        <td class="num">${circlePct.toFixed(1)}%</td>
+      </tr>`;
+  }
+
+  function populateSSADropdown(ssaSet) {
+    const select = document.getElementById("owner-ssa-filter");
+    select.innerHTML = '<option value="ALL">All SSAs</option>';
+    Array.from(ssaSet).sort().forEach(ssa => {
+      select.innerHTML += `<option value="${ssa}">${ssa}</option>`;
+    });
+  }
+
+  function renderOwnerTable() {
+    if (!window.cachedOwnerMap) return;
+    const selectedSSA = document.getElementById("owner-ssa-filter").value;
+    const searchQuery = (document.getElementById("owner-search").value || "").toLowerCase();
+    const tbody = document.getElementById("owner-tbody");
+    tbody.innerHTML = "";
+
+    Object.values(window.cachedOwnerMap).forEach(d => {
+      if (selectedSSA !== "ALL" && d.ssa !== selectedSSA) return;
+      if (searchQuery && !d.l1.toLowerCase().includes(searchQuery)) return;
+
+      const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
+      const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${d.ssa}</td>
+          <td><strong>${d.l1}</strong></td>
+          <td>${d.l2}</td>
+          <td class="num">${d.total}</td>
+          <td class="num">${d.notStarted}</td>
+          <td class="num">${d.inProgress}</td>
+          <td class="num">${d.completed}</td>
+          <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
+          <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
+        </tr>`;
+    });
+  }
+
+  function renderHeatmap(headers, ssaMap, mandatoryIndices, circleSites) {
+    const ssaList = Object.keys(ssaMap).sort();
+    const thead = document.getElementById("param-thead");
+    const tbody = document.getElementById("param-tbody");
+
+    let thHtml = `<tr><th>#</th><th>Parameter Name</th><th class="num">Circle %</th>`;
+    ssaList.forEach(ssa => thHtml += `<th class="num">${ssa}</th>`);
+    thHtml += `</tr>`;
+    thead.innerHTML = thHtml;
+
+    let rowsHtml = "";
+    mandatoryIndices.forEach((idx, i) => {
+      const paramName = headers[idx] || ("Col " + idx);
+      let circleFilledTotal = 0;
+      ssaList.forEach(ssa => circleFilledTotal += ssaMap[ssa].fieldCounts[idx]);
+      const circleParamPct = circleSites > 0 ? (circleFilledTotal / circleSites) * 100 : 0;
+
+      let rHtml = `<tr>
+        <td>${i + 1}</td>
+        <td><strong>${paramName}</strong></td>
+        <td class="heat-cell" style="background:${getColor(circleParamPct)}"><strong>${circleParamPct.toFixed(1)}%</strong></td>`;
+
+      ssaList.forEach(ssa => {
+        const ssaTotal = ssaMap[ssa].total;
+        const ssaFilled = ssaMap[ssa].fieldCounts[idx];
+        const pct = ssaTotal > 0 ? (ssaFilled / ssaTotal) * 100 : 0;
+        rHtml += `<td class="heat-cell" style="background:${getColor(pct)}">${pct.toFixed(0)}%</td>`;
+      });
+
+      rHtml += `</tr>`;
+      rowsHtml += rHtml;
+    });
+    tbody.innerHTML = rowsHtml;
+  }
+
+  function getColor(pct) {
+    if (pct >= 90) return "#dcfce7";
+    if (pct >= 70) return "#fef9c3";
+    if (pct >= 40) return "#ffedd5";
+    return "#fee2e2";
+  }
+
+  function switchTab(viewId, btn) {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(s => s.style.display = "none");
+    document.getElementById(viewId).style.display = "block";
+    btn.classList.add("active");
+  }
+
+  window.onload = fetchAndRender;
+</script>
+</body>
+</html>
