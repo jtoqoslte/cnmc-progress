@@ -4,8 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CNMC Site Parameter Progress Dashboard</title>
-  <!-- PapaParse for high-speed CSV parsing -->
+  <!-- Libraries for CSV Parsing, Excel Export, and PDF Export -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
   <style>
     :root {
       --primary: #1e3a8a;
@@ -16,18 +20,25 @@
     }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { margin: 0; padding: 20px; background: var(--bg); color: var(--text); }
-    
+
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
     h1 { margin: 0; font-size: 22px; color: var(--primary); }
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
-    
+
     .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { opacity: 0.9; }
     .btn-upload { background: #0284c7; color: white; cursor: pointer; }
-    .btn-upload:hover { background: #0369a1; }
-    
+    .btn-green { background: #16a34a; color: white; }
+    .btn-red { background: #dc2626; color: white; }
+    .btn-sm { padding: 4px 8px; font-size: 11px; }
+
+    /* Top Global Filter Toolbar */
+    .toolbar { background: var(--card-bg); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .toolbar-group { display: flex; align-items: center; gap: 8px; }
+    .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; min-width: 200px; }
+
     .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px; }
     .kpi-card { background: var(--card-bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .kpi-card .title { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600; }
@@ -40,17 +51,16 @@
     .section { background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     h2 { font-size: 17px; margin-top: 0; margin-bottom: 14px; color: var(--text); }
 
-    .filter-bar { display: flex; gap: 12px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
-    .filter-bar select, .filter-bar input { padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
-
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
     th { background: #f1f5f9; font-weight: 600; color: #334155; position: sticky; top: 0; z-index: 1; }
     tr:hover { background: #f8fafc; }
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover { background: #eff6ff !important; }
     .num { text-align: right; }
     .circle-row { font-weight: bold; background: #e2e8f0; }
 
-    .progress-track { background: #e2e8f0; border-radius: 4px; height: 16px; width: 100px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+    .progress-track { background: #e2e8f0; border-radius: 4px; height: 16px; width: 90px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
     .progress-fill { height: 100%; }
     .progress-fill.high { background: #22c55e; }
     .progress-fill.mid { background: #f59e0b; }
@@ -58,6 +68,16 @@
 
     .table-container { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
     .heat-cell { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* Modal / Popup Styles */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
+    .modal-card { background: white; width: 100%; max-width: 1000px; max-height: 90vh; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
+    .modal-header { padding: 16px 20px; background: #f1f5f9; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { margin: 0; font-size: 17px; color: var(--primary); }
+    .modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
+    .modal-actions { display: flex; gap: 8px; align-items: center; }
+    .close-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; color: #64748b; }
+    .missing-tag { display: inline-block; background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin: 2px; }
   </style>
 </head>
 <body>
@@ -68,12 +88,27 @@
       <div class="status-bar" id="status-bar">Initializing...</div>
     </div>
     <div class="header-actions">
-      <!-- File Picker fallback for local desktop testing -->
       <label class="btn btn-upload">
         📁 Open Local CSV File
         <input type="file" id="local-file-input" accept=".csv" style="display: none;" onchange="handleLocalFile(event)">
       </label>
       <button class="btn btn-primary" onclick="fetchAndRender()">↻ Refresh Live Sheet</button>
+    </div>
+  </div>
+
+  <!-- Global Filter Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <label for="global-ba-filter"><strong>Filter BA / SSA:</strong></label>
+      <select id="global-ba-filter" onchange="applyGlobalFilters()">
+        <option value="ALL">All BAs & SSAs (Circle View)</option>
+      </select>
+    </div>
+
+    <!-- Instant Site Search Bar -->
+    <div class="toolbar-group" style="flex: 1; max-width: 480px;">
+      <label for="site-search-input"><strong>Search Site:</strong></label>
+      <input type="text" id="site-search-input" placeholder="Type phy_site_id or bts_name..." oninput="handleInstantSiteSearch(this.value)" style="width: 100%;">
     </div>
   </div>
 
@@ -83,19 +118,20 @@
     <div class="kpi-card"><div class="title">Completed (100%)</div><div class="value" id="kpi-completed">-</div></div>
     <div class="kpi-card"><div class="title">In Progress</div><div class="value" id="kpi-inprogress">-</div></div>
     <div class="kpi-card"><div class="title">Not Started</div><div class="value" id="kpi-notstarted">-</div></div>
-    <div class="kpi-card"><div class="title">Circle Overall %</div><div class="value" id="kpi-circle-pct">-</div></div>
+    <div class="kpi-card"><div class="title">Fill Completion %</div><div class="value" id="kpi-circle-pct">-</div></div>
   </div>
 
-  <!-- Navigation Tabs -->
+  <!-- Tabs -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('oa-view', this)">1. OA / SSA Summary</button>
     <button class="tab-btn" onclick="switchTab('owner-view', this)">2. L1 / In-Charge Summary</button>
     <button class="tab-btn" onclick="switchTab('param-view', this)">3. Parameter Heatmap</button>
+    <button class="tab-btn" id="search-tab-btn" onclick="switchTab('search-view', this)" style="display: none;">4. Site Search Results</button>
   </div>
 
   <!-- VIEW 1: OA SUMMARY -->
   <div class="section" id="oa-view">
-    <h2>OA / SSA-Wise Completion Status</h2>
+    <h2>OA / SSA-Wise Completion Status <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click any row to view pending sites list)</span></h2>
     <div class="table-container">
       <table>
         <thead>
@@ -117,11 +153,9 @@
 
   <!-- VIEW 2: OWNER SUMMARY -->
   <div class="section" id="owner-view" style="display:none;">
-    <h2>Site In-Charge (L1 / L2) Progress</h2>
-    <div class="filter-bar">
-      <label><strong>Filter by SSA:</strong></label>
-      <select id="owner-ssa-filter" onchange="renderOwnerTable()"><option value="ALL">All SSAs</option></select>
-      <input type="text" id="owner-search" placeholder="Search In-Charge Name..." onkeyup="renderOwnerTable()" />
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+      <h2 style="margin: 0;">Site In-Charge (L1 / L2) Progress <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click row to view site breakdown)</span></h2>
+      <input type="text" id="owner-search" placeholder="Filter In-Charge Name..." onkeyup="renderOwnerTable()" style="padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" />
     </div>
     <div class="table-container">
       <table>
@@ -135,7 +169,8 @@
             <th class="num">In Progress</th>
             <th class="num">Completed</th>
             <th class="num">Progress Bar</th>
-            <th class="num">Completion %</th>
+            <th class="num">Fill %</th>
+            <th style="text-align: center;">Export My Sites</th>
           </tr>
         </thead>
         <tbody id="owner-tbody"></tbody>
@@ -154,28 +189,86 @@
     </div>
   </div>
 
+  <!-- VIEW 4: SITE SEARCH VIEW -->
+  <div class="section" id="search-view" style="display:none;">
+    <h2>Site Search Results</h2>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Phy Site ID</th>
+            <th>BTS Name</th>
+            <th>SSA Name</th>
+            <th>L1 Owner</th>
+            <th>L2 Owner</th>
+            <th class="num">Fill %</th>
+            <th>Missing Parameters</th>
+          </tr>
+        </thead>
+        <tbody id="search-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DRILL-DOWN MODAL POPUP -->
+  <div class="modal-overlay" id="drilldown-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-title">Site Details</h3>
+          <span id="modal-subtitle" style="font-size: 12px; color: #64748b;"></span>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-green btn-sm" onclick="exportModalSitesToExcel()">📥 Export Excel</button>
+          <button class="btn btn-red btn-sm" onclick="exportModalSitesToPDF()">📄 Export PDF</button>
+          <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Phy Site ID</th>
+                <th>BTS Name</th>
+                <th>L1 Owner</th>
+                <th class="num">Filled</th>
+                <th class="num">Fill %</th>
+                <th>Missing Mandatory Parameters</th>
+              </tr>
+            </thead>
+            <tbody id="modal-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
   // =========================================================================
-  // PASTE YOUR PUBLISHED GOOGLE SHEET CSV LINK OR EXPORT LINK INSIDE THE QUOTES:
+  // PASTE YOUR PUBLISHED GOOGLE SHEET CSV LINK OR EXPORT LINK HERE:
   // =========================================================================
   const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
 
-  // Excluded columns: P (index 15), AF:AK (31 to 36), AQ:AZ (42 to 51)
+  // Excluded columns: P (index 15), AF:AK (31:36), AQ:AZ (42:51)
   const EXCLUDED_INDICES = new Set([15, 31, 32, 33, 34, 35, 36, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]);
 
-  let globalDataRows = [];
+  let rawDataRows = [];
   let globalHeaders = [];
+  let cachedSites = [];
+  let currentModalSites = [];
+  let currentModalEntityName = "";
 
   function getMandatoryIndices(totalCols) {
     const indices = [];
-    const maxLimit = Math.min(totalCols - 1, 64); // Columns up to BM (index 64)
-    for (let i = 7; i <= maxLimit; i++) { // Starting from Col H (index 7)
+    const maxLimit = Math.min(totalCols - 1, 64); // Up to Col BM
+    for (let i = 7; i <= maxLimit; i++) { // From Col H
       if (!EXCLUDED_INDICES.has(i)) indices.push(i);
     }
     return indices;
   }
 
-  // Handle local file loading for testing on desktop
   function handleLocalFile(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -189,29 +282,24 @@
           status.innerText = "⚠️ Selected file is empty or invalid.";
           return;
         }
-        processAllData(results.data);
-        status.innerText = "Loaded local file: " + file.name + " (" + (results.data.length - 1) + " rows)";
-      },
-      error: function(err) {
-        status.innerText = "⚠️ Error parsing file: " + err.message;
+        processRawData(results.data);
+        status.innerText = "Loaded local file: " + file.name;
       }
     });
   }
 
-  // Live Sheet Fetching with CORS Proxy Fallbacks
   async function fetchAndRender() {
     const status = document.getElementById("status-bar");
     status.innerText = "Connecting to live sheet...";
 
     if (!SHEET_CSV_URL || SHEET_CSV_URL.includes("PASTE_YOUR")) {
-      status.innerHTML = `⚠️ No URL provided in line 163. Use <strong>"📁 Open Local CSV File"</strong> above to test your file immediately.`;
+      status.innerHTML = `⚠️ No URL set in line 214. Use <strong>"📁 Open Local CSV File"</strong> above to test on your computer.`;
       return;
     }
 
     const cacheBuster = (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + new Date().getTime();
     const targetUrl = SHEET_CSV_URL + cacheBuster;
 
-    // Direct fetch first, then CORS fallback proxies
     const urlsToTry = [
       targetUrl,
       "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
@@ -219,213 +307,263 @@
     ];
 
     let csvText = null;
-
     for (const url of urlsToTry) {
       try {
         const res = await fetch(url);
         if (res.ok) {
           csvText = await res.text();
-          if (csvText && csvText.trim().length > 50 && !csvText.includes("<!DOCTYPE html>")) {
-            break;
-          }
+          if (csvText && csvText.trim().length > 50 && !csvText.includes("<!DOCTYPE html>")) break;
         }
-      } catch (e) {
-        console.warn("Fetch attempt failed for:", url);
-      }
+      } catch (e) {}
     }
 
     if (!csvText) {
-      status.innerHTML = `<span style="color:#b91c1c; font-weight:bold;">⚠️ Could not fetch data.</span> Local browser security blocks direct web fetch on <code>file:///</code>. Please use the <strong>"📁 Open Local CSV File"</strong> button above to test on your computer, or host on GitHub Pages.`;
+      status.innerHTML = `<span style="color:#b91c1c; font-weight:bold;">⚠️ Could not fetch data.</span> If opening directly via <code>file:///</code>, use <strong>"📁 Open Local CSV File"</strong> above.`;
       return;
     }
 
     Papa.parse(csvText, {
       skipEmptyLines: true,
       complete: function(results) {
-        if (!results.data || results.data.length < 2) {
-          status.innerText = "⚠️ Received sheet data is empty or invalid.";
-          return;
-        }
-        processAllData(results.data);
+        processRawData(results.data);
         status.innerText = "Last updated: " + new Date().toLocaleTimeString();
-      },
-      error: function(err) {
-        status.innerText = "⚠️ Error parsing CSV: " + err.message;
       }
     });
   }
 
-  function processAllData(rows) {
+  function processRawData(rows) {
     if (!rows || rows.length < 2) return;
     globalHeaders = rows[0];
-    globalDataRows = rows.slice(1);
+    rawDataRows = rows.slice(1);
 
     const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
-    const mandatoryCount = mandatoryIndices.length; // 41 fields
+    const mandatoryCount = mandatoryIndices.length; // 41
 
-    let circleSites = 0, circleNotStarted = 0, circleInProgress = 0, circleCompleted = 0, circleFilledSum = 0;
-    const ssaMap = {};
-    const ownerMap = {};
-    const ssaSet = new Set();
-
-    globalDataRows.forEach(row => {
+    // Parse all sites into structured objects
+    cachedSites = rawDataRows.map(row => {
       const ba = (row[1] || "").trim();
       const ssa = (row[2] || "").trim();
-      if (!ssa) return;
-      ssaSet.add(ssa);
+      const phyId = (row[5] || "").trim();
+      const btsName = (row[6] || "").trim();
+      const l1 = (row[69] || "Unassigned").trim(); // Col BR
+      const l2 = (row[70] || "-").trim();          // Col BS
 
-      // Col BR = L1 (index 69), Col BS = L2 (index 70)
-      const l1 = (row[69] || "Unassigned").trim();
-      const l2 = (row[70] || "-").trim();
+      let filledCount = 0;
+      const missingFields = [];
 
-      circleSites++;
-      let filled = 0;
       mandatoryIndices.forEach(idx => {
-        if (row[idx] && row[idx].toString().trim() !== "") filled++;
+        const val = row[idx];
+        if (val && val.toString().trim() !== "") {
+          filledCount++;
+        } else {
+          missingFields.push(globalHeaders[idx] || ("Col_" + idx));
+        }
       });
 
-      // OA Aggregation
-      if (!ssaMap[ssa]) {
-        ssaMap[ssa] = { ba: ba, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, fieldCounts: {} };
-        mandatoryIndices.forEach(idx => ssaMap[ssa].fieldCounts[idx] = 0);
+      const fillPct = (filledCount / mandatoryCount) * 100;
+
+      return {
+        ba, ssa, phyId, btsName, l1, l2,
+        filledCount, missingFields, fillPct,
+        rawRow: row
+      };
+    }).filter(s => s.ssa !== "");
+
+    populateGlobalBAFilter();
+    applyGlobalFilters();
+  }
+
+  function populateGlobalBAFilter() {
+    const select = document.getElementById("global-ba-filter");
+    const currentVal = select.value;
+    const filterOptions = new Set();
+
+    cachedSites.forEach(s => {
+      if (s.ba) filterOptions.add("BA: " + s.ba);
+      if (s.ssa) filterOptions.add("SSA: " + s.ssa);
+    });
+
+    select.innerHTML = '<option value="ALL">All BAs & SSAs (Circle View)</option>';
+    Array.from(filterOptions).sort().forEach(opt => {
+      select.innerHTML += `<option value="${opt}">${opt}</option>`;
+    });
+
+    if (Array.from(select.options).some(o => o.value === currentVal)) {
+      select.value = currentVal;
+    }
+  }
+
+  function applyGlobalFilters() {
+    const selectedFilter = document.getElementById("global-ba-filter").value;
+
+    let filtered = cachedSites;
+    if (selectedFilter.startsWith("BA: ")) {
+      const ba = selectedFilter.replace("BA: ", "");
+      filtered = cachedSites.filter(s => s.ba === ba);
+    } else if (selectedFilter.startsWith("SSA: ")) {
+      const ssa = selectedFilter.replace("SSA: ", "");
+      filtered = cachedSites.filter(s => s.ssa === ssa);
+    }
+
+    renderDashboardWithSites(filtered);
+  }
+
+  function renderDashboardWithSites(sites) {
+    const totalSites = sites.length;
+    let notStarted = 0, inProgress = 0, completed = 0, totalFilled = 0;
+
+    const ssaMap = {};
+    const ownerMap = {};
+    const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
+
+    sites.forEach(s => {
+      totalFilled += s.filledCount;
+      if (s.filledCount === 0) notStarted++;
+      else if (s.filledCount === 41) completed++;
+      else inProgress++;
+
+      // SSA Map
+      if (!ssaMap[s.ssa]) {
+        ssaMap[s.ssa] = { ba: s.ba, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, fieldCounts: {}, sites: [] };
+        mandatoryIndices.forEach(idx => ssaMap[s.ssa].fieldCounts[idx] = 0);
       }
-      ssaMap[ssa].total++;
-      ssaMap[ssa].filledFieldsSum += filled;
-      circleFilledSum += filled;
-
-      if (filled === 0) { ssaMap[ssa].notStarted++; circleNotStarted++; }
-      else if (filled === mandatoryCount) { ssaMap[ssa].completed++; circleCompleted++; }
-      else { ssaMap[ssa].inProgress++; circleInProgress++; }
+      ssaMap[s.ssa].total++;
+      ssaMap[s.ssa].filledFieldsSum += s.filledCount;
+      ssaMap[s.ssa].sites.push(s);
+      if (s.filledCount === 0) ssaMap[s.ssa].notStarted++;
+      else if (s.filledCount === 41) ssaMap[s.ssa].completed++;
+      else ssaMap[s.ssa].inProgress++;
 
       mandatoryIndices.forEach(idx => {
-        if (row[idx] && row[idx].toString().trim() !== "") ssaMap[ssa].fieldCounts[idx]++;
+        const val = s.rawRow[idx];
+        if (val && val.toString().trim() !== "") ssaMap[s.ssa].fieldCounts[idx]++;
       });
 
-      // Owner Aggregation (SSA + L1 Key)
-      const ownerKey = ssa + "____" + l1;
+      // Owner Map
+      const ownerKey = s.ssa + "____" + s.l1;
       if (!ownerMap[ownerKey]) {
-        ownerMap[ownerKey] = { ssa: ssa, l1: l1, l2: l2, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0 };
+        ownerMap[ownerKey] = { ssa: s.ssa, l1: s.l1, l2: s.l2, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, sites: [] };
       }
       ownerMap[ownerKey].total++;
-      ownerMap[ownerKey].filledFieldsSum += filled;
-      if (filled === 0) ownerMap[ownerKey].notStarted++;
-      else if (filled === mandatoryCount) ownerMap[ownerKey].completed++;
+      ownerMap[ownerKey].filledFieldsSum += s.filledCount;
+      ownerMap[ownerKey].sites.push(s);
+      if (s.filledCount === 0) ownerMap[ownerKey].notStarted++;
+      else if (s.filledCount === 41) ownerMap[ownerKey].completed++;
       else ownerMap[ownerKey].inProgress++;
     });
 
-    const circlePct = circleSites > 0 ? (circleFilledSum / (circleSites * mandatoryCount)) * 100 : 0;
+    const overallPct = totalSites > 0 ? (totalFilled / (totalSites * 41)) * 100 : 0;
 
     // Render KPIs
-    document.getElementById("kpi-total").innerText = circleSites.toLocaleString();
-    document.getElementById("kpi-completed").innerText = circleCompleted.toLocaleString();
-    document.getElementById("kpi-inprogress").innerText = circleInProgress.toLocaleString();
-    document.getElementById("kpi-notstarted").innerText = circleNotStarted.toLocaleString();
-    document.getElementById("kpi-circle-pct").innerText = circlePct.toFixed(1) + "%";
+    document.getElementById("kpi-total").innerText = totalSites.toLocaleString();
+    document.getElementById("kpi-completed").innerText = completed.toLocaleString();
+    document.getElementById("kpi-inprogress").innerText = inProgress.toLocaleString();
+    document.getElementById("kpi-notstarted").innerText = notStarted.toLocaleString();
+    document.getElementById("kpi-circle-pct").innerText = overallPct.toFixed(1) + "%";
 
-    // Render View 1: OA Table
-    renderOATable(ssaMap, circleSites, circleNotStarted, circleInProgress, circleCompleted, circlePct, mandatoryCount);
+    // View 1: OA Table
+    renderOATable(ssaMap, totalSites, notStarted, inProgress, completed, overallPct);
 
-    // Save & Render View 2: Owner Table
-    window.cachedOwnerMap = ownerMap;
-    populateSSADropdown(ssaSet);
+    // View 2: Owner Table
+    window.activeOwnerMap = ownerMap;
     renderOwnerTable();
 
-    // Render View 3: Heatmap Table
-    renderHeatmap(globalHeaders, ssaMap, mandatoryIndices, circleSites);
+    // View 3: Heatmap
+    renderHeatmap(ssaMap, sites.length, mandatoryIndices);
   }
 
-  function renderOATable(ssaMap, circleSites, circleNotStarted, circleInProgress, circleCompleted, circlePct, mandatoryCount) {
+  function renderOATable(ssaMap, totalSites, notStarted, inProgress, completed, overallPct) {
     const tbody = document.getElementById("oa-tbody");
     tbody.innerHTML = "";
+
     Object.keys(ssaMap).sort().forEach(ssa => {
       const d = ssaMap[ssa];
-      const pct = (d.filledFieldsSum / (d.total * mandatoryCount)) * 100;
+      const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
       const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
 
-      tbody.innerHTML += `
-        <tr>
-          <td>${d.ba}</td>
-          <td><strong>${ssa}</strong></td>
-          <td class="num">${d.total}</td>
-          <td class="num">${d.notStarted}</td>
-          <td class="num">${d.inProgress}</td>
-          <td class="num">${d.completed}</td>
-          <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
-          <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
-        </tr>`;
+      const tr = document.createElement("tr");
+      tr.className = "clickable-row";
+      tr.title = "Click to inspect " + ssa + " sites";
+      tr.onclick = () => openDrilldownModal("SSA: " + ssa, d.sites);
+      tr.innerHTML = `
+        <td>${d.ba}</td>
+        <td><strong>${ssa}</strong> 🔍</td>
+        <td class="num">${d.total}</td>
+        <td class="num">${d.notStarted}</td>
+        <td class="num">${d.inProgress}</td>
+        <td class="num">${d.completed}</td>
+        <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
+        <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
+      `;
+      tbody.appendChild(tr);
     });
 
     tbody.innerHTML += `
       <tr class="circle-row">
         <td>TOTAL</td>
-        <td>CIRCLE (ALL SSAs)</td>
-        <td class="num">${circleSites}</td>
-        <td class="num">${circleNotStarted}</td>
-        <td class="num">${circleInProgress}</td>
-        <td class="num">${circleCompleted}</td>
-        <td class="num"><div class="progress-track"><div class="progress-fill ${circlePct >= 80 ? 'high' : 'mid'}" style="width:${circlePct}%"></div></div></td>
-        <td class="num">${circlePct.toFixed(1)}%</td>
+        <td>CURRENT SELECTION</td>
+        <td class="num">${totalSites}</td>
+        <td class="num">${notStarted}</td>
+        <td class="num">${inProgress}</td>
+        <td class="num">${completed}</td>
+        <td class="num"><div class="progress-track"><div class="progress-fill ${overallPct >= 80 ? 'high' : 'mid'}" style="width:${overallPct}%"></div></div></td>
+        <td class="num">${overallPct.toFixed(1)}%</td>
       </tr>`;
   }
 
-  function populateSSADropdown(ssaSet) {
-    const select = document.getElementById("owner-ssa-filter");
-    select.innerHTML = '<option value="ALL">All SSAs</option>';
-    Array.from(ssaSet).sort().forEach(ssa => {
-      select.innerHTML += `<option value="${ssa}">${ssa}</option>`;
-    });
-  }
-
   function renderOwnerTable() {
-    if (!window.cachedOwnerMap) return;
-    const selectedSSA = document.getElementById("owner-ssa-filter").value;
+    if (!window.activeOwnerMap) return;
     const searchQuery = (document.getElementById("owner-search").value || "").toLowerCase();
     const tbody = document.getElementById("owner-tbody");
     tbody.innerHTML = "";
 
-    Object.values(window.cachedOwnerMap).forEach(d => {
-      if (selectedSSA !== "ALL" && d.ssa !== selectedSSA) return;
+    Object.values(window.activeOwnerMap).forEach(d => {
       if (searchQuery && !d.l1.toLowerCase().includes(searchQuery)) return;
 
       const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
       const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
 
-      tbody.innerHTML += `
-        <tr>
-          <td>${d.ssa}</td>
-          <td><strong>${d.l1}</strong></td>
-          <td>${d.l2}</td>
-          <td class="num">${d.total}</td>
-          <td class="num">${d.notStarted}</td>
-          <td class="num">${d.inProgress}</td>
-          <td class="num">${d.completed}</td>
-          <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
-          <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
-        </tr>`;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${d.ssa}</td>
+        <td class="clickable-row" title="Click to view sites" onclick="openDrilldownModal('L1: ${d.l1}', window.activeOwnerMap['${d.ssa}____${d.l1}'].sites)"><strong>${d.l1}</strong> 🔍</td>
+        <td>${d.l2}</td>
+        <td class="num">${d.total}</td>
+        <td class="num">${d.notStarted}</td>
+        <td class="num">${d.inProgress}</td>
+        <td class="num">${d.completed}</td>
+        <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
+        <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
+        <td style="text-align: center;">
+          <button class="btn btn-green btn-sm" onclick="exportSingleIncharge('${d.ssa}____${d.l1}', 'excel')">Excel</button>
+          <button class="btn btn-red btn-sm" onclick="exportSingleIncharge('${d.ssa}____${d.l1}', 'pdf')">PDF</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
     });
   }
 
-  function renderHeatmap(headers, ssaMap, mandatoryIndices, circleSites) {
+  function renderHeatmap(ssaMap, totalSitesCount, mandatoryIndices) {
     const ssaList = Object.keys(ssaMap).sort();
     const thead = document.getElementById("param-thead");
     const tbody = document.getElementById("param-tbody");
 
-    let thHtml = `<tr><th>#</th><th>Parameter Name</th><th class="num">Circle %</th>`;
+    let thHtml = `<tr><th>#</th><th>Parameter Name</th><th class="num">Overall %</th>`;
     ssaList.forEach(ssa => thHtml += `<th class="num">${ssa}</th>`);
     thHtml += `</tr>`;
     thead.innerHTML = thHtml;
 
     let rowsHtml = "";
     mandatoryIndices.forEach((idx, i) => {
-      const paramName = headers[idx] || ("Col " + idx);
-      let circleFilledTotal = 0;
-      ssaList.forEach(ssa => circleFilledTotal += ssaMap[ssa].fieldCounts[idx]);
-      const circleParamPct = circleSites > 0 ? (circleFilledTotal / circleSites) * 100 : 0;
+      const paramName = globalHeaders[idx] || ("Col " + idx);
+      let filledTotal = 0;
+      ssaList.forEach(ssa => filledTotal += ssaMap[ssa].fieldCounts[idx]);
+      const paramPct = totalSitesCount > 0 ? (filledTotal / totalSitesCount) * 100 : 0;
 
       let rHtml = `<tr>
         <td>${i + 1}</td>
         <td><strong>${paramName}</strong></td>
-        <td class="heat-cell" style="background:${getColor(circleParamPct)}"><strong>${circleParamPct.toFixed(1)}%</strong></td>`;
+        <td class="heat-cell" style="background:${getColor(paramPct)}"><strong>${paramPct.toFixed(1)}%</strong></td>`;
 
       ssaList.forEach(ssa => {
         const ssaTotal = ssaMap[ssa].total;
@@ -447,11 +585,161 @@
     return "#fee2e2";
   }
 
+  // Instant Site Search Handler
+  function handleInstantSiteSearch(query) {
+    const q = (query || "").trim().toLowerCase();
+    const searchTabBtn = document.getElementById("search-tab-btn");
+
+    if (!q) {
+      searchTabBtn.style.display = "none";
+      switchTab("oa-view", document.querySelectorAll(".tab-btn")[0]);
+      return;
+    }
+
+    searchTabBtn.style.display = "inline-block";
+    switchTab("search-view", searchTabBtn);
+
+    const matches = cachedSites.filter(s =>
+      s.phyId.toLowerCase().includes(q) || s.btsName.toLowerCase().includes(q)
+    );
+
+    const tbody = document.getElementById("search-tbody");
+    tbody.innerHTML = "";
+
+    if (matches.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b; padding:20px;">No site matching "${query}" found.</td></tr>`;
+      return;
+    }
+
+    matches.slice(0, 50).forEach(s => {
+      const missingHtml = s.missingFields.length === 0
+        ? '<span style="color:#16a34a; font-weight:bold;">All 41 Complete</span>'
+        : s.missingFields.map(m => `<span class="missing-tag">${m}</span>`).join(" ");
+
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${s.phyId}</strong></td>
+          <td>${s.btsName}</td>
+          <td>${s.ssa}</td>
+          <td>${s.l1}</td>
+          <td>${s.l2}</td>
+          <td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td>
+          <td>${missingHtml}</td>
+        </tr>
+      `;
+    });
+  }
+
+  // Drill-Down Modal
+  function openDrilldownModal(entityName, sites) {
+    currentModalEntityName = entityName;
+    currentModalSites = sites;
+
+    document.getElementById("modal-title").innerText = "Site Breakdown: " + entityName;
+    document.getElementById("modal-subtitle").innerText = `Total: ${sites.length} sites`;
+
+    const tbody = document.getElementById("modal-tbody");
+    tbody.innerHTML = "";
+
+    sites.forEach((s, i) => {
+      const missingHtml = s.missingFields.length === 0
+        ? '<span style="color:#16a34a; font-weight:bold;">All Complete</span>'
+        : s.missingFields.map(m => `<span class="missing-tag">${m}</span>`).join(" ");
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${i + 1}</td>
+          <td><strong>${s.phyId}</strong></td>
+          <td>${s.btsName}</td>
+          <td>${s.l1}</td>
+          <td class="num">${s.filledCount} / 41</td>
+          <td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td>
+          <td>${missingHtml}</td>
+        </tr>
+      `;
+    });
+
+    document.getElementById("drilldown-modal").style.display = "flex";
+  }
+
+  function closeModal() {
+    document.getElementById("drilldown-modal").style.display = "none";
+  }
+
+  // Export Specific In-Charge from Table
+  function exportSingleIncharge(ownerKey, format) {
+    const d = window.activeOwnerMap[ownerKey];
+    if (!d || !d.sites) return;
+    if (format === 'excel') exportSitesExcel(d.sites, "CNMC_Report_" + d.l1.replace(/[^a-zA-Z0-9]/g, "_"));
+    if (format === 'pdf') exportSitesPDF(d.sites, "L1: " + d.l1 + " (" + d.ssa + ")");
+  }
+
+  function exportModalSitesToExcel() {
+    exportSitesExcel(currentModalSites, "CNMC_Sites_" + currentModalEntityName.replace(/[^a-zA-Z0-9]/g, "_"));
+  }
+
+  function exportModalSitesToPDF() {
+    exportSitesPDF(currentModalSites, currentModalEntityName);
+  }
+
+  // Generic Excel Exporter
+  function exportSitesExcel(sites, fileName) {
+    const data = sites.map((s, idx) => ({
+      "S.No": idx + 1,
+      "BA": s.ba,
+      "SSA": s.ssa,
+      "Phy Site ID": s.phyId,
+      "BTS Name": s.btsName,
+      "L1 Owner": s.l1,
+      "L2 Owner": s.l2,
+      "Filled (out of 41)": s.filledCount,
+      "Fill %": Math.round(s.fillPct) + "%",
+      "Missing Parameters": s.missingFields.join(", ")
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pending_Sites");
+    XLSX.writeFile(wb, (fileName || "CNMC_Sites") + ".xlsx");
+  }
+
+  // Generic PDF Exporter
+  function exportSitesPDF(sites, title) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'pt', 'a4'); // Landscape format
+
+    doc.setFontSize(14);
+    doc.text("CNMC Pending Parameter Report - " + title, 40, 30);
+    doc.setFontSize(10);
+    doc.text("Generated on: " + new Date().toLocaleString(), 40, 46);
+
+    const tableRows = sites.map((s, idx) => [
+      idx + 1,
+      s.phyId,
+      s.btsName,
+      s.l1,
+      s.filledCount + "/41",
+      Math.round(s.fillPct) + "%",
+      s.missingFields.slice(0, 6).join(", ") + (s.missingFields.length > 6 ? ` (+${s.missingFields.length - 6} more)` : "")
+    ]);
+
+    doc.autoTable({
+      startY: 55,
+      head: [['#', 'Phy Site ID', 'BTS Name', 'L1 Owner', 'Filled', 'Fill %', 'Missing Parameters']],
+      body: tableRows,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [30, 58, 138] }
+    });
+
+    doc.save("CNMC_Report_" + title.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf");
+  }
+
   function switchTab(viewId, btn) {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".section").forEach(s => s.style.display = "none");
     document.getElementById(viewId).style.display = "block";
-    btn.classList.add("active");
+    if (btn) btn.classList.add("active");
   }
 
   window.onload = fetchAndRender;
