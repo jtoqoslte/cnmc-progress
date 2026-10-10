@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>J&K CM Report & Tracker</title>
+  <title>CNMC Site Parameter Progress Dashboard</title>
   <!-- Libraries for CSV Parsing, Excel Export, and PDF Export -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -26,9 +26,10 @@
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
 
     .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+    .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { opacity: 0.9; }
+    .btn-upload { background: #0284c7; color: white; cursor: pointer; }
     .btn-green { background: #16a34a; color: white; }
     .btn-red { background: #dc2626; color: white; }
     .btn-sm { padding: 4px 8px; font-size: 11px; }
@@ -83,10 +84,14 @@
 
   <div class="header">
     <div>
-      <h1>J&K CM Report & Tracker</h1>
-      <div class="status-bar" id="status-bar">Connecting to live sheet...</div>
+      <h1>CNMC Parameter Fill Tracker</h1>
+      <div class="status-bar" id="status-bar">Initializing...</div>
     </div>
     <div class="header-actions">
+      <label class="btn btn-upload">
+        📁 Open Local CSV File
+        <input type="file" id="local-file-input" accept=".csv" style="display: none;" onchange="handleLocalFile(event)">
+      </label>
       <button class="btn btn-primary" onclick="fetchAndRender()">↻ Refresh Live Sheet</button>
     </div>
   </div>
@@ -121,8 +126,7 @@
     <button class="tab-btn active" onclick="switchTab('oa-view', this)">1. OA / SSA Summary</button>
     <button class="tab-btn" onclick="switchTab('owner-view', this)">2. L1 / In-Charge Summary</button>
     <button class="tab-btn" onclick="switchTab('param-view', this)">3. Parameter Heatmap</button>
-    <button class="tab-btn" onclick="switchTab('pq-report-view', this)">📊 DBN_NDBN_Avail</button>
-    <button class="tab-btn" id="search-tab-btn" onclick="switchTab('search-view', this)" style="display: none;">Site Search Results</button>
+    <button class="tab-btn" id="search-tab-btn" onclick="switchTab('search-view', this)" style="display: none;">4. Site Search Results</button>
   </div>
 
   <!-- VIEW 1: OA SUMMARY -->
@@ -185,27 +189,7 @@
     </div>
   </div>
 
-  <!-- VIEW 4: DBN_NDBN_AVAIL EMBED REPORT -->
-  <div class="section" id="pq-report-view" style="display: none; padding: 14px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; flex-wrap: wrap; gap: 8px;">
-      <h2 style="margin: 0;">DBN_NDBN_Avail Report</h2>
-      <a href="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQAanksCu2fNRY5p_dJ8RYNxAV9cpEotjnRUFvXT7Zs9JVQ?em=2" target="_blank" class="btn btn-primary btn-sm">↗ Open in Full Screen</a>
-    </div>
-    <div style="width: 100%; height: 750px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #ffffff;">
-      <iframe 
-        src="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQAanksCu2fNRY5p_dJ8RYNxAV9cpEotjnRUFvXT7Zs9JVQ?em=2&wdHideGridlines=True&wdDownloadButton=True" 
-        width="100%" 
-        height="100%" 
-        frameborder="0" 
-        scrolling="no"
-        allowFullScreen="true"
-        loading="lazy"
-        style="display: block; border: none;">
-      </iframe>
-    </div>
-  </div>
-
-  <!-- VIEW 5: SITE SEARCH VIEW -->
+  <!-- VIEW 4: SITE SEARCH VIEW -->
   <div class="section" id="search-view" style="display:none;">
     <h2>Site Search Results</h2>
     <div class="table-container">
@@ -263,7 +247,7 @@
 
 <script>
   // =========================================================================
-  // LIVE GOOGLE SHEET CSV FEED URL
+  // PASTE YOUR PUBLISHED GOOGLE SHEET CSV LINK OR EXPORT LINK HERE:
   // =========================================================================
   const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
 
@@ -285,65 +269,66 @@
     return indices;
   }
 
+  function handleLocalFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = document.getElementById("status-bar");
+    status.innerText = "Parsing local file: " + file.name + "...";
+
+    Papa.parse(file, {
+      skipEmptyLines: true,
+      complete: function(results) {
+        if (!results.data || results.data.length < 2) {
+          status.innerText = "⚠️ Selected file is empty or invalid.";
+          return;
+        }
+        processRawData(results.data);
+        status.innerText = "Loaded local file: " + file.name;
+      }
+    });
+  }
+
   async function fetchAndRender() {
     const status = document.getElementById("status-bar");
     status.innerText = "Connecting to live sheet...";
 
-    const targetUrl = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
-
-    try {
-      // 1. Direct fetch attempt
-      let res = await fetch(targetUrl);
-      if (!res.ok) throw new Error("Direct fetch status: " + res.status);
-      let csvText = await res.text();
-
-      if (csvText.trim().startsWith("<!DOCTYPE") || csvText.trim().startsWith("<html")) {
-        throw new Error("Received HTML login page instead of CSV. Check Google Sheet sharing permissions.");
-      }
-
-      Papa.parse(csvText, {
-        skipEmptyLines: true,
-        complete: function(results) {
-          if (!results.data || results.data.length < 2) {
-            status.innerText = "⚠️ Received empty or invalid sheet data.";
-            return;
-          }
-          processRawData(results.data);
-          status.innerText = "Last updated: " + new Date().toLocaleTimeString();
-        },
-        error: function(err) {
-          status.innerText = "⚠️ Error parsing CSV: " + err.message;
-        }
-      });
-
-    } catch (directErr) {
-      console.warn("Direct fetch failed, trying proxy route:", directErr);
-      status.innerText = "Direct connection failed, trying backup route...";
-
-      // 2. Backup proxy fallback with timeout
-      try {
-        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        let proxyRes = await fetch(proxyUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!proxyRes.ok) throw new Error("Backup route status: " + proxyRes.status);
-        let proxyCsv = await proxyRes.text();
-
-        Papa.parse(proxyCsv, {
-          skipEmptyLines: true,
-          complete: function(results) {
-            processRawData(results.data);
-            status.innerText = "Last updated: " + new Date().toLocaleTimeString();
-          }
-        });
-      } catch (backupErr) {
-        console.error("Backup route failed:", backupErr);
-        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Connection failed.</span> Check console (F12) for details.`;
-      }
+    if (!SHEET_CSV_URL || SHEET_CSV_URL.includes("PASTE_YOUR")) {
+      status.innerHTML = `⚠️ No URL set in line 214. Use <strong>"📁 Open Local CSV File"</strong> above to test on your computer.`;
+      return;
     }
+
+    const cacheBuster = (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + new Date().getTime();
+    const targetUrl = SHEET_CSV_URL + cacheBuster;
+
+    const urlsToTry = [
+      targetUrl,
+      "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
+      "https://corsproxy.io/?" + encodeURIComponent(targetUrl)
+    ];
+
+    let csvText = null;
+    for (const url of urlsToTry) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          csvText = await res.text();
+          if (csvText && csvText.trim().length > 50 && !csvText.includes("<!DOCTYPE html>")) break;
+        }
+      } catch (e) {}
+    }
+
+    if (!csvText) {
+      status.innerHTML = `<span style="color:#b91c1c; font-weight:bold;">⚠️ Could not fetch data.</span> If opening directly via <code>file:///</code>, use <strong>"📁 Open Local CSV File"</strong> above.`;
+      return;
+    }
+
+    Papa.parse(csvText, {
+      skipEmptyLines: true,
+      complete: function(results) {
+        processRawData(results.data);
+        status.innerText = "Last updated: " + new Date().toLocaleTimeString();
+      }
+    });
   }
 
   function processRawData(rows) {
