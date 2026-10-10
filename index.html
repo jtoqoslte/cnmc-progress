@@ -189,11 +189,11 @@
   <div class="section" id="pq-report-view" style="display: none; padding: 14px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; flex-wrap: wrap; gap: 8px;">
       <h2 style="margin: 0;">DBN_NDBN_Avail Report</h2>
-      <a href="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQQanksCu2fNRY5p_dJ8RYNxATD0ao94Q13F3J1AIR1qH1s?em=2&ActiveCell='SSA%20Wise%20Range'!G5&wdHideGridlines=True&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True" target="_blank" class="btn btn-primary btn-sm">↗ Open in Full Screen</a>
+      <a href="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQAanksCu2fNRY5p_dJ8RYNxAV9cpEotjnRUFvXT7Zs9JVQ?em=2" target="_blank" class="btn btn-primary btn-sm">↗ Open in Full Screen</a>
     </div>
     <div style="width: 100%; height: 750px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #ffffff;">
       <iframe 
-        src="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQQanksCu2fNRY5p_dJ8RYNxATD0ao94Q13F3J1AIR1qH1s?em=2&ActiveCell='SSA%20Wise%20Range'!G5&wdHideGridlines=True&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True" 
+        src="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQAanksCu2fNRY5p_dJ8RYNxAV9cpEotjnRUFvXT7Zs9JVQ?em=2&wdHideGridlines=True&wdDownloadButton=True" 
         width="100%" 
         height="100%" 
         frameborder="0" 
@@ -289,38 +289,61 @@
     const status = document.getElementById("status-bar");
     status.innerText = "Connecting to live sheet...";
 
-    const cacheBuster = (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + new Date().getTime();
-    const targetUrl = SHEET_CSV_URL + cacheBuster;
+    const targetUrl = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
 
-    const urlsToTry = [
-      targetUrl,
-      "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
-      "https://corsproxy.io/?" + encodeURIComponent(targetUrl)
-    ];
+    try {
+      // 1. Direct fetch attempt
+      let res = await fetch(targetUrl);
+      if (!res.ok) throw new Error("Direct fetch status: " + res.status);
+      let csvText = await res.text();
 
-    let csvText = null;
-    for (const url of urlsToTry) {
-      try {
-        const res = await fetch(url);
-        if (res.ok) {
-          csvText = await res.text();
-          if (csvText && csvText.trim().length > 50 && !csvText.includes("<!DOCTYPE html>")) break;
-        }
-      } catch (e) {}
-    }
-
-    if (!csvText) {
-      status.innerHTML = `<span style="color:#b91c1c; font-weight:bold;">⚠️ Could not fetch data.</span> Please verify internet connection or sheet publish settings.`;
-      return;
-    }
-
-    Papa.parse(csvText, {
-      skipEmptyLines: true,
-      complete: function(results) {
-        processRawData(results.data);
-        status.innerText = "Last updated: " + new Date().toLocaleTimeString();
+      if (csvText.trim().startsWith("<!DOCTYPE") || csvText.trim().startsWith("<html")) {
+        throw new Error("Received HTML login page instead of CSV. Check Google Sheet sharing permissions.");
       }
-    });
+
+      Papa.parse(csvText, {
+        skipEmptyLines: true,
+        complete: function(results) {
+          if (!results.data || results.data.length < 2) {
+            status.innerText = "⚠️ Received empty or invalid sheet data.";
+            return;
+          }
+          processRawData(results.data);
+          status.innerText = "Last updated: " + new Date().toLocaleTimeString();
+        },
+        error: function(err) {
+          status.innerText = "⚠️ Error parsing CSV: " + err.message;
+        }
+      });
+
+    } catch (directErr) {
+      console.warn("Direct fetch failed, trying proxy route:", directErr);
+      status.innerText = "Direct connection failed, trying backup route...";
+
+      // 2. Backup proxy fallback with timeout
+      try {
+        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        let proxyRes = await fetch(proxyUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!proxyRes.ok) throw new Error("Backup route status: " + proxyRes.status);
+        let proxyCsv = await proxyRes.text();
+
+        Papa.parse(proxyCsv, {
+          skipEmptyLines: true,
+          complete: function(results) {
+            processRawData(results.data);
+            status.innerText = "Last updated: " + new Date().toLocaleTimeString();
+          }
+        });
+      } catch (backupErr) {
+        console.error("Backup route failed:", backupErr);
+        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Connection failed.</span> Check console (F12) for details.`;
+      }
+    }
   }
 
   function processRawData(rows) {
@@ -662,4 +685,79 @@
   function exportSingleIncharge(ownerKey, format) {
     const d = window.activeOwnerMap[ownerKey];
     if (!d || !d.sites) return;
-    if (format === 'excel') exportSitesExcel(d.sites, "CNMC_Report_" + d.l1.replace(/[^a-zA-Z0-9]/g, "_
+    if (format === 'excel') exportSitesExcel(d.sites, "CNMC_Report_" + d.l1.replace(/[^a-zA-Z0-9]/g, "_"));
+    if (format === 'pdf') exportSitesPDF(d.sites, "L1: " + d.l1 + " (" + d.ssa + ")");
+  }
+
+  function exportModalSitesToExcel() {
+    exportSitesExcel(currentModalSites, "CNMC_Sites_" + currentModalEntityName.replace(/[^a-zA-Z0-9]/g, "_"));
+  }
+
+  function exportModalSitesToPDF() {
+    exportSitesPDF(currentModalSites, currentModalEntityName);
+  }
+
+  // Generic Excel Exporter
+  function exportSitesExcel(sites, fileName) {
+    const data = sites.map((s, idx) => ({
+      "S.No": idx + 1,
+      "BA": s.ba,
+      "SSA": s.ssa,
+      "Phy Site ID": s.phyId,
+      "BTS Name": s.btsName,
+      "L1 Owner": s.l1,
+      "L2 Owner": s.l2,
+      "Filled (out of 41)": s.filledCount,
+      "Fill %": Math.round(s.fillPct) + "%",
+      "Missing Parameters": s.missingFields.join(", ")
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pending_Sites");
+    XLSX.writeFile(wb, (fileName || "CNMC_Sites") + ".xlsx");
+  }
+
+  // Generic PDF Exporter
+  function exportSitesPDF(sites, title) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'pt', 'a4'); // Landscape format
+
+    doc.setFontSize(14);
+    doc.text("CNMC Pending Parameter Report - " + title, 40, 30);
+    doc.setFontSize(10);
+    doc.text("Generated on: " + new Date().toLocaleString(), 40, 46);
+
+    const tableRows = sites.map((s, idx) => [
+      idx + 1,
+      s.phyId,
+      s.btsName,
+      s.l1,
+      s.filledCount + "/41",
+      Math.round(s.fillPct) + "%",
+      s.missingFields.slice(0, 6).join(", ") + (s.missingFields.length > 6 ? ` (+${s.missingFields.length - 6} more)` : "")
+    ]);
+
+    doc.autoTable({
+      startY: 55,
+      head: [['#', 'Phy Site ID', 'BTS Name', 'L1 Owner', 'Filled', 'Fill %', 'Missing Parameters']],
+      body: tableRows,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [30, 58, 138] }
+    });
+
+    doc.save("CNMC_Report_" + title.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf");
+  }
+
+  function switchTab(viewId, btn) {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(s => s.style.display = "none");
+    document.getElementById(viewId).style.display = "block";
+    if (btn) btn.classList.add("active");
+  }
+
+  window.onload = fetchAndRender;
+</script>
+</body>
+</html>
