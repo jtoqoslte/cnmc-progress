@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Report & Tracker</title>
-  <!-- Libraries for CSV Parsing, Excel Export, and PDF Export -->
+  <!-- Data processing and export libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -12,18 +12,56 @@
 
   <style>
     :root {
-      --primary: #1e3a8a;
+      --primary: #003366;
+      --secondary: #d97706;
       --bg: #f8fafc;
-      --card-bg: #ffffff;
+      --card-bg: rgba(255, 255, 255, 0.94);
       --text: #0f172a;
-      --border: #e2e8f0;
+      --border: #cbd5e1;
     }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { margin: 0; padding: 20px; background: var(--bg); color: var(--text); }
+    
+    /* Page setup with BSNL Watermark background */
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg);
+      color: var(--text);
+      position: relative;
+      min-height: 100vh;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 480px;
+      height: 480px;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><circle cx="150" cy="150" r="140" fill="none" stroke="%23003366" stroke-width="14"/><path d="M70 180 Q150 40 230 180 Q150 120 70 180 Z" fill="%23003366"/><path d="M100 210 Q150 110 200 210 Q150 160 100 210 Z" fill="%23d97706"/><circle cx="150" cy="80" r="22" fill="%23003366"/><text x="150" y="270" font-family="Arial,sans-serif" font-weight="900" font-size="34" fill="%23003366" text-anchor="middle" letter-spacing="2">BSNL</text></svg>');
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      opacity: 0.05;
+      pointer-events: none;
+      z-index: 0;
+    }
 
+    .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
-    h1 { margin: 0; font-size: 22px; color: var(--primary); }
+    h1 { margin: 0; font-size: 24px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+    /* Module Navigation Bar */
+    .module-nav { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; }
+    .module-btn { background: #e2e8f0; border: none; padding: 12px 22px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 15px; color: #334155; transition: all 0.2s ease; }
+    .module-btn:hover { background: #cbd5e1; }
+    .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
+
+    /* Sub Tabs inside Module 1 */
+    .sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .sub-tab-btn { background: #f1f5f9; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; color: #475569; }
+    .sub-tab-btn.active { background: #0284c7; color: white; border-color: #0284c7; }
 
     .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
@@ -33,24 +71,20 @@
     .btn-red { background: #dc2626; color: white; }
     .btn-sm { padding: 4px 8px; font-size: 11px; }
 
-    /* Top Global Filter Toolbar */
-    .toolbar { background: var(--card-bg); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    /* Global Toolbar */
+    .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .toolbar-group { display: flex; align-items: center; gap: 8px; }
-    .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; min-width: 200px; }
+    .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; min-width: 200px; background: white; }
 
     .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px; }
-    .kpi-card { background: var(--card-bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .kpi-card { background: var(--card-bg); backdrop-filter: blur(4px); padding: 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .kpi-card .title { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600; }
     .kpi-card .value { font-size: 24px; font-weight: bold; margin-top: 6px; color: var(--primary); }
 
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .tab-btn { background: #e2e8f0; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; color: #475569; }
-    .tab-btn.active { background: var(--primary); color: white; }
-
-    .section { background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .section { background: var(--card-bg); backdrop-filter: blur(4px); border-radius: 8px; border: 1px solid var(--border); padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     h2 { font-size: 17px; margin-top: 0; margin-bottom: 14px; color: var(--text); }
 
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
     th { background: #f1f5f9; font-weight: 600; color: #334155; position: sticky; top: 0; z-index: 1; }
     tr:hover { background: #f8fafc; }
@@ -81,193 +115,216 @@
 </head>
 <body>
 
+<div class="container">
   <div class="header">
     <div>
       <h1>J&K CM Report & Tracker</h1>
       <div class="status-bar" id="status-bar">Connecting to live sheet...</div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-primary" onclick="fetchAndRender()">↻ Refresh Live Sheet</button>
+      <button class="btn btn-primary" onclick="fetchAndRender()">↻ Refresh Live Data</button>
     </div>
   </div>
 
-  <!-- Global Filter Toolbar -->
-  <div class="toolbar">
-    <div class="toolbar-group">
-      <label for="global-ba-filter"><strong>Filter BA / SSA:</strong></label>
-      <select id="global-ba-filter" onchange="applyGlobalFilters()">
-        <option value="ALL">All BAs & SSAs (Circle View)</option>
-      </select>
-    </div>
-
-    <!-- Instant Site Search Bar -->
-    <div class="toolbar-group" style="flex: 1; max-width: 480px;">
-      <label for="site-search-input"><strong>Search Site:</strong></label>
-      <input type="text" id="site-search-input" placeholder="Type phy_site_id or bts_name..." oninput="handleInstantSiteSearch(this.value)" style="width: 100%;">
-    </div>
+  <!-- Top-Level Module Navigation -->
+  <div class="module-nav">
+    <button class="module-btn active" id="btn-mod-infra" onclick="switchModule('mod-infra', this)">
+      🏢 CNMC Site Infra & Power Report Tracker
+    </button>
+    <button class="module-btn" id="btn-mod-dbn" onclick="switchModule('mod-dbn', this)">
+      📊 DBN_NDBN Avail
+    </button>
   </div>
 
-  <!-- KPI Overview -->
-  <div class="kpi-container">
-    <div class="kpi-card"><div class="title">Total Sites</div><div class="value" id="kpi-total">-</div></div>
-    <div class="kpi-card"><div class="title">Completed (100%)</div><div class="value" id="kpi-completed">-</div></div>
-    <div class="kpi-card"><div class="title">In Progress</div><div class="value" id="kpi-inprogress">-</div></div>
-    <div class="kpi-card"><div class="title">Not Started</div><div class="value" id="kpi-notstarted">-</div></div>
-    <div class="kpi-card"><div class="title">Fill Completion %</div><div class="value" id="kpi-circle-pct">-</div></div>
-  </div>
-
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('oa-view', this)">1. OA / SSA Summary</button>
-    <button class="tab-btn" onclick="switchTab('owner-view', this)">2. L1 / In-Charge Summary</button>
-    <button class="tab-btn" onclick="switchTab('param-view', this)">3. Parameter Heatmap</button>
-    <button class="tab-btn" onclick="switchTab('pq-report-view', this)">📊 DBN_NDBN_Avail</button>
-    <button class="tab-btn" id="search-tab-btn" onclick="switchTab('search-view', this)" style="display: none;">Site Search Results</button>
-  </div>
-
-  <!-- VIEW 1: OA SUMMARY -->
-  <div class="section" id="oa-view">
-    <h2>OA / SSA-Wise Completion Status <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click any row to view pending sites list)</span></h2>
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>BA Name</th>
-            <th>OA / SSA Name</th>
-            <th class="num">Total Sites</th>
-            <th class="num">Not Started</th>
-            <th class="num">In Progress</th>
-            <th class="num">Completed</th>
-            <th class="num">Progress Bar</th>
-            <th class="num">Avg Fill %</th>
-          </tr>
-        </thead>
-        <tbody id="oa-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- VIEW 2: OWNER SUMMARY -->
-  <div class="section" id="owner-view" style="display:none;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-      <h2 style="margin: 0;">Site In-Charge (L1 / L2) Progress <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click row to view site breakdown)</span></h2>
-      <input type="text" id="owner-search" placeholder="Filter In-Charge Name..." onkeyup="renderOwnerTable()" style="padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" />
-    </div>
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>SSA Name</th>
-            <th>L1 In-charge</th>
-            <th>L2 In-charge</th>
-            <th class="num">Total Assigned</th>
-            <th class="num">Not Started</th>
-            <th class="num">In Progress</th>
-            <th class="num">Completed</th>
-            <th class="num">Progress Bar</th>
-            <th class="num">Fill %</th>
-            <th style="text-align: center;">Export My Sites</th>
-          </tr>
-        </thead>
-        <tbody id="owner-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- VIEW 3: PARAMETER HEATMAP -->
-  <div class="section" id="param-view" style="display:none;">
-    <h2>Mandatory Parameter Fill % Heatmap Matrix</h2>
-    <div class="table-container">
-      <table>
-        <thead id="param-thead"></thead>
-        <tbody id="param-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- VIEW 4: DBN_NDBN_AVAIL EMBED REPORT -->
-  <div class="section" id="pq-report-view" style="display: none; padding: 14px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; flex-wrap: wrap; gap: 8px;">
-      <h2 style="margin: 0;">DBN_NDBN_Avail Report</h2>
-      <a href="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQAanksCu2fNRY5p_dJ8RYNxAV9cpEotjnRUFvXT7Zs9JVQ?em=2" target="_blank" class="btn btn-primary btn-sm">↗ Open in Full Screen</a>
-    </div>
-    <div style="width: 100%; height: 750px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #ffffff;">
-      <iframe 
-        src="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQAanksCu2fNRY5p_dJ8RYNxAV9cpEotjnRUFvXT7Zs9JVQ?em=2&wdHideGridlines=True&wdDownloadButton=True" 
-        width="100%" 
-        height="100%" 
-        frameborder="0" 
-        scrolling="no"
-        allowFullScreen="true"
-        loading="lazy"
-        style="display: block; border: none;">
-      </iframe>
-    </div>
-  </div>
-
-  <!-- VIEW 5: SITE SEARCH VIEW -->
-  <div class="section" id="search-view" style="display:none;">
-    <h2>Site Search Results</h2>
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Phy Site ID</th>
-            <th>BTS Name</th>
-            <th>SSA Name</th>
-            <th>L1 Owner</th>
-            <th>L2 Owner</th>
-            <th class="num">Fill %</th>
-            <th>Missing Parameters</th>
-          </tr>
-        </thead>
-        <tbody id="search-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- DRILL-DOWN MODAL POPUP -->
-  <div class="modal-overlay" id="drilldown-modal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div>
-          <h3 id="modal-title">Site Details</h3>
-          <span id="modal-subtitle" style="font-size: 12px; color: #64748b;"></span>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-green btn-sm" onclick="exportModalSitesToExcel()">📥 Export Excel</button>
-          <button class="btn btn-red btn-sm" onclick="exportModalSitesToPDF()">📄 Export PDF</button>
-          <button class="close-btn" onclick="closeModal()">&times;</button>
-        </div>
+  <!-- ========================================================================= -->
+  <!-- MODULE 1: CNMC SITE INFRA & POWER REPORT TRACKER                          -->
+  <!-- ========================================================================= -->
+  <div id="mod-infra">
+    <!-- Global Filter Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label for="global-ba-filter"><strong>Filter BA / SSA:</strong></label>
+        <select id="global-ba-filter" onchange="applyGlobalFilters()">
+          <option value="ALL">All BAs & SSAs (Circle View)</option>
+        </select>
       </div>
-      <div class="modal-body">
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Phy Site ID</th>
-                <th>BTS Name</th>
-                <th>L1 Owner</th>
-                <th class="num">Filled</th>
-                <th class="num">Fill %</th>
-                <th>Missing Mandatory Parameters</th>
-              </tr>
-            </thead>
-            <tbody id="modal-tbody"></tbody>
-          </table>
-        </div>
+
+      <div class="toolbar-group" style="flex: 1; max-width: 480px;">
+        <label for="site-search-input"><strong>Search Site:</strong></label>
+        <input type="text" id="site-search-input" placeholder="Type phy_site_id or bts_name..." oninput="handleInstantSiteSearch(this.value)" style="width: 100%;">
+      </div>
+    </div>
+
+    <!-- KPI Summary Overview -->
+    <div class="kpi-container">
+      <div class="kpi-card"><div class="title">Total Sites</div><div class="value" id="kpi-total">-</div></div>
+      <div class="kpi-card"><div class="title">Completed (100%)</div><div class="value" id="kpi-completed">-</div></div>
+      <div class="kpi-card"><div class="title">In Progress</div><div class="value" id="kpi-inprogress">-</div></div>
+      <div class="kpi-card"><div class="title">Not Started</div><div class="value" id="kpi-notstarted">-</div></div>
+      <div class="kpi-card"><div class="title">Fill Completion %</div><div class="value" id="kpi-circle-pct">-</div></div>
+    </div>
+
+    <!-- Module 1 Internal Views -->
+    <div class="sub-tabs">
+      <button class="sub-tab-btn active" onclick="switchSubTab('oa-view', this)">1. OA / SSA Summary</button>
+      <button class="sub-tab-btn" onclick="switchSubTab('owner-view', this)">2. L1 / In-Charge Summary</button>
+      <button class="sub-tab-btn" onclick="switchSubTab('param-view', this)">3. Parameter Heatmap</button>
+      <button class="sub-tab-btn" id="search-tab-btn" onclick="switchSubTab('search-view', this)" style="display: none;">Site Search Results</button>
+    </div>
+
+    <!-- VIEW 1: OA SUMMARY -->
+    <div class="section sub-section" id="oa-view">
+      <h2>OA / SSA-Wise Completion Status <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click row to view pending sites list)</span></h2>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>BA Name</th>
+              <th>OA / SSA Name</th>
+              <th class="num">Total Sites</th>
+              <th class="num">Not Started</th>
+              <th class="num">In Progress</th>
+              <th class="num">Completed</th>
+              <th class="num">Progress Bar</th>
+              <th class="num">Avg Fill %</th>
+            </tr>
+          </thead>
+          <tbody id="oa-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VIEW 2: OWNER SUMMARY -->
+    <div class="section sub-section" id="owner-view" style="display:none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <h2 style="margin: 0;">Site In-Charge (L1 / L2) Progress <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click row to view site breakdown)</span></h2>
+        <input type="text" id="owner-search" placeholder="Filter In-Charge Name..." onkeyup="renderOwnerTable()" style="padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" />
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>SSA Name</th>
+              <th>L1 In-charge</th>
+              <th>L2 In-charge</th>
+              <th class="num">Total Assigned</th>
+              <th class="num">Not Started</th>
+              <th class="num">In Progress</th>
+              <th class="num">Completed</th>
+              <th class="num">Progress Bar</th>
+              <th class="num">Fill %</th>
+              <th style="text-align: center;">Export My Sites</th>
+            </tr>
+          </thead>
+          <tbody id="owner-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VIEW 3: PARAMETER HEATMAP -->
+    <div class="section sub-section" id="param-view" style="display:none;">
+      <h2>Mandatory Parameter Fill % Heatmap Matrix</h2>
+      <div class="table-container">
+        <table>
+          <thead id="param-thead"></thead>
+          <tbody id="param-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VIEW 4: SITE SEARCH VIEW -->
+    <div class="section sub-section" id="search-view" style="display:none;">
+      <h2>Site Search Results</h2>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Phy Site ID</th>
+              <th>BTS Name</th>
+              <th>SSA Name</th>
+              <th>L1 Owner</th>
+              <th>L2 Owner</th>
+              <th class="num">Fill %</th>
+              <th>Missing Parameters</th>
+            </tr>
+          </thead>
+          <tbody id="search-tbody"></tbody>
+        </table>
       </div>
     </div>
   </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODULE 2: DBN_NDBN AVAIL                                                  -->
+  <!-- ========================================================================= -->
+  <div id="mod-dbn" style="display: none;">
+    <div class="section" style="padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <h2 style="margin: 0;">DBN_NDBN Avail Interactive Operational Report</h2>
+        <a href="https://onedrive.live.com/view.aspx?resid=7CF6ABB2CBC6695D!106&ithint=file%2cxlsx" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+          ↗ Open in Excel Online (Browser Mode)
+        </a>
+      </div>
+      <div style="position: relative; width: 100%; height: 82vh; min-height: 650px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #ffffff;">
+        <iframe 
+          id="excel-embed-iframe"
+          src="https://onedrive.live.com/embed?resid=7CF6ABB2CBC6695D!106&authkey=!AF9cpEotjnRUFvU&em=2&wdAllowInteractivity=True&wdHideGridlines=True&wdDownloadButton=True" 
+          width="100%" 
+          height="100%" 
+          frameborder="0" 
+          scrolling="yes"
+          allowfullscreen="true"
+          allow="fullscreen"
+          loading="eager"
+          style="width: 100%; height: 100%; border: none; display: block;">
+        </iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DRILL-DOWN MODAL POPUP -->
+<div class="modal-overlay" id="drilldown-modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-title">Site Details</h3>
+        <span id="modal-subtitle" style="font-size: 12px; color: #64748b;"></span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-green btn-sm" onclick="exportModalSitesToExcel()">📥 Export Excel</button>
+        <button class="btn btn-red btn-sm" onclick="exportModalSitesToPDF()">📄 Export PDF</button>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Phy Site ID</th>
+              <th>BTS Name</th>
+              <th>L1 Owner</th>
+              <th class="num">Filled</th>
+              <th class="num">Fill %</th>
+              <th>Missing Mandatory Parameters</th>
+            </tr>
+          </thead>
+          <tbody id="modal-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
   // =========================================================================
-  // LIVE GOOGLE SHEET CSV FEED URL
+  // LIVE GOOGLE SHEET CSV FEED CONFIGURATION
   // =========================================================================
   const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
 
-  // Excluded columns: P (index 15), AF:AK (31:36), AQ:AZ (42:51)
+  // Excluded columns: P (15), AF:AK (31:36), AQ:AZ (42:51)
   const EXCLUDED_INDICES = new Set([15, 31, 32, 33, 34, 35, 36, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]);
 
   let rawDataRows = [];
@@ -278,13 +335,41 @@
 
   function getMandatoryIndices(totalCols) {
     const indices = [];
-    const maxLimit = Math.min(totalCols - 1, 64); // Up to Col BM
-    for (let i = 7; i <= maxLimit; i++) { // From Col H
+    const maxLimit = Math.min(totalCols - 1, 64);
+    for (let i = 7; i <= maxLimit; i++) {
       if (!EXCLUDED_INDICES.has(i)) indices.push(i);
     }
     return indices;
   }
 
+  // Module Switching
+  function switchModule(modId, btn) {
+    document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("mod-infra").style.display = "none";
+    document.getElementById("mod-dbn").style.display = "none";
+
+    document.getElementById(modId).style.display = "block";
+    btn.classList.add("active");
+
+    // Force redraw on OneDrive Excel iframe so it never appears blank
+    if (modId === "mod-dbn") {
+      const iframe = document.getElementById("excel-embed-iframe");
+      if (iframe) {
+        iframe.style.height = "99.8%";
+        setTimeout(() => { iframe.style.height = "100%"; }, 100);
+      }
+    }
+  }
+
+  // Sub Tab Switching inside Module 1
+  function switchSubTab(viewId, btn) {
+    document.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".sub-section").forEach(s => s.style.display = "none");
+    document.getElementById(viewId).style.display = "block";
+    if (btn) btn.classList.add("active");
+  }
+
+  // Resilient Sheet Fetcher
   async function fetchAndRender() {
     const status = document.getElementById("status-bar");
     status.innerText = "Connecting to live sheet...";
@@ -292,13 +377,12 @@
     const targetUrl = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
 
     try {
-      // 1. Direct fetch attempt
       let res = await fetch(targetUrl);
-      if (!res.ok) throw new Error("Direct fetch status: " + res.status);
+      if (!res.ok) throw new Error("Status: " + res.status);
       let csvText = await res.text();
 
       if (csvText.trim().startsWith("<!DOCTYPE") || csvText.trim().startsWith("<html")) {
-        throw new Error("Received HTML login page instead of CSV. Check Google Sheet sharing permissions.");
+        throw new Error("Received HTML login page instead of CSV data.");
       }
 
       Papa.parse(csvText, {
@@ -309,18 +393,16 @@
             return;
           }
           processRawData(results.data);
-          status.innerText = "Last updated: " + new Date().toLocaleTimeString();
+          status.innerText = "Live Connected • Updated: " + new Date().toLocaleTimeString();
         },
         error: function(err) {
-          status.innerText = "⚠️ Error parsing CSV: " + err.message;
+          status.innerText = "⚠️ CSV parse error: " + err.message;
         }
       });
-
     } catch (directErr) {
       console.warn("Direct fetch failed, trying proxy route:", directErr);
-      status.innerText = "Direct connection failed, trying backup route...";
+      status.innerText = "Direct route busy, fetching backup feed...";
 
-      // 2. Backup proxy fallback with timeout
       try {
         const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
         const controller = new AbortController();
@@ -329,14 +411,14 @@
         let proxyRes = await fetch(proxyUrl, { signal: controller.signal });
         clearTimeout(timeoutId);
 
-        if (!proxyRes.ok) throw new Error("Backup route status: " + proxyRes.status);
+        if (!proxyRes.ok) throw new Error("Proxy error: " + proxyRes.status);
         let proxyCsv = await proxyRes.text();
 
         Papa.parse(proxyCsv, {
           skipEmptyLines: true,
           complete: function(results) {
             processRawData(results.data);
-            status.innerText = "Last updated: " + new Date().toLocaleTimeString();
+            status.innerText = "Live Connected (Backup) • " + new Date().toLocaleTimeString();
           }
         });
       } catch (backupErr) {
@@ -352,16 +434,15 @@
     rawDataRows = rows.slice(1);
 
     const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
-    const mandatoryCount = mandatoryIndices.length; // 41
+    const mandatoryCount = mandatoryIndices.length;
 
-    // Parse all sites into structured objects
     cachedSites = rawDataRows.map(row => {
       const ba = (row[1] || "").trim();
       const ssa = (row[2] || "").trim();
       const phyId = (row[5] || "").trim();
       const btsName = (row[6] || "").trim();
-      const l1 = (row[69] || "Unassigned").trim(); // Col BR
-      const l2 = (row[70] || "-").trim();          // Col BS
+      const l1 = (row[69] || "Unassigned").trim();
+      const l2 = (row[70] || "-").trim();
 
       let filledCount = 0;
       const missingFields = [];
@@ -437,7 +518,6 @@
       else if (s.filledCount === 41) completed++;
       else inProgress++;
 
-      // SSA Map
       if (!ssaMap[s.ssa]) {
         ssaMap[s.ssa] = { ba: s.ba, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, fieldCounts: {}, sites: [] };
         mandatoryIndices.forEach(idx => ssaMap[s.ssa].fieldCounts[idx] = 0);
@@ -454,7 +534,6 @@
         if (val && val.toString().trim() !== "") ssaMap[s.ssa].fieldCounts[idx]++;
       });
 
-      // Owner Map
       const ownerKey = s.ssa + "____" + s.l1;
       if (!ownerMap[ownerKey]) {
         ownerMap[ownerKey] = { ssa: s.ssa, l1: s.l1, l2: s.l2, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, sites: [] };
@@ -469,21 +548,15 @@
 
     const overallPct = totalSites > 0 ? (totalFilled / (totalSites * 41)) * 100 : 0;
 
-    // Render KPIs
     document.getElementById("kpi-total").innerText = totalSites.toLocaleString();
     document.getElementById("kpi-completed").innerText = completed.toLocaleString();
     document.getElementById("kpi-inprogress").innerText = inProgress.toLocaleString();
     document.getElementById("kpi-notstarted").innerText = notStarted.toLocaleString();
     document.getElementById("kpi-circle-pct").innerText = overallPct.toFixed(1) + "%";
 
-    // View 1: OA Table
     renderOATable(ssaMap, totalSites, notStarted, inProgress, completed, overallPct);
-
-    // View 2: Owner Table
     window.activeOwnerMap = ownerMap;
     renderOwnerTable();
-
-    // View 3: Heatmap
     renderHeatmap(ssaMap, sites.length, mandatoryIndices);
   }
 
@@ -600,19 +673,19 @@
     return "#fee2e2";
   }
 
-  // Instant Site Search Handler
+  // Instant Site Search
   function handleInstantSiteSearch(query) {
     const q = (query || "").trim().toLowerCase();
     const searchTabBtn = document.getElementById("search-tab-btn");
 
     if (!q) {
       searchTabBtn.style.display = "none";
-      switchTab("oa-view", document.querySelectorAll(".tab-btn")[0]);
+      switchSubTab("oa-view", document.querySelectorAll(".sub-tab-btn")[0]);
       return;
     }
 
     searchTabBtn.style.display = "inline-block";
-    switchTab("search-view", searchTabBtn);
+    switchSubTab("search-view", searchTabBtn);
 
     const matches = cachedSites.filter(s =>
       s.phyId.toLowerCase().includes(q) || s.btsName.toLowerCase().includes(q)
@@ -645,7 +718,7 @@
     });
   }
 
-  // Drill-Down Modal
+  // Drill-down Modal
   function openDrilldownModal(entityName, sites) {
     currentModalEntityName = entityName;
     currentModalSites = sites;
@@ -681,7 +754,7 @@
     document.getElementById("drilldown-modal").style.display = "none";
   }
 
-  // Export Specific In-Charge from Table
+  // Exports
   function exportSingleIncharge(ownerKey, format) {
     const d = window.activeOwnerMap[ownerKey];
     if (!d || !d.sites) return;
@@ -697,7 +770,6 @@
     exportSitesPDF(currentModalSites, currentModalEntityName);
   }
 
-  // Generic Excel Exporter
   function exportSitesExcel(sites, fileName) {
     const data = sites.map((s, idx) => ({
       "S.No": idx + 1,
@@ -718,10 +790,9 @@
     XLSX.writeFile(wb, (fileName || "CNMC_Sites") + ".xlsx");
   }
 
-  // Generic PDF Exporter
   function exportSitesPDF(sites, title) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('l', 'pt', 'a4'); // Landscape format
+    const doc = new jsPDF('l', 'pt', 'a4');
 
     doc.setFontSize(14);
     doc.text("CNMC Pending Parameter Report - " + title, 40, 30);
@@ -744,17 +815,10 @@
       body: tableRows,
       theme: 'striped',
       styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [30, 58, 138] }
+      headStyles: { fillColor: [0, 51, 102] }
     });
 
     doc.save("CNMC_Report_" + title.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf");
-  }
-
-  function switchTab(viewId, btn) {
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".section").forEach(s => s.style.display = "none");
-    document.getElementById(viewId).style.display = "block";
-    if (btn) btn.classList.add("active");
   }
 
   window.onload = fetchAndRender;
