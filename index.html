@@ -4,12 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Report & Tracker</title>
-  <!-- Libraries for CSV Parsing, Excel Export, PDF Export & Chart.js -->
+  <!-- Libraries for CSV Parsing, Excel Export, PDF Export, Chart.js & Chart DataLabels -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 
   <style>
     :root {
@@ -48,7 +49,7 @@
       z-index: 0;
     }
 
-    .container { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; }
+    .container { position: relative; z-index: 1; max-width: 1460px; margin: 0 auto; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
     h1 { margin: 0; font-size: 24px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
@@ -59,7 +60,7 @@
     .module-btn:hover { background: #cbd5e1; }
     .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
 
-    /* Sub Tabs inside Module 1 */
+    /* Sub Tabs */
     .sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .sub-tab-btn { background: #f1f5f9; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; color: #475569; }
     .sub-tab-btn.active { background: #0284c7; color: white; border-color: #0284c7; }
@@ -77,7 +78,7 @@
     .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; }
 
     /* Slicer Button Pill Group */
-    .slicer-group { display: flex; gap: 6px; }
+    .slicer-group { display: flex; gap: 6px; flex-wrap: wrap; }
     .slicer-btn { border: 1px solid var(--border); background: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .slicer-btn:hover { background: #f1f5f9; }
     .slicer-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
@@ -120,6 +121,8 @@
     /* Badges */
     .badge-dbn { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-ndbn { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
+    .badge-lag { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 12px; }
+    .badge-ok { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -263,133 +266,240 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODULE 2: NATIVE DBN_NDBN AVAIL DASHBOARD (GOOGLE SHEET CSV POWERED)       -->
+  <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD                                        -->
   <!-- ========================================================================= -->
   <div id="mod-dbn" style="display: none;">
-    <!-- Slicer & Filter Toolbar -->
-    <div class="toolbar">
-      <!-- Date Selector -->
-      <div class="toolbar-group">
-        <label for="dbn-date-select"><strong>Report Date:</strong></label>
-        <select id="dbn-date-select" onchange="applyDbnFilters()"></select>
-      </div>
+    <!-- Module 2 Sub-Nav: Core Report, Degraded Site Tracker, Escalation Dashboard -->
+    <div class="sub-tabs">
+      <button class="sub-tab-btn active" onclick="switchDbnSubTab('dbn-main-view', this)">📊 1. Availability Overview</button>
+      <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-degraded-view', this)">⚠️ 2. Degraded Sites (Day-over-Day)</button>
+      <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 3. Escalation Dashboard</button>
+    </div>
 
-      <!-- SSA / BA Dropdown -->
-      <div class="toolbar-group">
-        <label for="dbn-ssa-select"><strong>SSA:</strong></label>
-        <select id="dbn-ssa-select" onchange="applyDbnFilters()">
-          <option value="ALL">All SSAs (Circle)</option>
-        </select>
-      </div>
+    <!-- ==================== SUB-VIEW 1: CORE AVAILABILITY OVERVIEW ==================== -->
+    <div class="dbn-sub-section" id="dbn-main-view">
+      <!-- Slicer & Filter Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <label for="dbn-date-select"><strong>Report Date:</strong></label>
+          <select id="dbn-date-select" onchange="applyDbnFilters()"></select>
+        </div>
 
-      <!-- Category Slicer -->
-      <div class="toolbar-group">
-        <label><strong>Category:</strong></label>
-        <div class="slicer-group" id="slicer-category">
-          <button class="slicer-btn active" data-val="ALL" onclick="setCategorySlicer('ALL', this)">ALL</button>
-          <button class="slicer-btn" data-val="DBN" onclick="setCategorySlicer('DBN', this)">DBN</button>
-          <button class="slicer-btn" data-val="NDBN" onclick="setCategorySlicer('NDBN', this)">NDBN</button>
+        <div class="toolbar-group">
+          <label for="dbn-ssa-select"><strong>SSA:</strong></label>
+          <select id="dbn-ssa-select" onchange="applyDbnFilters()">
+            <option value="ALL">All SSAs (Circle)</option>
+          </select>
+        </div>
+
+        <div class="toolbar-group">
+          <label><strong>Category:</strong></label>
+          <div class="slicer-group" id="slicer-category">
+            <button class="slicer-btn active" data-val="ALL" onclick="setCategorySlicer('ALL', this)">ALL</button>
+            <button class="slicer-btn" data-val="DBN" onclick="setCategorySlicer('DBN', this)">DBN</button>
+            <button class="slicer-btn" data-val="NDBN" onclick="setCategorySlicer('NDBN', this)">NDBN</button>
+          </div>
+        </div>
+
+        <div class="toolbar-group">
+          <label><strong>Bucket:</strong></label>
+          <div class="slicer-group" id="slicer-bucket">
+            <button class="slicer-btn active" data-val="ALL" onclick="setBucketSlicer('ALL', this)">ALL</button>
+            <button class="slicer-btn" data-val=">=98%" onclick="setBucketSlicer('>=98%', this)">≥98%</button>
+            <button class="slicer-btn" data-val="94-98%" onclick="setBucketSlicer('94-98%', this)">94-98%</button>
+            <button class="slicer-btn" data-val="90-94%" onclick="setBucketSlicer('90-94%', this)">90-94%</button>
+            <button class="slicer-btn" data-val="<90%" onclick="setBucketSlicer('<90%', this)">&lt;90%</button>
+          </div>
+        </div>
+
+        <div class="toolbar-group" style="flex: 1; min-width: 240px;">
+          <input type="text" id="dbn-search-input" placeholder="Search Site ID / IP / Name..." oninput="applyDbnFilters()" style="width: 100%;">
         </div>
       </div>
 
-      <!-- Availability Bucket Slicer -->
-      <div class="toolbar-group">
-        <label><strong>Bucket:</strong></label>
-        <div class="slicer-group" id="slicer-bucket">
-          <button class="slicer-btn active" data-val="ALL" onclick="setBucketSlicer('ALL', this)">ALL</button>
-          <button class="slicer-btn" data-val=">=98%" onclick="setBucketSlicer('>=98%', this)">≥98%</button>
-          <button class="slicer-btn" data-val="94-98%" onclick="setBucketSlicer('94-98%', this)">94-98%</button>
-          <button class="slicer-btn" data-val="<94%" onclick="setBucketSlicer('<94%', this)">&lt;94%</button>
+      <!-- DBN KPI Cards -->
+      <div class="kpi-container">
+        <div class="kpi-card"><div class="title">Total Sites</div><div class="value" id="dbn-kpi-total">-</div></div>
+        <div class="kpi-card"><div class="title">Avg Network Avail %</div><div class="value" id="dbn-kpi-avail">-</div></div>
+        <div class="kpi-card"><div class="title">DBN Sites</div><div class="value" id="dbn-kpi-dbn">-</div></div>
+        <div class="kpi-card"><div class="title">NDBN Sites</div><div class="value" id="dbn-kpi-ndbn">-</div></div>
+        <div class="kpi-card"><div class="title">Critical Sites (&lt;90%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
+      </div>
+
+      <!-- Chart Analytics Row with DataLabels on Bars -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div class="section" style="margin-bottom: 0; padding: 14px;">
+          <h2 style="font-size: 15px;">4-Bucket Availability Distribution</h2>
+          <div style="position: relative; height: 260px;">
+            <canvas id="dbnBucketChart"></canvas>
+          </div>
+        </div>
+        <div class="section" style="margin-bottom: 0; padding: 14px;">
+          <h2 style="font-size: 15px;">SSA-Wise Avg Availability % (With Values)</h2>
+          <div style="position: relative; height: 260px;">
+            <canvas id="dbnSsaChart"></canvas>
+          </div>
         </div>
       </div>
 
-      <!-- Search Input -->
-      <div class="toolbar-group" style="flex: 1; min-width: 240px;">
-        <input type="text" id="dbn-search-input" placeholder="Search Site ID / Name / IP..." oninput="applyDbnFilters()" style="width: 100%;">
-      </div>
-    </div>
-
-    <!-- DBN KPI Cards -->
-    <div class="kpi-container">
-      <div class="kpi-card"><div class="title">Total Sites</div><div class="value" id="dbn-kpi-total">-</div></div>
-      <div class="kpi-card"><div class="title">Avg Network Avail %</div><div class="value" id="dbn-kpi-avail">-</div></div>
-      <div class="kpi-card"><div class="title">DBN Sites</div><div class="value" id="dbn-kpi-dbn">-</div></div>
-      <div class="kpi-card"><div class="title">NDBN Sites</div><div class="value" id="dbn-kpi-ndbn">-</div></div>
-      <div class="kpi-card"><div class="title">Critical Sites (&lt;94%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
-    </div>
-
-    <!-- Chart Analytics Row -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
-      <!-- Chart 1: Availability Buckets -->
-      <div class="section" style="margin-bottom: 0; padding: 14px;">
-        <h2 style="font-size: 15px;">Availability Bucket Split</h2>
-        <div style="position: relative; height: 240px;">
-          <canvas id="dbnBucketChart"></canvas>
+      <!-- SSA Summary Table with 4 Buckets (Count and %) -->
+      <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <h2 style="margin:0;">SSA Availability Summary Breakdown (Count & % of Sites)</h2>
+          <button class="btn btn-green btn-sm" onclick="exportDbnSummaryExcel()">📥 Export Summary Excel</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>SSA Name</th>
+                <th class="num">Total Sites</th>
+                <th class="num">DBN</th>
+                <th class="num">NDBN</th>
+                <th class="num">≥98% Count (%)</th>
+                <th class="num">94-98% Count (%)</th>
+                <th class="num">90-94% Count (%)</th>
+                <th class="num">&lt;90% Count (%)</th>
+                <th class="num">Avg Availability %</th>
+              </tr>
+            </thead>
+            <tbody id="dbn-summary-tbody"></tbody>
+          </table>
         </div>
       </div>
-      <!-- Chart 2: SSA Performance -->
-      <div class="section" style="margin-bottom: 0; padding: 14px;">
-        <h2 style="font-size: 15px;">SSA-Wise Avg Availability %</h2>
-        <div style="position: relative; height: 240px;">
-          <canvas id="dbnSsaChart"></canvas>
+
+      <!-- Detailed Site List (Includes BTS_IP_ID) -->
+      <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h2 style="margin:0;">Site-Level Details & Outage Inspection Report</h2>
+            <span id="dbn-site-count-badge" style="font-size:12px; color:#64748b;">Showing matching records</span>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="exportDbnSitesExcel()">📥 Export Filtered Sites Excel</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Phy Site ID</th>
+                <th>Site IP ID</th>
+                <th>Site Name</th>
+                <th>SSA</th>
+                <th>Category</th>
+                <th class="num">Avail %</th>
+                <th>Bucket</th>
+                <th>L1 Officer</th>
+                <th>Media</th>
+                <th class="num">Voice Erl</th>
+                <th class="num">Data (GB)</th>
+              </tr>
+            </thead>
+            <tbody id="dbn-detail-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- DBN Summary Table -->
-    <div class="section">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-        <h2 style="margin:0;">SSA Availability Summary Breakdown</h2>
-        <button class="btn btn-green btn-sm" onclick="exportDbnSummaryExcel()">📥 Export Summary Excel</button>
-      </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>SSA Name</th>
-              <th class="num">Total Sites</th>
-              <th class="num">DBN</th>
-              <th class="num">NDBN</th>
-              <th class="num">≥98%</th>
-              <th class="num">94-98%</th>
-              <th class="num">&lt;94% (Outage)</th>
-              <th class="num">Avg Availability %</th>
-            </tr>
-          </thead>
-          <tbody id="dbn-summary-tbody"></tbody>
-        </table>
+    <!-- ==================== SUB-VIEW 2: DEGRADED SITES TRACKER ==================== -->
+    <div class="dbn-sub-section" id="dbn-degraded-view" style="display: none;">
+      <div class="section">
+        <h2>Day-over-Day Degraded Sites Inspector (>98% on Day 1 → Dropped <98% on Day 2)</h2>
+        <div class="toolbar" style="margin-bottom: 16px;">
+          <div class="toolbar-group">
+            <label for="deg-prev-date"><strong>Previous Day (Base):</strong></label>
+            <select id="deg-prev-date" onchange="runDegradedAnalysis()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="deg-next-date"><strong>Next Day (Compare):</strong></label>
+            <select id="deg-next-date" onchange="runDegradedAnalysis()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="deg-ssa-select"><strong>SSA:</strong></label>
+            <select id="deg-ssa-select" onchange="runDegradedAnalysis()">
+              <option value="ALL">All SSAs</option>
+            </select>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="exportDegradedSitesExcel()">📥 Export Degraded Sites Excel</button>
+        </div>
+
+        <div class="kpi-container" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          <div class="kpi-card"><div class="title">Healthy on Previous Day (>98%)</div><div class="value" id="deg-kpi-base">-</div></div>
+          <div class="kpi-card"><div class="title">Degraded on Next Day (&lt;98%)</div><div class="value" id="deg-kpi-count" style="color:#dc2626;">-</div></div>
+          <div class="kpi-card"><div class="title">Degradation Rate</div><div class="value" id="deg-kpi-rate" style="color:#d97706;">-</div></div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Phy Site ID</th>
+                <th>Site IP ID</th>
+                <th>Site Name</th>
+                <th>SSA</th>
+                <th>Category</th>
+                <th class="num">Previous Avail %</th>
+                <th class="num">Next Avail %</th>
+                <th class="num">Drop (Δ)</th>
+                <th>Current Bucket</th>
+                <th>L1 In-charge</th>
+                <th>Media</th>
+              </tr>
+            </thead>
+            <tbody id="degraded-sites-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <!-- DBN Detailed Site Inspection Table -->
-    <div class="section">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-        <div>
-          <h2 style="margin:0;">Site-Level Details & Outage Inspector</h2>
-          <span id="dbn-site-count-badge" style="font-size:12px; color:#64748b;">Showing top matching records</span>
+    <!-- ==================== SUB-VIEW 3: ESCALATION DASHBOARD ==================== -->
+    <div class="dbn-sub-section" id="dbn-escalation-view" style="display: none;">
+      <div class="section">
+        <h2>Site In-Charge Escalation & Target Gap Tracker</h2>
+        <div class="toolbar" style="margin-bottom: 16px;">
+          <div class="toolbar-group">
+            <label for="esc-date-select"><strong>Report Date:</strong></label>
+            <select id="esc-date-select" onchange="renderEscalationDashboard()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="esc-target-select"><strong>Target % of Sites Having ≥98% Avail:</strong></label>
+            <select id="esc-target-select" onchange="renderEscalationDashboard()">
+              <option value="70">70% Target</option>
+              <option value="75" selected>75% Target (Standard)</option>
+              <option value="80">80% Target</option>
+              <option value="85">85% Target</option>
+              <option value="90">90% Target</option>
+              <option value="95">95% Target</option>
+            </select>
+          </div>
+          <div class="toolbar-group" style="flex: 1; min-width: 200px;">
+            <input type="text" id="esc-search-input" placeholder="Search In-charge Officer..." oninput="renderEscalationDashboard()" style="width: 100%;">
+          </div>
+          <button class="btn btn-green btn-sm" onclick="exportEscalationExcel()">📥 Export Escalation Matrix</button>
         </div>
-        <button class="btn btn-green btn-sm" onclick="exportDbnSitesExcel()">📥 Export Filtered Sites Excel</button>
-      </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Phy Site ID</th>
-              <th>Site Name</th>
-              <th>SSA</th>
-              <th>Category</th>
-              <th class="num">Avail %</th>
-              <th>Bucket</th>
-              <th>L1 Officer</th>
-              <th>Media</th>
-              <th class="num">Voice Erl</th>
-              <th class="num">Data (GB)</th>
-            </tr>
-          </thead>
-          <tbody id="dbn-detail-tbody"></tbody>
-        </table>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>SSA</th>
+                <th>L1 Site In-charge</th>
+                <th class="num">Total Sites</th>
+                <th class="num">≥98% Count (%)</th>
+                <th class="num">94-98% Count (%)</th>
+                <th class="num">90-94% Count (%)</th>
+                <th class="num">&lt;90% Count (%)</th>
+                <th class="num">Actual ≥98% Rate</th>
+                <th class="num">Target Required</th>
+                <th class="num">Shortfall (Lagging Behind)</th>
+                <th style="text-align:center;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="escalation-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -429,16 +539,15 @@
 </div>
 
 <script>
+  // Register Chart.js DataLabels Plugin
+  Chart.register(ChartDataLabels);
+
   // =========================================================================
   // ENDPOINT URLS
   // =========================================================================
-  // Module 1 (CNMC Infra Tracker Sheet)
   const SHEET_INFRA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
-  
-  // Module 2 (New DBN_NDBN Master Consolidated Sheet)
   const SHEET_DBN_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=551656182&single=true&output=csv";
 
-  // Module state
   let currentActiveModule = "mod-infra";
   let dbnDataLoaded = false;
 
@@ -754,7 +863,7 @@
   }
 
   // =========================================================================
-  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC (CLIENT-SIDE ENGINE)
+  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC (4 BUCKETS, DEGRADED & ESCALATION)
   // =========================================================================
   let dbnRawRecords = [];
   let dbnFilteredRecords = [];
@@ -764,6 +873,14 @@
 
   let dbnBucketChartInstance = null;
   let dbnSsaChartInstance = null;
+
+  // Bucket Helper function (Strict 4 Buckets)
+  function getAvailabilityBucket(avail) {
+    if (avail >= 98.0) return ">=98%";
+    if (avail >= 94.0) return "94-98%";
+    if (avail >= 90.0) return "90-94%";
+    return "<90%";
+  }
 
   async function fetchAndRenderDbn() {
     const status = document.getElementById("status-bar");
@@ -789,7 +906,7 @@
 
   function parseDbnCsv(csvText) {
     const status = document.getElementById("status-bar");
-    status.innerText = "Processing 61,000+ records in browser memory...";
+    status.innerText = "Processing records in browser memory...";
 
     Papa.parse(csvText, {
       header: true,
@@ -801,7 +918,6 @@
           return;
         }
 
-        // Standardize rows using actual header names from Master_Consolidated
         const dateSet = new Set();
         dbnRawRecords = data.map(r => {
           const ssa = (r["Circle SSA"] || r["SSA"] || "").trim();
@@ -812,9 +928,9 @@
           const cat = (r["CATEGORY"] || "").trim().toUpperCase();
           const availStr = (r["Max NW avail (%)"] || r["Max NW avail"] || "0").toString().replace("%", "").trim();
           const avail = parseFloat(availStr) || 0;
-          const bucket = (r["Avail_Bucket"] || (avail >= 98 ? ">=98%" : (avail >= 94 ? "94-98%" : "<94%"))).trim();
+          const bucket = getAvailabilityBucket(avail);
           const reportDate = (r["Report Date"] || "").trim();
-          const l1 = (r["Static_Site_Hierarchy.CM L1_Name_number"] || "-").trim();
+          const l1 = (r["Static_Site_Hierarchy.CM L1_Name_number"] || "Unassigned").trim();
           const media = (r["Static_Site_Hierarchy.Media"] || "-").trim();
           const voiceErl = parseFloat(r["avg Voice_erl"]) || 0;
           const dataGb = parseFloat(r["avg DATA(GB)"]) || 0;
@@ -828,31 +944,49 @@
         populateDbnControls();
         dbnDataLoaded = true;
         applyDbnFilters();
+        runDegradedAnalysis();
+        renderEscalationDashboard();
+
         status.innerText = `DBN Connected • Loaded ${dbnRawRecords.length.toLocaleString()} rows • ${new Date().toLocaleTimeString()}`;
       }
     });
   }
 
   function populateDbnControls() {
-    // Populate Dates (Default to Latest Date)
+    // 1. Core Overview Date Select
     const dateSelect = document.getElementById("dbn-date-select");
     dateSelect.innerHTML = "";
-    if (dbnAvailableDates.length > 0) {
-      dbnAvailableDates.forEach(d => {
-        dateSelect.innerHTML += `<option value="${d}">${d}</option>`;
-      });
-      dateSelect.innerHTML += `<option value="ALL">All Available Dates</option>`;
-      dateSelect.value = dbnAvailableDates[0]; // Set default to latest
-    }
+    dbnAvailableDates.forEach(d => { dateSelect.innerHTML += `<option value="${d}">${d}</option>`; });
+    dateSelect.innerHTML += `<option value="ALL">All Available Dates</option>`;
+    dateSelect.value = dbnAvailableDates[0];
 
-    // Populate SSA
+    // 2. Core Overview SSA Select
     const ssaSelect = document.getElementById("dbn-ssa-select");
     const ssaSet = new Set();
     dbnRawRecords.forEach(r => { if (r.ssa) ssaSet.add(r.ssa); });
     ssaSelect.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
-    Array.from(ssaSet).sort().forEach(s => {
-      ssaSelect.innerHTML += `<option value="${s}">${s}</option>`;
+    Array.from(ssaSet).sort().forEach(s => { ssaSelect.innerHTML += `<option value="${s}">${s}</option>`; });
+
+    // 3. Degraded Site Date Selectors
+    const degPrev = document.getElementById("deg-prev-date");
+    const degNext = document.getElementById("deg-next-date");
+    const degSsa = document.getElementById("deg-ssa-select");
+    degPrev.innerHTML = ""; degNext.innerHTML = "";
+    dbnAvailableDates.forEach(d => {
+      degPrev.innerHTML += `<option value="${d}">${d}</option>`;
+      degNext.innerHTML += `<option value="${d}">${d}</option>`;
     });
+    // Default: Next = Latest (index 0), Prev = Previous (index 1 if available)
+    degNext.value = dbnAvailableDates[0];
+    degPrev.value = dbnAvailableDates.length > 1 ? dbnAvailableDates[1] : dbnAvailableDates[0];
+    degSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
+    Array.from(ssaSet).sort().forEach(s => { degSsa.innerHTML += `<option value="${s}">${s}</option>`; });
+
+    // 4. Escalation Date Selector
+    const escDate = document.getElementById("esc-date-select");
+    escDate.innerHTML = "";
+    dbnAvailableDates.forEach(d => { escDate.innerHTML += `<option value="${d}">${d}</option>`; });
+    escDate.value = dbnAvailableDates[0];
   }
 
   function setCategorySlicer(cat, btn) {
@@ -897,8 +1031,7 @@
   function renderDbnDashboard() {
     const total = dbnFilteredRecords.length;
     let dbnCount = 0, ndbnCount = 0, availSum = 0;
-    let bGte98 = 0, b94to98 = 0, bLt94 = 0;
-
+    let bGte98 = 0, b94to98 = 0, b90to94 = 0, bLt90 = 0;
     const ssaAgg = {};
 
     dbnFilteredRecords.forEach(r => {
@@ -906,22 +1039,23 @@
       if (r.category === "DBN") dbnCount++;
       else if (r.category === "NDBN") ndbnCount++;
 
-      if (r.avail >= 98 || r.bucket === ">=98%") bGte98++;
-      else if (r.avail >= 94 || r.bucket === "94-98%") b94to98++;
-      else bLt94++;
+      if (r.bucket === ">=98%") bGte98++;
+      else if (r.bucket === "94-98%") b94to98++;
+      else if (r.bucket === "90-94%") b90to94++;
+      else bLt90++;
 
-      // SSA aggregate map
       if (!ssaAgg[r.ssa]) {
-        ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, lt94: 0, availSum: 0 };
+        ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
       }
       ssaAgg[r.ssa].total++;
       ssaAgg[r.ssa].availSum += r.avail;
       if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
       else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
 
-      if (r.avail >= 98 || r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
-      else if (r.avail >= 94 || r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
-      else ssaAgg[r.ssa].lt94++;
+      if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
+      else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
+      else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
+      else ssaAgg[r.ssa].lt90++;
     });
 
     const avgAvail = total > 0 ? (availSum / total).toFixed(2) : "0.00";
@@ -931,44 +1065,58 @@
     document.getElementById("dbn-kpi-avail").innerText = avgAvail + "%";
     document.getElementById("dbn-kpi-dbn").innerText = dbnCount.toLocaleString();
     document.getElementById("dbn-kpi-ndbn").innerText = ndbnCount.toLocaleString();
-    document.getElementById("dbn-kpi-critical").innerText = bLt94.toLocaleString();
+    document.getElementById("dbn-kpi-critical").innerText = bLt90.toLocaleString();
 
     // Render Charts
-    renderDbnCharts(bGte98, b94to98, bLt94, ssaAgg);
+    renderDbnCharts(bGte98, b94to98, b90to94, bLt90, ssaAgg);
 
-    // Render SSA Summary Table
-    renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, bGte98, b94to98, bLt94, avgAvail);
+    // Render SSA Summary Table with Counts & %
+    renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, bGte98, b94to98, b90to94, bLt90, avgAvail);
 
-    // Render Detailed Site List Table (top 100 for smooth DOM performance)
+    // Render Detailed Site List
     renderDbnDetailTable(dbnFilteredRecords);
   }
 
-  function renderDbnCharts(gte98, mid94, lt94, ssaAgg) {
-    // 1. Doughnut Chart: Buckets
+  function renderDbnCharts(gte98, mid94, low90, lt90, ssaAgg) {
+    // 1. Doughnut Chart: 4 Buckets
     const ctxBucket = document.getElementById("dbnBucketChart").getContext("2d");
     if (dbnBucketChartInstance) dbnBucketChartInstance.destroy();
     dbnBucketChartInstance = new Chart(ctxBucket, {
       type: "doughnut",
       data: {
-        labels: ["≥98% Healthy", "94-98% Degraded", "<94% Outage"],
+        labels: ["≥98%", "94-98%", "90-94%", "<90%"],
         datasets: [{
-          data: [gte98, mid94, lt94],
-          backgroundColor: ["#22c55e", "#f59e0b", "#ef4444"],
+          data: [gte98, mid94, low90, lt90],
+          backgroundColor: ["#22c55e", "#f59e0b", "#f97316", "#ef4444"],
           borderWidth: 1
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom" } }
+        plugins: {
+          legend: { position: "bottom" },
+          datalabels: {
+            formatter: (value, ctx) => {
+              let sum = 0;
+              let dataArr = ctx.chart.data.datasets[0].data;
+              dataArr.map(data => { sum += data; });
+              if (sum === 0 || value === 0) return "";
+              let percentage = (value * 100 / sum).toFixed(1) + "%";
+              return percentage;
+            },
+            color: "#fff",
+            font: { weight: "bold", size: 11 }
+          }
+        }
       }
     });
 
-    // 2. Bar Chart: SSA Performance
+    // 2. Bar Chart: SSA Performance with Values Displayed on Each Bar
     const ssaLabels = Object.keys(ssaAgg).sort();
     const ssaAvailData = ssaLabels.map(s => {
       const a = ssaAgg[s];
-      return a.total > 0 ? (a.availSum / a.total).toFixed(1) : 0;
+      return a.total > 0 ? parseFloat((a.availSum / a.total).toFixed(2)) : 0;
     });
 
     const ctxSsa = document.getElementById("dbnSsaChart").getContext("2d");
@@ -987,30 +1135,55 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: { y: { min: 80, max: 100 } },
-        plugins: { legend: { display: false } }
+        scales: {
+          y: { min: 75, max: 100, ticks: { callback: v => v + "%" } }
+        },
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            anchor: "end",
+            align: "top",
+            formatter: (v) => v + "%",
+            color: "#003366",
+            font: { weight: "bold", size: 11 },
+            offset: -2
+          }
+        }
       }
     });
   }
 
-  function renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, lt94, avgAvail) {
+  function renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail) {
     const tbody = document.getElementById("dbn-summary-tbody");
     tbody.innerHTML = "";
+
     Object.keys(ssaAgg).sort().forEach(s => {
       const a = ssaAgg[s];
       const ssaAvg = a.total > 0 ? (a.availSum / a.total).toFixed(2) : "0.00";
+      const pGte = a.total > 0 ? ((a.gte98 / a.total) * 100).toFixed(1) : 0;
+      const pMid = a.total > 0 ? ((a.mid94 / a.total) * 100).toFixed(1) : 0;
+      const pLow = a.total > 0 ? ((a.low90 / a.total) * 100).toFixed(1) : 0;
+      const pLt  = a.total > 0 ? ((a.lt90  / a.total) * 100).toFixed(1) : 0;
+
       tbody.innerHTML += `
         <tr>
           <td><strong>${s}</strong></td>
           <td class="num">${a.total}</td>
           <td class="num"><span class="badge-dbn">${a.dbn}</span></td>
           <td class="num"><span class="badge-ndbn">${a.ndbn}</span></td>
-          <td class="num" style="color:#16a34a; font-weight:600;">${a.gte98}</td>
-          <td class="num" style="color:#d97706; font-weight:600;">${a.mid94}</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${a.lt94}</td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${a.gte98} (${pGte}%)</td>
+          <td class="num" style="color:#d97706; font-weight:600;">${a.mid94} (${pMid}%)</td>
+          <td class="num" style="color:#ea580c; font-weight:600;">${a.low90} (${pLow}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${a.lt90} (${pLt}%)</td>
           <td class="num"><strong>${ssaAvg}%</strong></td>
         </tr>`;
     });
+
+    // Circle Total Row
+    const cpGte = total > 0 ? ((gte98 / total) * 100).toFixed(1) : 0;
+    const cpMid = total > 0 ? ((mid94 / total) * 100).toFixed(1) : 0;
+    const cpLow = total > 0 ? ((low90 / total) * 100).toFixed(1) : 0;
+    const cpLt  = total > 0 ? ((lt90  / total) * 100).toFixed(1) : 0;
 
     tbody.innerHTML += `
       <tr class="circle-row">
@@ -1018,9 +1191,10 @@
         <td class="num">${total.toLocaleString()}</td>
         <td class="num">${dbnCount.toLocaleString()}</td>
         <td class="num">${ndbnCount.toLocaleString()}</td>
-        <td class="num">${gte98.toLocaleString()}</td>
-        <td class="num">${mid94.toLocaleString()}</td>
-        <td class="num" style="color:#dc2626;">${lt94.toLocaleString()}</td>
+        <td class="num" style="color:#16a34a;">${gte98.toLocaleString()} (${cpGte}%)</td>
+        <td class="num" style="color:#d97706;">${mid94.toLocaleString()} (${cpMid}%)</td>
+        <td class="num" style="color:#ea580c;">${low90.toLocaleString()} (${cpLow}%)</td>
+        <td class="num" style="color:#dc2626;">${lt90.toLocaleString()} (${cpLt}%)</td>
         <td class="num">${avgAvail}%</td>
       </tr>`;
   }
@@ -1034,17 +1208,18 @@
     countBadge.innerText = `Showing ${Math.min(records.length, displayLimit)} of ${records.length.toLocaleString()} matching sites`;
 
     if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
       return;
     }
 
     records.slice(0, displayLimit).forEach(r => {
       const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
-      const availColor = r.avail >= 98 ? "#16a34a" : (r.avail >= 94 ? "#d97706" : "#dc2626");
+      const availColor = r.avail >= 98 ? "#16a34a" : (r.avail >= 94 ? "#d97706" : (r.avail >= 90 ? "#ea580c" : "#dc2626"));
 
       tbody.innerHTML += `
         <tr>
           <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
           <td>${r.siteName}</td>
           <td>${r.ssa}</td>
           <td>${catBadge}</td>
@@ -1058,34 +1233,239 @@
     });
   }
 
+  // =========================================================================
+  // SUB-MODULE 2: DEGRADED SITES TRACKER LOGIC
+  // =========================================================================
+  let degradedSitesList = [];
+
+  function runDegradedAnalysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const prevDate = document.getElementById("deg-prev-date").value;
+    const nextDate = document.getElementById("deg-next-date").value;
+    const selectedSsa = document.getElementById("deg-ssa-select").value;
+
+    if (!prevDate || !nextDate || prevDate === nextDate) {
+      document.getElementById("degraded-sites-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
+      return;
+    }
+
+    // Build map for previous date sites
+    const prevMap = {};
+    let baseHealthyCount = 0;
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        if (selectedSsa === "ALL" || r.ssa === selectedSsa) {
+          prevMap[r.siteId] = r;
+          if (r.avail >= 98.0) baseHealthyCount++;
+        }
+      }
+    });
+
+    // Check next date sites
+    degradedSitesList = [];
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === nextDate) {
+        if (selectedSsa === "ALL" || r.ssa === selectedSsa) {
+          const prevRec = prevMap[r.siteId];
+          if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
+            const drop = (r.avail - prevRec.avail).toFixed(2);
+            degradedSitesList.push({
+              siteId: r.siteId,
+              btsIp: r.btsIp,
+              siteName: r.siteName,
+              ssa: r.ssa,
+              category: r.category,
+              prevAvail: prevRec.avail,
+              nextAvail: r.avail,
+              dropDelta: drop,
+              bucket: r.bucket,
+              l1: r.l1,
+              media: r.media
+            });
+          }
+        }
+      }
+    });
+
+    // Sort by largest drop first
+    degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
+
+    // Update Degraded KPIs
+    document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
+    document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
+    const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
+    document.getElementById("deg-kpi-rate").innerText = rate + "%";
+
+    // Render Table
+    const tbody = document.getElementById("degraded-sites-tbody");
+    tbody.innerHTML = "";
+    if (degradedSitesList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">Great! No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
+      return;
+    }
+
+    degradedSitesList.forEach(r => {
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${r.category}</td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${r.prevAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.nextAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.dropDelta}%</td>
+          <td>${r.bucket}</td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+        </tr>`;
+    });
+  }
+
+  function exportDegradedSitesExcel() {
+    if (!degradedSitesList || degradedSitesList.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(degradedSitesList);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Degraded_Sites");
+    XLSX.writeFile(wb, "Degraded_Sites_Comparison.xlsx");
+  }
+
+  // =========================================================================
+  // SUB-MODULE 3: ESCALATION DASHBOARD & TARGET TRACKER LOGIC
+  // =========================================================================
+  let escalationData = [];
+
+  function renderEscalationDashboard() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const chosenDate = document.getElementById("esc-date-select").value;
+    const targetPct = parseFloat(document.getElementById("esc-target-select").value) || 75.0;
+    const searchVal = (document.getElementById("esc-search-input").value || "").toLowerCase().trim();
+
+    const dateRecords = dbnRawRecords.filter(r => r.reportDate === chosenDate);
+    const inchargeMap = {};
+
+    dateRecords.forEach(r => {
+      const officer = r.l1 || "Unassigned";
+      const key = r.ssa + "____" + officer;
+      if (!inchargeMap[key]) {
+        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0 };
+      }
+      inchargeMap[key].total++;
+      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
+      else if (r.bucket === "94-98%") inchargeMap[key].mid94++;
+      else if (r.bucket === "90-94%") inchargeMap[key].low90++;
+      else inchargeMap[key].lt90++;
+    });
+
+    escalationData = Object.values(inchargeMap).map(d => {
+      const actualPct = d.total > 0 ? (d.gte98 / d.total) * 100 : 0;
+      const targetCountNeeded = Math.ceil((targetPct / 100) * d.total);
+      const shortfall = Math.max(0, targetCountNeeded - d.gte98);
+      return {
+        ssa: d.ssa,
+        officer: d.officer,
+        total: d.total,
+        gte98: d.gte98,
+        mid94: d.mid94,
+        low90: d.low90,
+        lt90: d.lt90,
+        actualPct: actualPct,
+        targetCountNeeded: targetCountNeeded,
+        shortfall: shortfall
+      };
+    });
+
+    // Sort by largest shortfall first (lagging officers on top)
+    escalationData.sort((a, b) => b.shortfall - a.shortfall);
+
+    const tbody = document.getElementById("escalation-tbody");
+    tbody.innerHTML = "";
+
+    const filtered = escalationData.filter(d => {
+      if (searchVal && !d.officer.toLowerCase().includes(searchVal) && !d.ssa.toLowerCase().includes(searchVal)) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach(d => {
+      const pGte = d.total > 0 ? ((d.gte98 / d.total) * 100).toFixed(1) : 0;
+      const pMid = d.total > 0 ? ((d.mid94 / d.total) * 100).toFixed(1) : 0;
+      const pLow = d.total > 0 ? ((d.low90 / d.total) * 100).toFixed(1) : 0;
+      const pLt  = d.total > 0 ? ((d.lt90  / d.total) * 100).toFixed(1) : 0;
+
+      const statusBadge = d.shortfall > 0 
+        ? `<span class="badge-lag">Lagging (-${d.shortfall})</span>` 
+        : `<span class="badge-ok">Target Met</span>`;
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${d.ssa}</td>
+          <td><strong>${d.officer}</strong></td>
+          <td class="num">${d.total}</td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${d.gte98} (${pGte}%)</td>
+          <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
+          <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90} (${pLt}%)</td>
+          <td class="num"><strong>${d.actualPct.toFixed(1)}%</strong></td>
+          <td class="num">${d.targetCountNeeded} sites</td>
+          <td class="num" style="color:${d.shortfall > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${d.shortfall} sites</td>
+          <td style="text-align:center;">${statusBadge}</td>
+        </tr>`;
+    });
+  }
+
+  function exportEscalationExcel() {
+    if (!escalationData || escalationData.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(escalationData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Escalation_Matrix");
+    XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
+  }
+
+  // =========================================================================
+  // EXPORT UTILITIES FOR DBN
+  // =========================================================================
   function exportDbnSummaryExcel() {
     const ssaAgg = {};
     dbnFilteredRecords.forEach(r => {
-      if (!ssaAgg[r.ssa]) ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, lt94: 0, availSum: 0 };
+      if (!ssaAgg[r.ssa]) ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
       ssaAgg[r.ssa].total++;
       ssaAgg[r.ssa].availSum += r.avail;
       if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
       else ssaAgg[r.ssa].ndbn++;
-      if (r.avail >= 98) ssaAgg[r.ssa].gte98++;
-      else if (r.avail >= 94) ssaAgg[r.ssa].mid94++;
-      else ssaAgg[r.ssa].lt94++;
+      if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
+      else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
+      else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
+      else ssaAgg[r.ssa].lt90++;
     });
 
-    const rows = Object.keys(ssaAgg).sort().map(s => ({
-      "SSA": s,
-      "Total Sites": ssaAgg[s].total,
-      "DBN Count": ssaAgg[s].dbn,
-      "NDBN Count": ssaAgg[s].ndbn,
-      ">=98% Healthy": ssaAgg[s].gte98,
-      "94-98% Degraded": ssaAgg[s].mid94,
-      "<94% Outage": ssaAgg[s].lt94,
-      "Average Avail %": (ssaAgg[s].availSum / ssaAgg[s].total).toFixed(2) + "%"
-    }));
+    const rows = Object.keys(ssaAgg).sort().map(s => {
+      const a = ssaAgg[s];
+      return {
+        "SSA": s,
+        "Total Sites": a.total,
+        "DBN Count": a.dbn,
+        "NDBN Count": a.ndbn,
+        ">=98% Count": a.gte98,
+        ">=98% Share %": ((a.gte98 / a.total) * 100).toFixed(1) + "%",
+        "94-98% Count": a.mid94,
+        "94-98% Share %": ((a.mid94 / a.total) * 100).toFixed(1) + "%",
+        "90-94% Count": a.low90,
+        "90-94% Share %": ((a.low90 / a.total) * 100).toFixed(1) + "%",
+        "<90% Count": a.lt90,
+        "<90% Share %": ((a.lt90 / a.total) * 100).toFixed(1) + "%",
+        "Average Avail %": (a.availSum / a.total).toFixed(2) + "%"
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "SSA_Summary");
-    XLSX.writeFile(wb, "DBN_NDBN_SSA_Summary.xlsx");
+    XLSX.writeFile(wb, "DBN_NDBN_SSA_Summary_4Buckets.xlsx");
   }
 
   function exportDbnSitesExcel() {
@@ -1095,8 +1475,8 @@
       "SSA": r.ssa,
       "BA": r.ba,
       "Site ID": r.siteId,
+      "Site IP ID": r.btsIp,
       "Site Name": r.siteName,
-      "BTS IP ID": r.btsIp,
       "Category": r.category,
       "Availability %": r.avail,
       "Bucket": r.bucket,
@@ -1113,7 +1493,7 @@
   }
 
   // =========================================================================
-  // TOP-LEVEL NAVIGATION & INITIALIZATION
+  // NAVIGATION & INITIALIZATION
   // =========================================================================
   function switchModule(modId, btn) {
     document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
@@ -1130,8 +1510,15 @@
   }
 
   function switchSubTab(viewId, btn) {
-    document.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".sub-section").forEach(s => s.style.display = "none");
+    document.querySelectorAll("#mod-infra .sub-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("#mod-infra .sub-section").forEach(s => s.style.display = "none");
+    document.getElementById(viewId).style.display = "block";
+    if (btn) btn.classList.add("active");
+  }
+
+  function switchDbnSubTab(viewId, btn) {
+    document.querySelectorAll("#mod-dbn .sub-tabs .sub-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".dbn-sub-section").forEach(s => s.style.display = "none");
     document.getElementById(viewId).style.display = "block";
     if (btn) btn.classList.add("active");
   }
