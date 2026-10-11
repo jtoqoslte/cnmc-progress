@@ -4,24 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Report & Tracker</title>
-  <!-- Data processing and export libraries -->
+  <!-- Libraries for CSV Parsing, Excel Export, PDF Export & Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     :root {
       --primary: #003366;
       --secondary: #d97706;
       --bg: #f8fafc;
-      --card-bg: rgba(255, 255, 255, 0.94);
+      --card-bg: rgba(255, 255, 255, 0.95);
       --text: #0f172a;
       --border: #cbd5e1;
     }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     
-    /* Page setup with BSNL Watermark background */
+    /* BSNL Watermark Background */
     body {
       margin: 0;
       padding: 20px;
@@ -47,12 +48,12 @@
       z-index: 0;
     }
 
-    .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; }
+    .container { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
     h1 { margin: 0; font-size: 24px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
 
-    /* Module Navigation Bar */
+    /* Module Navigation */
     .module-nav { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; }
     .module-btn { background: #e2e8f0; border: none; padding: 12px 22px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 15px; color: #334155; transition: all 0.2s ease; }
     .module-btn:hover { background: #cbd5e1; }
@@ -63,7 +64,6 @@
     .sub-tab-btn { background: #f1f5f9; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; color: #475569; }
     .sub-tab-btn.active { background: #0284c7; color: white; border-color: #0284c7; }
 
-    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { opacity: 0.9; }
@@ -71,10 +71,16 @@
     .btn-red { background: #dc2626; color: white; }
     .btn-sm { padding: 4px 8px; font-size: 11px; }
 
-    /* Global Toolbar */
-    .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    /* Filter Toolbars */
+    .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .toolbar-group { display: flex; align-items: center; gap: 8px; }
-    .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; min-width: 200px; background: white; }
+    .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; }
+
+    /* Slicer Button Pill Group */
+    .slicer-group { display: flex; gap: 6px; }
+    .slicer-btn { border: 1px solid var(--border); background: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .slicer-btn:hover { background: #f1f5f9; }
+    .slicer-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
     .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px; }
     .kpi-card { background: var(--card-bg); backdrop-filter: blur(4px); padding: 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -85,7 +91,7 @@
     h2 { font-size: 17px; margin-top: 0; margin-bottom: 14px; color: var(--text); }
 
     table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; }
-    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th, td { padding: 9px 11px; text-align: left; border-bottom: 1px solid var(--border); }
     th { background: #f1f5f9; font-weight: 600; color: #334155; position: sticky; top: 0; z-index: 1; }
     tr:hover { background: #f8fafc; }
     .clickable-row { cursor: pointer; }
@@ -93,7 +99,7 @@
     .num { text-align: right; }
     .circle-row { font-weight: bold; background: #e2e8f0; }
 
-    .progress-track { background: #e2e8f0; border-radius: 4px; height: 16px; width: 90px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+    .progress-track { background: #e2e8f0; border-radius: 4px; height: 14px; width: 80px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
     .progress-fill { height: 100%; }
     .progress-fill.high { background: #22c55e; }
     .progress-fill.mid { background: #f59e0b; }
@@ -102,15 +108,18 @@
     .table-container { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
     .heat-cell { text-align: right; font-variant-numeric: tabular-nums; }
 
-    /* Modal / Popup Styles */
+    /* Modal / Popup */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
     .modal-card { background: white; width: 100%; max-width: 1000px; max-height: 90vh; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
     .modal-header { padding: 16px 20px; background: #f1f5f9; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
     .modal-header h3 { margin: 0; font-size: 17px; color: var(--primary); }
     .modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
-    .modal-actions { display: flex; gap: 8px; align-items: center; }
     .close-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; color: #64748b; }
     .missing-tag { display: inline-block; background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin: 2px; }
+
+    /* Badges */
+    .badge-dbn { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
+    .badge-ndbn { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
   </style>
 </head>
 <body>
@@ -119,10 +128,10 @@
   <div class="header">
     <div>
       <h1>J&K CM Report & Tracker</h1>
-      <div class="status-bar" id="status-bar">Connecting to live sheet...</div>
+      <div class="status-bar" id="status-bar">Connecting to live feeds...</div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-primary" onclick="fetchAndRender()">↻ Refresh Live Data</button>
+      <button class="btn btn-primary" onclick="refreshCurrentModule()">↻ Refresh Live Data</button>
     </div>
   </div>
 
@@ -132,7 +141,7 @@
       🏢 CNMC Site Infra & Power Report Tracker
     </button>
     <button class="module-btn" id="btn-mod-dbn" onclick="switchModule('mod-dbn', this)">
-      📊 DBN_NDBN Avail
+      📊 DBN_NDBN Avail Dashboard
     </button>
   </div>
 
@@ -140,7 +149,6 @@
   <!-- MODULE 1: CNMC SITE INFRA & POWER REPORT TRACKER                          -->
   <!-- ========================================================================= -->
   <div id="mod-infra">
-    <!-- Global Filter Toolbar -->
     <div class="toolbar">
       <div class="toolbar-group">
         <label for="global-ba-filter"><strong>Filter BA / SSA:</strong></label>
@@ -149,7 +157,7 @@
         </select>
       </div>
 
-      <div class="toolbar-group" style="flex: 1; max-width: 480px;">
+      <div class="toolbar-group" style="flex: 1; max-width: 460px;">
         <label for="site-search-input"><strong>Search Site:</strong></label>
         <input type="text" id="site-search-input" placeholder="Type phy_site_id or bts_name..." oninput="handleInstantSiteSearch(this.value)" style="width: 100%;">
       </div>
@@ -164,7 +172,7 @@
       <div class="kpi-card"><div class="title">Fill Completion %</div><div class="value" id="kpi-circle-pct">-</div></div>
     </div>
 
-    <!-- Module 1 Internal Views -->
+    <!-- Sub Tabs inside Module 1 -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchSubTab('oa-view', this)">1. OA / SSA Summary</button>
       <button class="sub-tab-btn" onclick="switchSubTab('owner-view', this)">2. L1 / In-Charge Summary</button>
@@ -174,7 +182,7 @@
 
     <!-- VIEW 1: OA SUMMARY -->
     <div class="section sub-section" id="oa-view">
-      <h2>OA / SSA-Wise Completion Status <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click row to view pending sites list)</span></h2>
+      <h2>OA / SSA-Wise Completion Status <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click row to inspect sites)</span></h2>
       <div class="table-container">
         <table>
           <thead>
@@ -197,7 +205,7 @@
     <!-- VIEW 2: OWNER SUMMARY -->
     <div class="section sub-section" id="owner-view" style="display:none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-        <h2 style="margin: 0;">Site In-Charge (L1 / L2) Progress <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click row to view site breakdown)</span></h2>
+        <h2 style="margin: 0;">Site In-Charge (L1 / L2) Progress</h2>
         <input type="text" id="owner-search" placeholder="Filter In-Charge Name..." onkeyup="renderOwnerTable()" style="padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" />
       </div>
       <div class="table-container">
@@ -255,44 +263,137 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODULE 2: DBN_NDBN AVAIL                                                  -->
+  <!-- MODULE 2: NATIVE DBN_NDBN AVAIL DASHBOARD (GOOGLE SHEET CSV POWERED)       -->
   <!-- ========================================================================= -->
   <div id="mod-dbn" style="display: none;">
-    <div class="section" style="padding: 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-        <div>
-          <h2 style="margin: 0;">DBN_NDBN Avail Interactive Operational Report</h2>
-          <span style="font-size: 12px; color: #64748b;">Interactive slicers & pivots active directly below</span>
-        </div>
-        <!-- Working full-screen link that opens directly without login or app prompts -->
-        <a href="https://1drv.ms/x/c/7cf6abb2cbc6695d/IQAanksCu2fNRY5p_dJ8RYNxAV9cpEotjnRUFvXT7Zs9JVQ?em=2" 
-           target="_blank" 
-           rel="noopener noreferrer" 
-           class="btn btn-primary btn-sm">
-          ↗ Open Full Screen (Browser Mode)
-        </a>
+    <!-- Slicer & Filter Toolbar -->
+    <div class="toolbar">
+      <!-- Date Selector -->
+      <div class="toolbar-group">
+        <label for="dbn-date-select"><strong>Report Date:</strong></label>
+        <select id="dbn-date-select" onchange="applyDbnFilters()"></select>
       </div>
-      
-      <!-- Embedded Excel Viewer with Full Sandbox & Cookie Permissions -->
-      <div style="position: relative; width: 100%; height: 84vh; min-height: 650px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #ffffff;">
-        <iframe 
-          id="excel-embed-iframe"
-          data-src="https://onedrive.live.com/embed?resid=7CF6ABB2CBC6695D!106&authkey=!AF9cpEotjnRUFvU&em=2&wdAllowInteractivity=True&wdHideGridlines=True&wdDownloadButton=True"
-          src="about:blank"
-          width="100%" 
-          height="100%" 
-          frameborder="0" 
-          scrolling="yes"
-          allowfullscreen="true"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
-          style="width: 100%; height: 100%; border: none; display: block;">
-        </iframe>
+
+      <!-- SSA / BA Dropdown -->
+      <div class="toolbar-group">
+        <label for="dbn-ssa-select"><strong>SSA:</strong></label>
+        <select id="dbn-ssa-select" onchange="applyDbnFilters()">
+          <option value="ALL">All SSAs (Circle)</option>
+        </select>
+      </div>
+
+      <!-- Category Slicer -->
+      <div class="toolbar-group">
+        <label><strong>Category:</strong></label>
+        <div class="slicer-group" id="slicer-category">
+          <button class="slicer-btn active" data-val="ALL" onclick="setCategorySlicer('ALL', this)">ALL</button>
+          <button class="slicer-btn" data-val="DBN" onclick="setCategorySlicer('DBN', this)">DBN</button>
+          <button class="slicer-btn" data-val="NDBN" onclick="setCategorySlicer('NDBN', this)">NDBN</button>
+        </div>
+      </div>
+
+      <!-- Availability Bucket Slicer -->
+      <div class="toolbar-group">
+        <label><strong>Bucket:</strong></label>
+        <div class="slicer-group" id="slicer-bucket">
+          <button class="slicer-btn active" data-val="ALL" onclick="setBucketSlicer('ALL', this)">ALL</button>
+          <button class="slicer-btn" data-val=">=98%" onclick="setBucketSlicer('>=98%', this)">≥98%</button>
+          <button class="slicer-btn" data-val="94-98%" onclick="setBucketSlicer('94-98%', this)">94-98%</button>
+          <button class="slicer-btn" data-val="<94%" onclick="setBucketSlicer('<94%', this)">&lt;94%</button>
+        </div>
+      </div>
+
+      <!-- Search Input -->
+      <div class="toolbar-group" style="flex: 1; min-width: 240px;">
+        <input type="text" id="dbn-search-input" placeholder="Search Site ID / Name / IP..." oninput="applyDbnFilters()" style="width: 100%;">
+      </div>
+    </div>
+
+    <!-- DBN KPI Cards -->
+    <div class="kpi-container">
+      <div class="kpi-card"><div class="title">Total Sites</div><div class="value" id="dbn-kpi-total">-</div></div>
+      <div class="kpi-card"><div class="title">Avg Network Avail %</div><div class="value" id="dbn-kpi-avail">-</div></div>
+      <div class="kpi-card"><div class="title">DBN Sites</div><div class="value" id="dbn-kpi-dbn">-</div></div>
+      <div class="kpi-card"><div class="title">NDBN Sites</div><div class="value" id="dbn-kpi-ndbn">-</div></div>
+      <div class="kpi-card"><div class="title">Critical Sites (&lt;94%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
+    </div>
+
+    <!-- Chart Analytics Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <!-- Chart 1: Availability Buckets -->
+      <div class="section" style="margin-bottom: 0; padding: 14px;">
+        <h2 style="font-size: 15px;">Availability Bucket Split</h2>
+        <div style="position: relative; height: 240px;">
+          <canvas id="dbnBucketChart"></canvas>
+        </div>
+      </div>
+      <!-- Chart 2: SSA Performance -->
+      <div class="section" style="margin-bottom: 0; padding: 14px;">
+        <h2 style="font-size: 15px;">SSA-Wise Avg Availability %</h2>
+        <div style="position: relative; height: 240px;">
+          <canvas id="dbnSsaChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- DBN Summary Table -->
+    <div class="section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <h2 style="margin:0;">SSA Availability Summary Breakdown</h2>
+        <button class="btn btn-green btn-sm" onclick="exportDbnSummaryExcel()">📥 Export Summary Excel</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>SSA Name</th>
+              <th class="num">Total Sites</th>
+              <th class="num">DBN</th>
+              <th class="num">NDBN</th>
+              <th class="num">≥98%</th>
+              <th class="num">94-98%</th>
+              <th class="num">&lt;94% (Outage)</th>
+              <th class="num">Avg Availability %</th>
+            </tr>
+          </thead>
+          <tbody id="dbn-summary-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DBN Detailed Site Inspection Table -->
+    <div class="section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <div>
+          <h2 style="margin:0;">Site-Level Details & Outage Inspector</h2>
+          <span id="dbn-site-count-badge" style="font-size:12px; color:#64748b;">Showing top matching records</span>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="exportDbnSitesExcel()">📥 Export Filtered Sites Excel</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Phy Site ID</th>
+              <th>Site Name</th>
+              <th>SSA</th>
+              <th>Category</th>
+              <th class="num">Avail %</th>
+              <th>Bucket</th>
+              <th>L1 Officer</th>
+              <th>Media</th>
+              <th class="num">Voice Erl</th>
+              <th class="num">Data (GB)</th>
+            </tr>
+          </thead>
+          <tbody id="dbn-detail-tbody"></tbody>
+        </table>
       </div>
     </div>
   </div>
 </div>
 
-<!-- DRILL-DOWN MODAL POPUP -->
+<!-- DRILL-DOWN MODAL FOR CNMC INFRA TRACKER -->
 <div class="modal-overlay" id="drilldown-modal">
   <div class="modal-card">
     <div class="modal-header">
@@ -300,7 +401,7 @@
         <h3 id="modal-title">Site Details</h3>
         <span id="modal-subtitle" style="font-size: 12px; color: #64748b;"></span>
       </div>
-      <div class="modal-actions">
+      <div class="modal-actions" style="display:flex; gap:8px;">
         <button class="btn btn-green btn-sm" onclick="exportModalSitesToExcel()">📥 Export Excel</button>
         <button class="btn btn-red btn-sm" onclick="exportModalSitesToPDF()">📄 Export PDF</button>
         <button class="close-btn" onclick="closeModal()">&times;</button>
@@ -329,18 +430,24 @@
 
 <script>
   // =========================================================================
-  // LIVE GOOGLE SHEET CSV FEED CONFIGURATION
+  // ENDPOINT URLS
   // =========================================================================
-  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
+  // Module 1 (CNMC Infra Tracker Sheet)
+  const SHEET_INFRA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
+  
+  // Module 2 (New DBN_NDBN Master Consolidated Sheet)
+  const SHEET_DBN_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=551656182&single=true&output=csv";
 
-  // Excluded columns: P (15), AF:AK (31:36), AQ:AZ (42:51)
+  // Module state
+  let currentActiveModule = "mod-infra";
+  let dbnDataLoaded = false;
+
+  // =========================================================================
+  // MODULE 1: CNMC SITE INFRA LOGIC
+  // =========================================================================
   const EXCLUDED_INDICES = new Set([15, 31, 32, 33, 34, 35, 36, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]);
-
-  let rawDataRows = [];
-  let globalHeaders = [];
-  let cachedSites = [];
-  let currentModalSites = [];
-  let currentModalEntityName = "";
+  let rawDataRows = [], globalHeaders = [], cachedSites = [];
+  let currentModalSites = [], currentModalEntityName = "";
 
   function getMandatoryIndices(totalCols) {
     const indices = [];
@@ -351,99 +458,45 @@
     return indices;
   }
 
-  // Module Switching: Lazy loads iframe on user click
-  function switchModule(modId, btn) {
-    document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
-    document.getElementById("mod-infra").style.display = "none";
-    document.getElementById("mod-dbn").style.display = "none";
-
-    document.getElementById(modId).style.display = "block";
-    btn.classList.add("active");
-
-    // Only load OneDrive embed when tab is clicked to avoid hidden iframe timeout
-    if (modId === "mod-dbn") {
-      const iframe = document.getElementById("excel-embed-iframe");
-      if (iframe && !iframe.getAttribute("data-loaded")) {
-        iframe.setAttribute("data-loaded", "true");
-        iframe.src = iframe.getAttribute("data-src");
-      }
-    }
-  }
-
-  // Sub Tab Switching inside Module 1
-  function switchSubTab(viewId, btn) {
-    document.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".sub-section").forEach(s => s.style.display = "none");
-    document.getElementById(viewId).style.display = "block";
-    if (btn) btn.classList.add("active");
-  }
-
-  // Fetch sheet with fallback resilience
-  async function fetchAndRender() {
+  async function fetchAndRenderInfra() {
     const status = document.getElementById("status-bar");
-    status.innerText = "Connecting to live sheet...";
-
-    const targetUrl = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+    status.innerText = "Connecting to CNMC live sheet...";
+    const targetUrl = SHEET_INFRA_URL + (SHEET_INFRA_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
 
     try {
       let res = await fetch(targetUrl);
       if (!res.ok) throw new Error("Status: " + res.status);
       let csvText = await res.text();
-
-      if (csvText.trim().startsWith("<!DOCTYPE") || csvText.trim().startsWith("<html")) {
-        throw new Error("Received HTML login page instead of CSV data.");
-      }
-
       Papa.parse(csvText, {
         skipEmptyLines: true,
         complete: function(results) {
-          if (!results.data || results.data.length < 2) {
-            status.innerText = "⚠️ Received empty or invalid sheet data.";
-            return;
-          }
-          processRawData(results.data);
+          processRawInfraData(results.data);
           status.innerText = "Live Connected • Updated: " + new Date().toLocaleTimeString();
-        },
-        error: function(err) {
-          status.innerText = "⚠️ CSV parse error: " + err.message;
         }
       });
-    } catch (directErr) {
-      console.warn("Direct fetch failed, trying proxy route:", directErr);
-      status.innerText = "Direct route busy, fetching backup feed...";
-
+    } catch (err) {
+      console.warn("Direct fetch busy, trying proxy route...", err);
       try {
-        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        let proxyRes = await fetch(proxyUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!proxyRes.ok) throw new Error("Proxy error: " + proxyRes.status);
+        let proxyRes = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl));
         let proxyCsv = await proxyRes.text();
-
         Papa.parse(proxyCsv, {
           skipEmptyLines: true,
           complete: function(results) {
-            processRawData(results.data);
+            processRawInfraData(results.data);
             status.innerText = "Live Connected (Backup) • " + new Date().toLocaleTimeString();
           }
         });
       } catch (backupErr) {
-        console.error("Backup route failed:", backupErr);
-        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Connection failed.</span> Check console (F12) for details.`;
+        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Connection failed.</span>`;
       }
     }
   }
 
-  function processRawData(rows) {
+  function processRawInfraData(rows) {
     if (!rows || rows.length < 2) return;
     globalHeaders = rows[0];
     rawDataRows = rows.slice(1);
-
     const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
-    const mandatoryCount = mandatoryIndices.length;
 
     cachedSites = rawDataRows.map(row => {
       const ba = (row[1] || "").trim();
@@ -455,23 +508,13 @@
 
       let filledCount = 0;
       const missingFields = [];
-
       mandatoryIndices.forEach(idx => {
         const val = row[idx];
-        if (val && val.toString().trim() !== "") {
-          filledCount++;
-        } else {
-          missingFields.push(globalHeaders[idx] || ("Col_" + idx));
-        }
+        if (val && val.toString().trim() !== "") filledCount++;
+        else missingFields.push(globalHeaders[idx] || ("Col_" + idx));
       });
 
-      const fillPct = (filledCount / mandatoryCount) * 100;
-
-      return {
-        ba, ssa, phyId, btsName, l1, l2,
-        filledCount, missingFields, fillPct,
-        rawRow: row
-      };
+      return { ba, ssa, phyId, btsName, l1, l2, filledCount, missingFields, fillPct: (filledCount / 41) * 100, rawRow: row };
     }).filter(s => s.ssa !== "");
 
     populateGlobalBAFilter();
@@ -482,43 +525,27 @@
     const select = document.getElementById("global-ba-filter");
     const currentVal = select.value;
     const filterOptions = new Set();
-
     cachedSites.forEach(s => {
       if (s.ba) filterOptions.add("BA: " + s.ba);
       if (s.ssa) filterOptions.add("SSA: " + s.ssa);
     });
-
     select.innerHTML = '<option value="ALL">All BAs & SSAs (Circle View)</option>';
-    Array.from(filterOptions).sort().forEach(opt => {
-      select.innerHTML += `<option value="${opt}">${opt}</option>`;
-    });
-
-    if (Array.from(select.options).some(o => o.value === currentVal)) {
-      select.value = currentVal;
-    }
+    Array.from(filterOptions).sort().forEach(opt => select.innerHTML += `<option value="${opt}">${opt}</option>`);
+    if (Array.from(select.options).some(o => o.value === currentVal)) select.value = currentVal;
   }
 
   function applyGlobalFilters() {
     const selectedFilter = document.getElementById("global-ba-filter").value;
-
     let filtered = cachedSites;
-    if (selectedFilter.startsWith("BA: ")) {
-      const ba = selectedFilter.replace("BA: ", "");
-      filtered = cachedSites.filter(s => s.ba === ba);
-    } else if (selectedFilter.startsWith("SSA: ")) {
-      const ssa = selectedFilter.replace("SSA: ", "");
-      filtered = cachedSites.filter(s => s.ssa === ssa);
-    }
-
+    if (selectedFilter.startsWith("BA: ")) filtered = cachedSites.filter(s => s.ba === selectedFilter.replace("BA: ", ""));
+    else if (selectedFilter.startsWith("SSA: ")) filtered = cachedSites.filter(s => s.ssa === selectedFilter.replace("SSA: ", ""));
     renderDashboardWithSites(filtered);
   }
 
   function renderDashboardWithSites(sites) {
     const totalSites = sites.length;
     let notStarted = 0, inProgress = 0, completed = 0, totalFilled = 0;
-
-    const ssaMap = {};
-    const ownerMap = {};
+    const ssaMap = {}, ownerMap = {};
     const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
 
     sites.forEach(s => {
@@ -539,14 +566,11 @@
       else ssaMap[s.ssa].inProgress++;
 
       mandatoryIndices.forEach(idx => {
-        const val = s.rawRow[idx];
-        if (val && val.toString().trim() !== "") ssaMap[s.ssa].fieldCounts[idx]++;
+        if (s.rawRow[idx] && s.rawRow[idx].toString().trim() !== "") ssaMap[s.ssa].fieldCounts[idx]++;
       });
 
       const ownerKey = s.ssa + "____" + s.l1;
-      if (!ownerMap[ownerKey]) {
-        ownerMap[ownerKey] = { ssa: s.ssa, l1: s.l1, l2: s.l2, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, sites: [] };
-      }
+      if (!ownerMap[ownerKey]) ownerMap[ownerKey] = { ssa: s.ssa, l1: s.l1, l2: s.l2, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, sites: [] };
       ownerMap[ownerKey].total++;
       ownerMap[ownerKey].filledFieldsSum += s.filledCount;
       ownerMap[ownerKey].sites.push(s);
@@ -556,7 +580,6 @@
     });
 
     const overallPct = totalSites > 0 ? (totalFilled / (totalSites * 41)) * 100 : 0;
-
     document.getElementById("kpi-total").innerText = totalSites.toLocaleString();
     document.getElementById("kpi-completed").innerText = completed.toLocaleString();
     document.getElementById("kpi-inprogress").innerText = inProgress.toLocaleString();
@@ -572,37 +595,24 @@
   function renderOATable(ssaMap, totalSites, notStarted, inProgress, completed, overallPct) {
     const tbody = document.getElementById("oa-tbody");
     tbody.innerHTML = "";
-
     Object.keys(ssaMap).sort().forEach(ssa => {
       const d = ssaMap[ssa];
       const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
       const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
-
       const tr = document.createElement("tr");
       tr.className = "clickable-row";
-      tr.title = "Click to inspect " + ssa + " sites";
       tr.onclick = () => openDrilldownModal("SSA: " + ssa, d.sites);
       tr.innerHTML = `
-        <td>${d.ba}</td>
-        <td><strong>${ssa}</strong> 🔍</td>
-        <td class="num">${d.total}</td>
-        <td class="num">${d.notStarted}</td>
-        <td class="num">${d.inProgress}</td>
-        <td class="num">${completed}</td>
+        <td>${d.ba}</td><td><strong>${ssa}</strong> 🔍</td>
+        <td class="num">${d.total}</td><td class="num">${d.notStarted}</td><td class="num">${d.inProgress}</td><td class="num">${d.completed}</td>
         <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
-        <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
-      `;
+        <td class="num"><strong>${pct.toFixed(1)}%</strong></td>`;
       tbody.appendChild(tr);
     });
-
     tbody.innerHTML += `
       <tr class="circle-row">
-        <td>TOTAL</td>
-        <td>CURRENT SELECTION</td>
-        <td class="num">${totalSites}</td>
-        <td class="num">${notStarted}</td>
-        <td class="num">${inProgress}</td>
-        <td class="num">${completed}</td>
+        <td>TOTAL</td><td>CURRENT SELECTION</td>
+        <td class="num">${totalSites}</td><td class="num">${notStarted}</td><td class="num">${inProgress}</td><td class="num">${completed}</td>
         <td class="num"><div class="progress-track"><div class="progress-fill ${overallPct >= 80 ? 'high' : 'mid'}" style="width:${overallPct}%"></div></div></td>
         <td class="num">${overallPct.toFixed(1)}%</td>
       </tr>`;
@@ -610,32 +620,24 @@
 
   function renderOwnerTable() {
     if (!window.activeOwnerMap) return;
-    const searchQuery = (document.getElementById("owner-search").value || "").toLowerCase();
+    const q = (document.getElementById("owner-search").value || "").toLowerCase();
     const tbody = document.getElementById("owner-tbody");
     tbody.innerHTML = "";
-
     Object.values(window.activeOwnerMap).forEach(d => {
-      if (searchQuery && !d.l1.toLowerCase().includes(searchQuery)) return;
-
+      if (q && !d.l1.toLowerCase().includes(q)) return;
       const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
       const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
-
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${d.ssa}</td>
-        <td class="clickable-row" title="Click to view sites" onclick="openDrilldownModal('L1: ${d.l1}', window.activeOwnerMap['${d.ssa}____${d.l1}'].sites)"><strong>${d.l1}</strong> 🔍</td>
-        <td>${d.l2}</td>
-        <td class="num">${d.total}</td>
-        <td class="num">${d.notStarted}</td>
-        <td class="num">${d.inProgress}</td>
-        <td class="num">${d.completed}</td>
+        <td class="clickable-row" onclick="openDrilldownModal('L1: ${d.l1}', window.activeOwnerMap['${d.ssa}____${d.l1}'].sites)"><strong>${d.l1}</strong> 🔍</td>
+        <td>${d.l2}</td><td class="num">${d.total}</td><td class="num">${d.notStarted}</td><td class="num">${d.inProgress}</td><td class="num">${d.completed}</td>
         <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
         <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
         <td style="text-align: center;">
           <button class="btn btn-green btn-sm" onclick="exportSingleIncharge('${d.ssa}____${d.l1}', 'excel')">Excel</button>
           <button class="btn btn-red btn-sm" onclick="exportSingleIncharge('${d.ssa}____${d.l1}', 'pdf')">PDF</button>
-        </td>
-      `;
+        </td>`;
       tbody.appendChild(tr);
     });
   }
@@ -644,11 +646,9 @@
     const ssaList = Object.keys(ssaMap).sort();
     const thead = document.getElementById("param-thead");
     const tbody = document.getElementById("param-tbody");
-
     let thHtml = `<tr><th>#</th><th>Parameter Name</th><th class="num">Overall %</th>`;
     ssaList.forEach(ssa => thHtml += `<th class="num">${ssa}</th>`);
-    thHtml += `</tr>`;
-    thead.innerHTML = thHtml;
+    thead.innerHTML = thHtml + `</tr>`;
 
     let rowsHtml = "";
     mandatoryIndices.forEach((idx, i) => {
@@ -656,21 +656,14 @@
       let filledTotal = 0;
       ssaList.forEach(ssa => filledTotal += ssaMap[ssa].fieldCounts[idx]);
       const paramPct = totalSitesCount > 0 ? (filledTotal / totalSitesCount) * 100 : 0;
-
-      let rHtml = `<tr>
-        <td>${i + 1}</td>
-        <td><strong>${paramName}</strong></td>
-        <td class="heat-cell" style="background:${getColor(paramPct)}"><strong>${paramPct.toFixed(1)}%</strong></td>`;
-
+      let rHtml = `<tr><td>${i + 1}</td><td><strong>${paramName}</strong></td><td class="heat-cell" style="background:${getColor(paramPct)}"><strong>${paramPct.toFixed(1)}%</strong></td>`;
       ssaList.forEach(ssa => {
         const ssaTotal = ssaMap[ssa].total;
         const ssaFilled = ssaMap[ssa].fieldCounts[idx];
         const pct = ssaTotal > 0 ? (ssaFilled / ssaTotal) * 100 : 0;
         rHtml += `<td class="heat-cell" style="background:${getColor(pct)}">${pct.toFixed(0)}%</td>`;
       });
-
-      rHtml += `</tr>`;
-      rowsHtml += rHtml;
+      rowsHtml += rHtml + `</tr>`;
     });
     tbody.innerHTML = rowsHtml;
   }
@@ -682,117 +675,65 @@
     return "#fee2e2";
   }
 
-  // Instant Site Search
-  function handleInstantSiteSearch(query) {
-    const q = (query || "").trim().toLowerCase();
-    const searchTabBtn = document.getElementById("search-tab-btn");
-
-    if (!q) {
-      searchTabBtn.style.display = "none";
+  function handleInstantSiteSearch(q) {
+    const term = (q || "").trim().toLowerCase();
+    const btn = document.getElementById("search-tab-btn");
+    if (!term) {
+      btn.style.display = "none";
       switchSubTab("oa-view", document.querySelectorAll(".sub-tab-btn")[0]);
       return;
     }
+    btn.style.display = "inline-block";
+    switchSubTab("search-view", btn);
 
-    searchTabBtn.style.display = "inline-block";
-    switchSubTab("search-view", searchTabBtn);
-
-    const matches = cachedSites.filter(s =>
-      s.phyId.toLowerCase().includes(q) || s.btsName.toLowerCase().includes(q)
-    );
-
+    const matches = cachedSites.filter(s => s.phyId.toLowerCase().includes(term) || s.btsName.toLowerCase().includes(term));
     const tbody = document.getElementById("search-tbody");
     tbody.innerHTML = "";
-
     if (matches.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b; padding:20px;">No site matching "${query}" found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#64748b;">No matching site found.</td></tr>`;
       return;
     }
-
     matches.slice(0, 50).forEach(s => {
       const missingHtml = s.missingFields.length === 0
-        ? '<span style="color:#16a34a; font-weight:bold;">All 41 Complete</span>'
+        ? '<span style="color:#16a34a; font-weight:bold;">All Complete</span>'
         : s.missingFields.map(m => `<span class="missing-tag">${m}</span>`).join(" ");
-
-      tbody.innerHTML += `
-        <tr>
-          <td><strong>${s.phyId}</strong></td>
-          <td>${s.btsName}</td>
-          <td>${s.ssa}</td>
-          <td>${s.l1}</td>
-          <td>${s.l2}</td>
-          <td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td>
-          <td>${missingHtml}</td>
-        </tr>
-      `;
+      tbody.innerHTML += `<tr><td><strong>${s.phyId}</strong></td><td>${s.btsName}</td><td>${s.ssa}</td><td>${s.l1}</td><td>${s.l2}</td><td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td><td>${missingHtml}</td></tr>`;
     });
   }
 
-  // Drill-down Modal
   function openDrilldownModal(entityName, sites) {
     currentModalEntityName = entityName;
     currentModalSites = sites;
-
     document.getElementById("modal-title").innerText = "Site Breakdown: " + entityName;
     document.getElementById("modal-subtitle").innerText = `Total: ${sites.length} sites`;
-
     const tbody = document.getElementById("modal-tbody");
     tbody.innerHTML = "";
-
     sites.forEach((s, i) => {
       const missingHtml = s.missingFields.length === 0
         ? '<span style="color:#16a34a; font-weight:bold;">All Complete</span>'
         : s.missingFields.map(m => `<span class="missing-tag">${m}</span>`).join(" ");
-
-      tbody.innerHTML += `
-        <tr>
-          <td>${i + 1}</td>
-          <td><strong>${s.phyId}</strong></td>
-          <td>${s.btsName}</td>
-          <td>${s.l1}</td>
-          <td class="num">${s.filledCount} / 41</td>
-          <td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td>
-          <td>${missingHtml}</td>
-        </tr>
-      `;
+      tbody.innerHTML += `<tr><td>${i + 1}</td><td><strong>${s.phyId}</strong></td><td>${s.btsName}</td><td>${s.l1}</td><td class="num">${s.filledCount}/41</td><td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td><td>${missingHtml}</td></tr>`;
     });
-
     document.getElementById("drilldown-modal").style.display = "flex";
   }
 
-  function closeModal() {
-    document.getElementById("drilldown-modal").style.display = "none";
-  }
+  function closeModal() { document.getElementById("drilldown-modal").style.display = "none"; }
 
-  // Exports
-  function exportSingleIncharge(ownerKey, format) {
-    const d = window.activeOwnerMap[ownerKey];
+  function exportSingleIncharge(k, fmt) {
+    const d = window.activeOwnerMap[k];
     if (!d || !d.sites) return;
-    if (format === 'excel') exportSitesExcel(d.sites, "CNMC_Report_" + d.l1.replace(/[^a-zA-Z0-9]/g, "_"));
-    if (format === 'pdf') exportSitesPDF(d.sites, "L1: " + d.l1 + " (" + d.ssa + ")");
+    if (fmt === 'excel') exportSitesExcel(d.sites, "CNMC_Report_" + d.l1.replace(/[^a-zA-Z0-9]/g, "_"));
+    if (fmt === 'pdf') exportSitesPDF(d.sites, "L1: " + d.l1 + " (" + d.ssa + ")");
   }
-
-  function exportModalSitesToExcel() {
-    exportSitesExcel(currentModalSites, "CNMC_Sites_" + currentModalEntityName.replace(/[^a-zA-Z0-9]/g, "_"));
-  }
-
-  function exportModalSitesToPDF() {
-    exportSitesPDF(currentModalSites, currentModalEntityName);
-  }
+  function exportModalSitesToExcel() { exportSitesExcel(currentModalSites, "CNMC_Sites_" + currentModalEntityName.replace(/[^a-zA-Z0-9]/g, "_")); }
+  function exportModalSitesToPDF() { exportSitesPDF(currentModalSites, currentModalEntityName); }
 
   function exportSitesExcel(sites, fileName) {
-    const data = sites.map((s, idx) => ({
-      "S.No": idx + 1,
-      "BA": s.ba,
-      "SSA": s.ssa,
-      "Phy Site ID": s.phyId,
-      "BTS Name": s.btsName,
-      "L1 Owner": s.l1,
-      "L2 Owner": s.l2,
-      "Filled (out of 41)": s.filledCount,
-      "Fill %": Math.round(s.fillPct) + "%",
+    const data = sites.map((s, i) => ({
+      "S.No": i + 1, "BA": s.ba, "SSA": s.ssa, "Phy Site ID": s.phyId, "BTS Name": s.btsName,
+      "L1 Owner": s.l1, "L2 Owner": s.l2, "Filled (/41)": s.filledCount, "Fill %": Math.round(s.fillPct) + "%",
       "Missing Parameters": s.missingFields.join(", ")
     }));
-
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Pending_Sites");
@@ -802,35 +743,407 @@
   function exportSitesPDF(sites, title) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'pt', 'a4');
-
-    doc.setFontSize(14);
-    doc.text("CNMC Pending Parameter Report - " + title, 40, 30);
-    doc.setFontSize(10);
-    doc.text("Generated on: " + new Date().toLocaleString(), 40, 46);
-
-    const tableRows = sites.map((s, idx) => [
-      idx + 1,
-      s.phyId,
-      s.btsName,
-      s.l1,
-      s.filledCount + "/41",
-      Math.round(s.fillPct) + "%",
-      s.missingFields.slice(0, 6).join(", ") + (s.missingFields.length > 6 ? ` (+${s.missingFields.length - 6} more)` : "")
+    doc.setFontSize(14); doc.text("CNMC Pending Parameter Report - " + title, 40, 30);
+    doc.setFontSize(10); doc.text("Generated: " + new Date().toLocaleString(), 40, 46);
+    const rows = sites.map((s, i) => [
+      i + 1, s.phyId, s.btsName, s.l1, s.filledCount + "/41", Math.round(s.fillPct) + "%",
+      s.missingFields.slice(0, 5).join(", ") + (s.missingFields.length > 5 ? ` (+${s.missingFields.length - 5})` : "")
     ]);
-
-    doc.autoTable({
-      startY: 55,
-      head: [['#', 'Phy Site ID', 'BTS Name', 'L1 Owner', 'Filled', 'Fill %', 'Missing Parameters']],
-      body: tableRows,
-      theme: 'striped',
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [0, 51, 102] }
-    });
-
+    doc.autoTable({ startY: 55, head: [['#', 'Site ID', 'BTS Name', 'L1 Owner', 'Filled', 'Fill %', 'Missing Params']], body: rows, theme: 'striped', styles: { fontSize: 8 }, headStyles: { fillColor: [0, 51, 102] } });
     doc.save("CNMC_Report_" + title.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf");
   }
 
-  window.onload = fetchAndRender;
+  // =========================================================================
+  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC (CLIENT-SIDE ENGINE)
+  // =========================================================================
+  let dbnRawRecords = [];
+  let dbnFilteredRecords = [];
+  let dbnAvailableDates = [];
+  let selectedCategory = "ALL";
+  let selectedBucket = "ALL";
+
+  let dbnBucketChartInstance = null;
+  let dbnSsaChartInstance = null;
+
+  async function fetchAndRenderDbn() {
+    const status = document.getElementById("status-bar");
+    status.innerText = "Downloading DBN_NDBN master dataset (61k rows)...";
+    const targetUrl = SHEET_DBN_URL + (SHEET_DBN_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+
+    try {
+      let res = await fetch(targetUrl);
+      if (!res.ok) throw new Error("Status: " + res.status);
+      let csvText = await res.text();
+      parseDbnCsv(csvText);
+    } catch (err) {
+      console.warn("Direct DBN fetch failed, trying proxy gateway...", err);
+      try {
+        let proxyRes = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl));
+        let proxyCsv = await proxyRes.text();
+        parseDbnCsv(proxyCsv);
+      } catch (backupErr) {
+        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error loading DBN dataset.</span>`;
+      }
+    }
+  }
+
+  function parseDbnCsv(csvText) {
+    const status = document.getElementById("status-bar");
+    status.innerText = "Processing 61,000+ records in browser memory...";
+
+    Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        const data = results.data;
+        if (!data || data.length === 0) {
+          status.innerText = "⚠️ DBN Dataset empty.";
+          return;
+        }
+
+        // Standardize rows using actual header names from Master_Consolidated
+        const dateSet = new Set();
+        dbnRawRecords = data.map(r => {
+          const ssa = (r["Circle SSA"] || r["SSA"] || "").trim();
+          const ba = (r["BA"] || "").trim();
+          const siteId = (r["Static_Site_Hierarchy.PHY_Site_ID"] || r["Site IDs"] || r["PHY_Site_ID"] || "").trim();
+          const siteName = (r["Static_Site_Hierarchy.Site Name"] || r["Site Name"] || "").trim();
+          const btsIp = (r["BTS_IP_ID_Clean"] || r["BTS IP ID"] || "").trim();
+          const cat = (r["CATEGORY"] || "").trim().toUpperCase();
+          const availStr = (r["Max NW avail (%)"] || r["Max NW avail"] || "0").toString().replace("%", "").trim();
+          const avail = parseFloat(availStr) || 0;
+          const bucket = (r["Avail_Bucket"] || (avail >= 98 ? ">=98%" : (avail >= 94 ? "94-98%" : "<94%"))).trim();
+          const reportDate = (r["Report Date"] || "").trim();
+          const l1 = (r["Static_Site_Hierarchy.CM L1_Name_number"] || "-").trim();
+          const media = (r["Static_Site_Hierarchy.Media"] || "-").trim();
+          const voiceErl = parseFloat(r["avg Voice_erl"]) || 0;
+          const dataGb = parseFloat(r["avg DATA(GB)"]) || 0;
+
+          if (reportDate) dateSet.add(reportDate);
+
+          return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, l1, media, voiceErl, dataGb };
+        }).filter(r => r.ssa !== "" && r.siteId !== "");
+
+        dbnAvailableDates = Array.from(dateSet).sort().reverse();
+        populateDbnControls();
+        dbnDataLoaded = true;
+        applyDbnFilters();
+        status.innerText = `DBN Connected • Loaded ${dbnRawRecords.length.toLocaleString()} rows • ${new Date().toLocaleTimeString()}`;
+      }
+    });
+  }
+
+  function populateDbnControls() {
+    // Populate Dates (Default to Latest Date)
+    const dateSelect = document.getElementById("dbn-date-select");
+    dateSelect.innerHTML = "";
+    if (dbnAvailableDates.length > 0) {
+      dbnAvailableDates.forEach(d => {
+        dateSelect.innerHTML += `<option value="${d}">${d}</option>`;
+      });
+      dateSelect.innerHTML += `<option value="ALL">All Available Dates</option>`;
+      dateSelect.value = dbnAvailableDates[0]; // Set default to latest
+    }
+
+    // Populate SSA
+    const ssaSelect = document.getElementById("dbn-ssa-select");
+    const ssaSet = new Set();
+    dbnRawRecords.forEach(r => { if (r.ssa) ssaSet.add(r.ssa); });
+    ssaSelect.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
+    Array.from(ssaSet).sort().forEach(s => {
+      ssaSelect.innerHTML += `<option value="${s}">${s}</option>`;
+    });
+  }
+
+  function setCategorySlicer(cat, btn) {
+    selectedCategory = cat;
+    document.querySelectorAll("#slicer-category .slicer-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    applyDbnFilters();
+  }
+
+  function setBucketSlicer(bucket, btn) {
+    selectedBucket = bucket;
+    document.querySelectorAll("#slicer-bucket .slicer-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    applyDbnFilters();
+  }
+
+  function applyDbnFilters() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const chosenDate = document.getElementById("dbn-date-select").value;
+    const chosenSsa = document.getElementById("dbn-ssa-select").value;
+    const searchVal = (document.getElementById("dbn-search-input").value || "").toLowerCase().trim();
+
+    dbnFilteredRecords = dbnRawRecords.filter(r => {
+      if (chosenDate !== "ALL" && r.reportDate !== chosenDate) return false;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (selectedCategory !== "ALL" && r.category !== selectedCategory) return false;
+      if (selectedBucket !== "ALL" && r.bucket !== selectedBucket) return false;
+      if (searchVal) {
+        const matches = r.siteId.toLowerCase().includes(searchVal) ||
+                        r.siteName.toLowerCase().includes(searchVal) ||
+                        r.btsIp.toLowerCase().includes(searchVal) ||
+                        r.l1.toLowerCase().includes(searchVal);
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    renderDbnDashboard();
+  }
+
+  function renderDbnDashboard() {
+    const total = dbnFilteredRecords.length;
+    let dbnCount = 0, ndbnCount = 0, availSum = 0;
+    let bGte98 = 0, b94to98 = 0, bLt94 = 0;
+
+    const ssaAgg = {};
+
+    dbnFilteredRecords.forEach(r => {
+      availSum += r.avail;
+      if (r.category === "DBN") dbnCount++;
+      else if (r.category === "NDBN") ndbnCount++;
+
+      if (r.avail >= 98 || r.bucket === ">=98%") bGte98++;
+      else if (r.avail >= 94 || r.bucket === "94-98%") b94to98++;
+      else bLt94++;
+
+      // SSA aggregate map
+      if (!ssaAgg[r.ssa]) {
+        ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, lt94: 0, availSum: 0 };
+      }
+      ssaAgg[r.ssa].total++;
+      ssaAgg[r.ssa].availSum += r.avail;
+      if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
+      else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
+
+      if (r.avail >= 98 || r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
+      else if (r.avail >= 94 || r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
+      else ssaAgg[r.ssa].lt94++;
+    });
+
+    const avgAvail = total > 0 ? (availSum / total).toFixed(2) : "0.00";
+
+    // Update KPIs
+    document.getElementById("dbn-kpi-total").innerText = total.toLocaleString();
+    document.getElementById("dbn-kpi-avail").innerText = avgAvail + "%";
+    document.getElementById("dbn-kpi-dbn").innerText = dbnCount.toLocaleString();
+    document.getElementById("dbn-kpi-ndbn").innerText = ndbnCount.toLocaleString();
+    document.getElementById("dbn-kpi-critical").innerText = bLt94.toLocaleString();
+
+    // Render Charts
+    renderDbnCharts(bGte98, b94to98, bLt94, ssaAgg);
+
+    // Render SSA Summary Table
+    renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, bGte98, b94to98, bLt94, avgAvail);
+
+    // Render Detailed Site List Table (top 100 for smooth DOM performance)
+    renderDbnDetailTable(dbnFilteredRecords);
+  }
+
+  function renderDbnCharts(gte98, mid94, lt94, ssaAgg) {
+    // 1. Doughnut Chart: Buckets
+    const ctxBucket = document.getElementById("dbnBucketChart").getContext("2d");
+    if (dbnBucketChartInstance) dbnBucketChartInstance.destroy();
+    dbnBucketChartInstance = new Chart(ctxBucket, {
+      type: "doughnut",
+      data: {
+        labels: ["≥98% Healthy", "94-98% Degraded", "<94% Outage"],
+        datasets: [{
+          data: [gte98, mid94, lt94],
+          backgroundColor: ["#22c55e", "#f59e0b", "#ef4444"],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } }
+      }
+    });
+
+    // 2. Bar Chart: SSA Performance
+    const ssaLabels = Object.keys(ssaAgg).sort();
+    const ssaAvailData = ssaLabels.map(s => {
+      const a = ssaAgg[s];
+      return a.total > 0 ? (a.availSum / a.total).toFixed(1) : 0;
+    });
+
+    const ctxSsa = document.getElementById("dbnSsaChart").getContext("2d");
+    if (dbnSsaChartInstance) dbnSsaChartInstance.destroy();
+    dbnSsaChartInstance = new Chart(ctxSsa, {
+      type: "bar",
+      data: {
+        labels: ssaLabels,
+        datasets: [{
+          label: "Avg Avail %",
+          data: ssaAvailData,
+          backgroundColor: "#003366",
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { min: 80, max: 100 } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  function renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, lt94, avgAvail) {
+    const tbody = document.getElementById("dbn-summary-tbody");
+    tbody.innerHTML = "";
+    Object.keys(ssaAgg).sort().forEach(s => {
+      const a = ssaAgg[s];
+      const ssaAvg = a.total > 0 ? (a.availSum / a.total).toFixed(2) : "0.00";
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${s}</strong></td>
+          <td class="num">${a.total}</td>
+          <td class="num"><span class="badge-dbn">${a.dbn}</span></td>
+          <td class="num"><span class="badge-ndbn">${a.ndbn}</span></td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${a.gte98}</td>
+          <td class="num" style="color:#d97706; font-weight:600;">${a.mid94}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${a.lt94}</td>
+          <td class="num"><strong>${ssaAvg}%</strong></td>
+        </tr>`;
+    });
+
+    tbody.innerHTML += `
+      <tr class="circle-row">
+        <td>TOTAL / CIRCLE</td>
+        <td class="num">${total.toLocaleString()}</td>
+        <td class="num">${dbnCount.toLocaleString()}</td>
+        <td class="num">${ndbnCount.toLocaleString()}</td>
+        <td class="num">${gte98.toLocaleString()}</td>
+        <td class="num">${mid94.toLocaleString()}</td>
+        <td class="num" style="color:#dc2626;">${lt94.toLocaleString()}</td>
+        <td class="num">${avgAvail}%</td>
+      </tr>`;
+  }
+
+  function renderDbnDetailTable(records) {
+    const tbody = document.getElementById("dbn-detail-tbody");
+    const countBadge = document.getElementById("dbn-site-count-badge");
+    tbody.innerHTML = "";
+
+    const displayLimit = 150;
+    countBadge.innerText = `Showing ${Math.min(records.length, displayLimit)} of ${records.length.toLocaleString()} matching sites`;
+
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
+      return;
+    }
+
+    records.slice(0, displayLimit).forEach(r => {
+      const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
+      const availColor = r.avail >= 98 ? "#16a34a" : (r.avail >= 94 ? "#d97706" : "#dc2626");
+
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${catBadge}</td>
+          <td class="num" style="color:${availColor}; font-weight:bold;">${r.avail.toFixed(2)}%</td>
+          <td>${r.bucket}</td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+          <td class="num">${r.voiceErl.toFixed(2)}</td>
+          <td class="num">${r.dataGb.toFixed(2)}</td>
+        </tr>`;
+    });
+  }
+
+  function exportDbnSummaryExcel() {
+    const ssaAgg = {};
+    dbnFilteredRecords.forEach(r => {
+      if (!ssaAgg[r.ssa]) ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, lt94: 0, availSum: 0 };
+      ssaAgg[r.ssa].total++;
+      ssaAgg[r.ssa].availSum += r.avail;
+      if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
+      else ssaAgg[r.ssa].ndbn++;
+      if (r.avail >= 98) ssaAgg[r.ssa].gte98++;
+      else if (r.avail >= 94) ssaAgg[r.ssa].mid94++;
+      else ssaAgg[r.ssa].lt94++;
+    });
+
+    const rows = Object.keys(ssaAgg).sort().map(s => ({
+      "SSA": s,
+      "Total Sites": ssaAgg[s].total,
+      "DBN Count": ssaAgg[s].dbn,
+      "NDBN Count": ssaAgg[s].ndbn,
+      ">=98% Healthy": ssaAgg[s].gte98,
+      "94-98% Degraded": ssaAgg[s].mid94,
+      "<94% Outage": ssaAgg[s].lt94,
+      "Average Avail %": (ssaAgg[s].availSum / ssaAgg[s].total).toFixed(2) + "%"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SSA_Summary");
+    XLSX.writeFile(wb, "DBN_NDBN_SSA_Summary.xlsx");
+  }
+
+  function exportDbnSitesExcel() {
+    const rows = dbnFilteredRecords.map((r, i) => ({
+      "S.No": i + 1,
+      "Date": r.reportDate,
+      "SSA": r.ssa,
+      "BA": r.ba,
+      "Site ID": r.siteId,
+      "Site Name": r.siteName,
+      "BTS IP ID": r.btsIp,
+      "Category": r.category,
+      "Availability %": r.avail,
+      "Bucket": r.bucket,
+      "L1 Officer": r.l1,
+      "Media": r.media,
+      "Voice (Erl)": r.voiceErl,
+      "Data (GB)": r.dataGb
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DBN_Filtered_Sites");
+    XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
+  }
+
+  // =========================================================================
+  // TOP-LEVEL NAVIGATION & INITIALIZATION
+  // =========================================================================
+  function switchModule(modId, btn) {
+    document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("mod-infra").style.display = "none";
+    document.getElementById("mod-dbn").style.display = "none";
+
+    document.getElementById(modId).style.display = "block";
+    btn.classList.add("active");
+    currentActiveModule = modId;
+
+    if (modId === "mod-dbn" && !dbnDataLoaded) {
+      fetchAndRenderDbn();
+    }
+  }
+
+  function switchSubTab(viewId, btn) {
+    document.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".sub-section").forEach(s => s.style.display = "none");
+    document.getElementById(viewId).style.display = "block";
+    if (btn) btn.classList.add("active");
+  }
+
+  function refreshCurrentModule() {
+    if (currentActiveModule === "mod-infra") fetchAndRenderInfra();
+    else fetchAndRenderDbn();
+  }
+
+  window.onload = function() {
+    fetchAndRenderInfra();
+  };
 </script>
 </body>
 </html>
