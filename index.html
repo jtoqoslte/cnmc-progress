@@ -69,15 +69,17 @@
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { opacity: 0.9; }
     .btn-green { background: #16a34a; color: white; }
+    .btn-whatsapp { background: #25D366; color: white; }
+    .btn-whatsapp:hover { background: #1ebe5d; }
     .btn-red { background: #dc2626; color: white; }
-    .btn-sm { padding: 4px 8px; font-size: 11px; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
 
-    /* Filter Toolbars */
+    /* Toolbars */
     .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .toolbar-group { display: flex; align-items: center; gap: 8px; }
     .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; }
 
-    /* Slicer Button Pill Group */
+    /* Slicer Pills */
     .slicer-group { display: flex; gap: 6px; flex-wrap: wrap; }
     .slicer-btn { border: 1px solid var(--border); background: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .slicer-btn:hover { background: #f1f5f9; }
@@ -121,8 +123,21 @@
     /* Badges */
     .badge-dbn { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-ndbn { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
-    .badge-lag { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 12px; }
-    .badge-ok { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 12px; }
+    .badge-lag { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
+    .badge-ok { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
+    .badge-rank { background: #003366; color: #ffffff; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 11px; }
+    .badge-rank-na { background: #e2e8f0; color: #64748b; padding: 2px 6px; border-radius: 10px; font-size: 10px; }
+
+    .metric-legend-note {
+      font-size: 12px;
+      color: #475569;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 6px 12px;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
@@ -269,6 +284,11 @@
   <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD                                        -->
   <!-- ========================================================================= -->
   <div id="mod-dbn" style="display: none;">
+    <!-- Metric Scope Note Banner -->
+    <div class="metric-legend-note">
+      ℹ️ <strong>Note:</strong> Avail % is for rolling 30 days, max. active user is max. for last 30 days, voice erl and data GB are avg. of last 30 days.
+    </div>
+
     <!-- Module 2 Sub-Nav: Core Report, Degraded Site Tracker, Escalation Dashboard -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDbnSubTab('dbn-main-view', this)">📊 1. Availability Overview</button>
@@ -326,7 +346,7 @@
         <div class="kpi-card"><div class="title">Critical Sites (&lt;90%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
       </div>
 
-      <!-- Chart Analytics Row with DataLabels on Bars -->
+      <!-- Chart Analytics Row: Bar Graph shows SSA >=98% Site % -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
         <div class="section" style="margin-bottom: 0; padding: 14px;">
           <h2 style="font-size: 15px;">4-Bucket Availability Distribution</h2>
@@ -335,18 +355,21 @@
           </div>
         </div>
         <div class="section" style="margin-bottom: 0; padding: 14px;">
-          <h2 style="font-size: 15px;">SSA-Wise Avg Availability % (With Values)</h2>
+          <h2 style="font-size: 15px;">SSA-Wise ≥98% Availability Sites (%)</h2>
           <div style="position: relative; height: 260px;">
             <canvas id="dbnSsaChart"></canvas>
           </div>
         </div>
       </div>
 
-      <!-- SSA Summary Table with 4 Buckets (Count and %) -->
+      <!-- SSA Summary Table with WhatsApp Share Button -->
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <h2 style="margin:0;">SSA Availability Summary Breakdown (Count & % of Sites)</h2>
-          <button class="btn btn-green btn-sm" onclick="exportDbnSummaryExcel()">📥 Export Summary Excel</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareSsaSummaryWhatsApp()">💬 Share on WhatsApp</button>
+            <button class="btn btn-green btn-sm" onclick="exportDbnSummaryExcel()">📥 Export Summary Excel</button>
+          </div>
         </div>
         <div class="table-container">
           <table>
@@ -368,7 +391,7 @@
         </div>
       </div>
 
-      <!-- Detailed Site List (Includes BTS_IP_ID) -->
+      <!-- Detailed Site List (Includes Site IP ID & Max Active User) -->
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div>
@@ -388,6 +411,7 @@
                 <th>Category</th>
                 <th class="num">Avail %</th>
                 <th>Bucket</th>
+                <th class="num">Max Active User</th>
                 <th>L1 Officer</th>
                 <th>Media</th>
                 <th class="num">Voice Erl</th>
@@ -460,15 +484,20 @@
             <label for="esc-date-select"><strong>Report Date:</strong></label>
             <select id="esc-date-select" onchange="renderEscalationDashboard()"></select>
           </div>
+          <!-- SSA Filter inside Escalation Dashboard -->
+          <div class="toolbar-group">
+            <label for="esc-ssa-select"><strong>SSA:</strong></label>
+            <select id="esc-ssa-select" onchange="renderEscalationDashboard()">
+              <option value="ALL">All SSAs (Circle)</option>
+            </select>
+          </div>
+          <!-- Updated Target Options -->
           <div class="toolbar-group">
             <label for="esc-target-select"><strong>Target % of Sites Having ≥98% Avail:</strong></label>
             <select id="esc-target-select" onchange="renderEscalationDashboard()">
-              <option value="70">70% Target</option>
-              <option value="75" selected>75% Target (Standard)</option>
-              <option value="80">80% Target</option>
-              <option value="85">85% Target</option>
-              <option value="90">90% Target</option>
-              <option value="95">95% Target</option>
+              <option value="80" selected>80% (Oct. 26)</option>
+              <option value="90">90% (Nov. 26)</option>
+              <option value="100">100% (Dec. 26)</option>
             </select>
           </div>
           <div class="toolbar-group" style="flex: 1; min-width: 200px;">
@@ -481,6 +510,7 @@
           <table>
             <thead>
               <tr>
+                <th style="text-align: center;">Rank (≥15 Sites)</th>
                 <th>SSA</th>
                 <th>L1 Site In-charge</th>
                 <th class="num">Total Sites</th>
@@ -490,7 +520,7 @@
                 <th class="num">&lt;90% Count (%)</th>
                 <th class="num">Actual ≥98% Rate</th>
                 <th class="num">Target Required</th>
-                <th class="num">Shortfall (Lagging Behind)</th>
+                <th class="num">Shortfall (Lagging)</th>
                 <th style="text-align:center;">Status</th>
               </tr>
             </thead>
@@ -863,7 +893,7 @@
   }
 
   // =========================================================================
-  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC (4 BUCKETS, DEGRADED & ESCALATION)
+  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC
   // =========================================================================
   let dbnRawRecords = [];
   let dbnFilteredRecords = [];
@@ -874,7 +904,6 @@
   let dbnBucketChartInstance = null;
   let dbnSsaChartInstance = null;
 
-  // Bucket Helper function (Strict 4 Buckets)
   function getAvailabilityBucket(avail) {
     if (avail >= 98.0) return ">=98%";
     if (avail >= 94.0) return "94-98%";
@@ -930,6 +959,7 @@
           const avail = parseFloat(availStr) || 0;
           const bucket = getAvailabilityBucket(avail);
           const reportDate = (r["Report Date"] || "").trim();
+          const maxActiveUser = parseInt(r["Max active User"] || r["Max active user"] || 0) || 0;
           const l1 = (r["Static_Site_Hierarchy.CM L1_Name_number"] || "Unassigned").trim();
           const media = (r["Static_Site_Hierarchy.Media"] || "-").trim();
           const voiceErl = parseFloat(r["avg Voice_erl"]) || 0;
@@ -937,7 +967,7 @@
 
           if (reportDate) dateSet.add(reportDate);
 
-          return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, l1, media, voiceErl, dataGb };
+          return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, maxActiveUser, l1, media, voiceErl, dataGb };
         }).filter(r => r.ssa !== "" && r.siteId !== "");
 
         dbnAvailableDates = Array.from(dateSet).sort().reverse();
@@ -976,17 +1006,20 @@
       degPrev.innerHTML += `<option value="${d}">${d}</option>`;
       degNext.innerHTML += `<option value="${d}">${d}</option>`;
     });
-    // Default: Next = Latest (index 0), Prev = Previous (index 1 if available)
     degNext.value = dbnAvailableDates[0];
     degPrev.value = dbnAvailableDates.length > 1 ? dbnAvailableDates[1] : dbnAvailableDates[0];
     degSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
     Array.from(ssaSet).sort().forEach(s => { degSsa.innerHTML += `<option value="${s}">${s}</option>`; });
 
-    // 4. Escalation Date Selector
+    // 4. Escalation Controls (Date & SSA Selector)
     const escDate = document.getElementById("esc-date-select");
     escDate.innerHTML = "";
     dbnAvailableDates.forEach(d => { escDate.innerHTML += `<option value="${d}">${d}</option>`; });
     escDate.value = dbnAvailableDates[0];
+
+    const escSsa = document.getElementById("esc-ssa-select");
+    escSsa.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
+    Array.from(ssaSet).sort().forEach(s => { escSsa.innerHTML += `<option value="${s}">${s}</option>`; });
   }
 
   function setCategorySlicer(cat, btn) {
@@ -1070,7 +1103,7 @@
     // Render Charts
     renderDbnCharts(bGte98, b94to98, b90to94, bLt90, ssaAgg);
 
-    // Render SSA Summary Table with Counts & %
+    // Render SSA Summary Table
     renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, bGte98, b94to98, b90to94, bLt90, avgAvail);
 
     // Render Detailed Site List
@@ -1100,10 +1133,9 @@
             formatter: (value, ctx) => {
               let sum = 0;
               let dataArr = ctx.chart.data.datasets[0].data;
-              dataArr.map(data => { sum += data; });
+              dataArr.forEach(data => { sum += data; });
               if (sum === 0 || value === 0) return "";
-              let percentage = (value * 100 / sum).toFixed(1) + "%";
-              return percentage;
+              return ((value * 100) / sum).toFixed(1) + "%";
             },
             color: "#fff",
             font: { weight: "bold", size: 11 }
@@ -1112,11 +1144,11 @@
       }
     });
 
-    // 2. Bar Chart: SSA Performance with Values Displayed on Each Bar
+    // 2. Bar Chart: SSA >=98% Availability Sites (%) with DataLabels
     const ssaLabels = Object.keys(ssaAgg).sort();
-    const ssaAvailData = ssaLabels.map(s => {
+    const ssaGte98PctData = ssaLabels.map(s => {
       const a = ssaAgg[s];
-      return a.total > 0 ? parseFloat((a.availSum / a.total).toFixed(2)) : 0;
+      return a.total > 0 ? parseFloat(((a.gte98 / a.total) * 100).toFixed(1)) : 0;
     });
 
     const ctxSsa = document.getElementById("dbnSsaChart").getContext("2d");
@@ -1126,8 +1158,8 @@
       data: {
         labels: ssaLabels,
         datasets: [{
-          label: "Avg Avail %",
-          data: ssaAvailData,
+          label: "≥98% Sites %",
+          data: ssaGte98PctData,
           backgroundColor: "#003366",
           borderRadius: 4
         }]
@@ -1136,7 +1168,7 @@
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-          y: { min: 75, max: 100, ticks: { callback: v => v + "%" } }
+          y: { min: 0, max: 100, ticks: { callback: v => v + "%" } }
         },
         plugins: {
           legend: { display: false },
@@ -1156,6 +1188,8 @@
   function renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail) {
     const tbody = document.getElementById("dbn-summary-tbody");
     tbody.innerHTML = "";
+
+    window.currentSsaSummaryCache = { ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail };
 
     Object.keys(ssaAgg).sort().forEach(s => {
       const a = ssaAgg[s];
@@ -1199,6 +1233,33 @@
       </tr>`;
   }
 
+  function shareSsaSummaryWhatsApp() {
+    if (!window.currentSsaSummaryCache) return;
+    const { ssaAgg, total, gte98, mid94, low90, lt90, avgAvail } = window.currentSsaSummaryCache;
+    const selectedDate = document.getElementById("dbn-date-select").value;
+
+    let msg = `*📊 J&K CM Availability Summary (${selectedDate})*\n`;
+    msg += `_Rolling 30 Days Network Availability_\n\n`;
+
+    Object.keys(ssaAgg).sort().forEach(s => {
+      const a = ssaAgg[s];
+      const pGte = a.total > 0 ? ((a.gte98 / a.total) * 100).toFixed(1) : 0;
+      const ssaAvg = a.total > 0 ? (a.availSum / a.total).toFixed(1) : 0;
+      msg += `*${s}*: Total: ${a.total} | *≥98%: ${a.gte98} (${pGte}%)* | <90%: ${a.lt90} | Avg: ${ssaAvg}%\n`;
+    });
+
+    const cpGte = total > 0 ? ((gte98 / total) * 100).toFixed(1) : 0;
+    msg += `\n*🇮🇳 Circle Total*: ${total.toLocaleString()} Sites\n`;
+    msg += `*≥98% Healthy*: ${gte98.toLocaleString()} (${cpGte}%)\n`;
+    msg += `*94-98% Degraded*: ${mid94.toLocaleString()}\n`;
+    msg += `*90-94% Low*: ${low90.toLocaleString()}\n`;
+    msg += `*<90% Outage*: ${lt90.toLocaleString()}\n`;
+    msg += `*Circle Avg Availability*: ${avgAvail}%\n`;
+
+    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
+    window.open(whatsappUrl, "_blank");
+  }
+
   function renderDbnDetailTable(records) {
     const tbody = document.getElementById("dbn-detail-tbody");
     const countBadge = document.getElementById("dbn-site-count-badge");
@@ -1208,7 +1269,7 @@
     countBadge.innerText = `Showing ${Math.min(records.length, displayLimit)} of ${records.length.toLocaleString()} matching sites`;
 
     if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
       return;
     }
 
@@ -1225,6 +1286,7 @@
           <td>${catBadge}</td>
           <td class="num" style="color:${availColor}; font-weight:bold;">${r.avail.toFixed(2)}%</td>
           <td>${r.bucket}</td>
+          <td class="num"><strong>${r.maxActiveUser}</strong></td>
           <td>${r.l1}</td>
           <td>${r.media}</td>
           <td class="num">${r.voiceErl.toFixed(2)}</td>
@@ -1249,7 +1311,6 @@
       return;
     }
 
-    // Build map for previous date sites
     const prevMap = {};
     let baseHealthyCount = 0;
     dbnRawRecords.forEach(r => {
@@ -1261,7 +1322,6 @@
       }
     });
 
-    // Check next date sites
     degradedSitesList = [];
     dbnRawRecords.forEach(r => {
       if (r.reportDate === nextDate) {
@@ -1287,16 +1347,13 @@
       }
     });
 
-    // Sort by largest drop first
     degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
 
-    // Update Degraded KPIs
     document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
     document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
     const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
     document.getElementById("deg-kpi-rate").innerText = rate + "%";
 
-    // Render Table
     const tbody = document.getElementById("degraded-sites-tbody");
     tbody.innerHTML = "";
     if (degradedSitesList.length === 0) {
@@ -1338,10 +1395,16 @@
   function renderEscalationDashboard() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
     const chosenDate = document.getElementById("esc-date-select").value;
-    const targetPct = parseFloat(document.getElementById("esc-target-select").value) || 75.0;
+    const chosenSsa = document.getElementById("esc-ssa-select").value;
+    const targetPct = parseFloat(document.getElementById("esc-target-select").value) || 80.0;
     const searchVal = (document.getElementById("esc-search-input").value || "").toLowerCase().trim();
 
-    const dateRecords = dbnRawRecords.filter(r => r.reportDate === chosenDate);
+    const dateRecords = dbnRawRecords.filter(r => {
+      if (r.reportDate !== chosenDate) return false;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      return true;
+    });
+
     const inchargeMap = {};
 
     dateRecords.forEach(r => {
@@ -1375,8 +1438,18 @@
       };
     });
 
-    // Sort by largest shortfall first (lagging officers on top)
-    escalationData.sort((a, b) => b.shortfall - a.shortfall);
+    // 1. Sort from Highest to Lowest based on >=98% count (%)
+    escalationData.sort((a, b) => b.actualPct - a.actualPct);
+
+    // 2. Assign Rank (Only for Officers with >= 15 total sites)
+    let currentRank = 1;
+    escalationData.forEach(d => {
+      if (d.total >= 15) {
+        d.rank = currentRank++;
+      } else {
+        d.rank = null;
+      }
+    });
 
     const tbody = document.getElementById("escalation-tbody");
     tbody.innerHTML = "";
@@ -1387,7 +1460,7 @@
     });
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found for selected filters.</td></tr>`;
       return;
     }
 
@@ -1397,16 +1470,21 @@
       const pLow = d.total > 0 ? ((d.low90 / d.total) * 100).toFixed(1) : 0;
       const pLt  = d.total > 0 ? ((d.lt90  / d.total) * 100).toFixed(1) : 0;
 
+      const rankBadge = d.rank !== null 
+        ? `<span class="badge-rank">#${d.rank}</span>` 
+        : `<span class="badge-rank-na">&lt;15 sites</span>`;
+
       const statusBadge = d.shortfall > 0 
         ? `<span class="badge-lag">Lagging (-${d.shortfall})</span>` 
         : `<span class="badge-ok">Target Met</span>`;
 
       tbody.innerHTML += `
         <tr>
+          <td style="text-align: center;">${rankBadge}</td>
           <td>${d.ssa}</td>
           <td><strong>${d.officer}</strong></td>
           <td class="num">${d.total}</td>
-          <td class="num" style="color:#16a34a; font-weight:600;">${d.gte98} (${pGte}%)</td>
+          <td class="num" style="color:#16a34a; font-weight:700;">${d.gte98} (${pGte}%)</td>
           <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
           <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90} (${pLt}%)</td>
@@ -1436,11 +1514,11 @@
       ssaAgg[r.ssa].total++;
       ssaAgg[r.ssa].availSum += r.avail;
       if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
-      else ssaAgg[r.ssa].ndbn++;
+      else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
       if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
       else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
       else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
-      else ssaAgg[r.ssa].lt90++;
+      else if (r.bucket === "<90%") ssaAgg[r.ssa].lt90++;
     });
 
     const rows = Object.keys(ssaAgg).sort().map(s => {
@@ -1480,6 +1558,7 @@
       "Category": r.category,
       "Availability %": r.avail,
       "Bucket": r.bucket,
+      "Max Active User": r.maxActiveUser,
       "L1 Officer": r.l1,
       "Media": r.media,
       "Voice (Erl)": r.voiceErl,
