@@ -289,11 +289,12 @@
       ℹ️ <strong>Note:</strong> Avail % is for rolling 30 days, max. active user is max. for last 30 days, voice erl and data GB are avg. of last 30 days.
     </div>
 
-    <!-- Module 2 Sub-Nav: Core Report, Degraded Site Tracker, Escalation Dashboard -->
+    <!-- Module 2 Sub-Nav: 4 Dedicated Views -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDbnSubTab('dbn-main-view', this)">📊 1. Availability Overview</button>
-      <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-degraded-view', this)">⚠️ 2. Degraded Sites (Day-over-Day)</button>
-      <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 3. Escalation Dashboard</button>
+      <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-degraded-view', this)">⚠️ 2. Degraded Sites (Avail Drop)</button>
+      <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-user-degraded-view', this)">👥 3. User Degradation Tracker</button>
+      <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 4. Escalation Dashboard</button>
     </div>
 
     <!-- ==================== SUB-VIEW 1: CORE AVAILABILITY OVERVIEW ==================== -->
@@ -346,7 +347,7 @@
         <div class="kpi-card"><div class="title">Critical Sites (&lt;90%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
       </div>
 
-      <!-- Chart Analytics Row: Bar Graph shows SSA >=98% Site % -->
+      <!-- Chart Analytics Row -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
         <div class="section" style="margin-bottom: 0; padding: 14px;">
           <h2 style="font-size: 15px;">4-Bucket Availability Distribution</h2>
@@ -362,7 +363,7 @@
         </div>
       </div>
 
-      <!-- SSA Summary Table with WhatsApp Share Button -->
+      <!-- SSA Summary Table with Category-Aware WhatsApp Share Button -->
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <h2 style="margin:0;">SSA Availability Summary Breakdown (Count & % of Sites)</h2>
@@ -391,7 +392,7 @@
         </div>
       </div>
 
-      <!-- Detailed Site List (Includes Site IP ID & Max Active User) -->
+      <!-- Detailed Site List -->
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div>
@@ -424,7 +425,7 @@
       </div>
     </div>
 
-    <!-- ==================== SUB-VIEW 2: DEGRADED SITES TRACKER ==================== -->
+    <!-- ==================== SUB-VIEW 2: AVAILABILITY DEGRADED SITES ==================== -->
     <div class="dbn-sub-section" id="dbn-degraded-view" style="display: none;">
       <div class="section">
         <h2>Day-over-Day Degraded Sites Inspector (>98% on Day 1 → Dropped <98% on Day 2)</h2>
@@ -475,7 +476,72 @@
       </div>
     </div>
 
-    <!-- ==================== SUB-VIEW 3: ESCALATION DASHBOARD ==================== -->
+    <!-- ==================== SUB-VIEW 3: USER DEGRADATION TRACKER ==================== -->
+    <div class="dbn-sub-section" id="dbn-user-degraded-view" style="display: none;">
+      <div class="section">
+        <h2>Max Active User Degradation Tracker (Day-over-Day Drift)</h2>
+        <div class="toolbar" style="margin-bottom: 16px;">
+          <div class="toolbar-group">
+            <label for="user-deg-prev-date"><strong>Previous Day (Base):</strong></label>
+            <select id="user-deg-prev-date" onchange="runUserDegradedAnalysis()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="user-deg-next-date"><strong>Next Day (Compare):</strong></label>
+            <select id="user-deg-next-date" onchange="runUserDegradedAnalysis()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="user-deg-threshold"><strong>Min % Degradation:</strong></label>
+            <select id="user-deg-threshold" onchange="runUserDegradedAnalysis()">
+              <option value="0">Any Drop (>0%)</option>
+              <option value="10">≥ 10% Drop</option>
+              <option value="20" selected>≥ 20% Drop</option>
+              <option value="30">≥ 30% Drop</option>
+              <option value="50">≥ 50% Drop (Severe)</option>
+            </select>
+          </div>
+          <div class="toolbar-group">
+            <label for="user-deg-ssa-select"><strong>SSA:</strong></label>
+            <select id="user-deg-ssa-select" onchange="runUserDegradedAnalysis()">
+              <option value="ALL">All SSAs</option>
+            </select>
+          </div>
+          <div class="toolbar-group" style="flex: 1; min-width: 200px;">
+            <input type="text" id="user-deg-incharge-search" placeholder="Search In-charge Officer..." oninput="runUserDegradedAnalysis()" style="width: 100%;">
+          </div>
+          <button class="btn btn-green btn-sm" onclick="exportUserDegradedSitesExcel()">📥 Export User Degradation Excel</button>
+        </div>
+
+        <div class="kpi-container" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          <div class="kpi-card"><div class="title">Total Compared Sites</div><div class="value" id="user-deg-kpi-total">-</div></div>
+          <div class="kpi-card"><div class="title">Degraded User Sites</div><div class="value" id="user-deg-kpi-count" style="color:#dc2626;">-</div></div>
+          <div class="kpi-card"><div class="title">Total Active Users Lost</div><div class="value" id="user-deg-kpi-lost" style="color:#d97706;">-</div></div>
+          <div class="kpi-card"><div class="title">Avg % User Drop</div><div class="value" id="user-deg-kpi-drop-pct">-</div></div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Phy Site ID</th>
+                <th>Site IP ID</th>
+                <th>Site Name</th>
+                <th>SSA</th>
+                <th>Category</th>
+                <th class="num">Base Active User</th>
+                <th class="num">Compare Active User</th>
+                <th class="num">User Drop</th>
+                <th class="num">User Drop %</th>
+                <th>L1 In-charge</th>
+                <th>Media</th>
+              </tr>
+            </thead>
+            <tbody id="user-degraded-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SUB-VIEW 4: ESCALATION DASHBOARD ==================== -->
     <div class="dbn-sub-section" id="dbn-escalation-view" style="display: none;">
       <div class="section">
         <h2>Site In-Charge Escalation & Target Gap Tracker</h2>
@@ -491,7 +557,7 @@
               <option value="ALL">All SSAs (Circle)</option>
             </select>
           </div>
-          <!-- Updated Target Options -->
+          <!-- Target Options -->
           <div class="toolbar-group">
             <label for="esc-target-select"><strong>Target % of Sites Having ≥98% Avail:</strong></label>
             <select id="esc-target-select" onchange="renderEscalationDashboard()">
@@ -500,9 +566,11 @@
               <option value="100">100% (Dec. 26)</option>
             </select>
           </div>
-          <div class="toolbar-group" style="flex: 1; min-width: 200px;">
+          <div class="toolbar-group" style="flex: 1; min-width: 180px;">
             <input type="text" id="esc-search-input" placeholder="Search In-charge Officer..." oninput="renderEscalationDashboard()" style="width: 100%;">
           </div>
+          <!-- Bulk SSA WhatsApp Share & Excel Buttons -->
+          <button class="btn btn-whatsapp btn-sm" onclick="shareBulkEscalationWhatsApp()">💬 Share Escalation on WhatsApp</button>
           <button class="btn btn-green btn-sm" onclick="exportEscalationExcel()">📥 Export Escalation Matrix</button>
         </div>
 
@@ -522,6 +590,7 @@
                 <th class="num">Target Required</th>
                 <th class="num">Shortfall (Lagging)</th>
                 <th style="text-align:center;">Status</th>
+                <th style="text-align:center;">WhatsApp Alert</th>
               </tr>
             </thead>
             <tbody id="escalation-tbody"></tbody>
@@ -569,7 +638,6 @@
 </div>
 
 <script>
-  // Register Chart.js DataLabels Plugin
   Chart.register(ChartDataLabels);
 
   // =========================================================================
@@ -975,6 +1043,7 @@
         dbnDataLoaded = true;
         applyDbnFilters();
         runDegradedAnalysis();
+        runUserDegradedAnalysis();
         renderEscalationDashboard();
 
         status.innerText = `DBN Connected • Loaded ${dbnRawRecords.length.toLocaleString()} rows • ${new Date().toLocaleTimeString()}`;
@@ -997,7 +1066,7 @@
     ssaSelect.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
     Array.from(ssaSet).sort().forEach(s => { ssaSelect.innerHTML += `<option value="${s}">${s}</option>`; });
 
-    // 3. Degraded Site Date Selectors
+    // 3. Avail Degraded Site Date Selectors
     const degPrev = document.getElementById("deg-prev-date");
     const degNext = document.getElementById("deg-next-date");
     const degSsa = document.getElementById("deg-ssa-select");
@@ -1011,7 +1080,21 @@
     degSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
     Array.from(ssaSet).sort().forEach(s => { degSsa.innerHTML += `<option value="${s}">${s}</option>`; });
 
-    // 4. Escalation Controls (Date & SSA Selector)
+    // 4. User Degraded Site Selectors
+    const userPrev = document.getElementById("user-deg-prev-date");
+    const userNext = document.getElementById("user-deg-next-date");
+    const userSsa = document.getElementById("user-deg-ssa-select");
+    userPrev.innerHTML = ""; userNext.innerHTML = "";
+    dbnAvailableDates.forEach(d => {
+      userPrev.innerHTML += `<option value="${d}">${d}</option>`;
+      userNext.innerHTML += `<option value="${d}">${d}</option>`;
+    });
+    userNext.value = dbnAvailableDates[0];
+    userPrev.value = dbnAvailableDates.length > 1 ? dbnAvailableDates[1] : dbnAvailableDates[0];
+    userSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
+    Array.from(ssaSet).sort().forEach(s => { userSsa.innerHTML += `<option value="${s}">${s}</option>`; });
+
+    // 5. Escalation Controls
     const escDate = document.getElementById("esc-date-select");
     escDate.innerHTML = "";
     dbnAvailableDates.forEach(d => { escDate.innerHTML += `<option value="${d}">${d}</option>`; });
@@ -1093,25 +1176,18 @@
 
     const avgAvail = total > 0 ? (availSum / total).toFixed(2) : "0.00";
 
-    // Update KPIs
     document.getElementById("dbn-kpi-total").innerText = total.toLocaleString();
     document.getElementById("dbn-kpi-avail").innerText = avgAvail + "%";
     document.getElementById("dbn-kpi-dbn").innerText = dbnCount.toLocaleString();
     document.getElementById("dbn-kpi-ndbn").innerText = ndbnCount.toLocaleString();
     document.getElementById("dbn-kpi-critical").innerText = bLt90.toLocaleString();
 
-    // Render Charts
     renderDbnCharts(bGte98, b94to98, b90to94, bLt90, ssaAgg);
-
-    // Render SSA Summary Table
     renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, bGte98, b94to98, b90to94, bLt90, avgAvail);
-
-    // Render Detailed Site List
     renderDbnDetailTable(dbnFilteredRecords);
   }
 
   function renderDbnCharts(gte98, mid94, low90, lt90, ssaAgg) {
-    // 1. Doughnut Chart: 4 Buckets
     const ctxBucket = document.getElementById("dbnBucketChart").getContext("2d");
     if (dbnBucketChartInstance) dbnBucketChartInstance.destroy();
     dbnBucketChartInstance = new Chart(ctxBucket, {
@@ -1144,7 +1220,6 @@
       }
     });
 
-    // 2. Bar Chart: SSA >=98% Availability Sites (%) with DataLabels
     const ssaLabels = Object.keys(ssaAgg).sort();
     const ssaGte98PctData = ssaLabels.map(s => {
       const a = ssaAgg[s];
@@ -1213,7 +1288,6 @@
         </tr>`;
     });
 
-    // Circle Total Row
     const cpGte = total > 0 ? ((gte98 / total) * 100).toFixed(1) : 0;
     const cpMid = total > 0 ? ((mid94 / total) * 100).toFixed(1) : 0;
     const cpLow = total > 0 ? ((low90 / total) * 100).toFixed(1) : 0;
@@ -1233,12 +1307,17 @@
       </tr>`;
   }
 
+  // 1. Dynamic WhatsApp Heading based on Category Filter
   function shareSsaSummaryWhatsApp() {
     if (!window.currentSsaSummaryCache) return;
     const { ssaAgg, total, gte98, mid94, low90, lt90, avgAvail } = window.currentSsaSummaryCache;
     const selectedDate = document.getElementById("dbn-date-select").value;
 
-    let msg = `*📊 J&K CM Availability Summary (${selectedDate})*\n`;
+    let catHeading = "DBN+NDBN";
+    if (selectedCategory === "DBN") catHeading = "DBN";
+    else if (selectedCategory === "NDBN") catHeading = "NDBN";
+
+    let msg = `*📊 J&K CM ${catHeading} Availability Summary (${selectedDate})*\n`;
     msg += `_Rolling 30 Days Network Availability_\n\n`;
 
     Object.keys(ssaAgg).sort().forEach(s => {
@@ -1296,7 +1375,7 @@
   }
 
   // =========================================================================
-  // SUB-MODULE 2: DEGRADED SITES TRACKER LOGIC
+  // SUB-MODULE 2: AVAILABILITY DEGRADED SITES LOGIC
   // =========================================================================
   let degradedSitesList = [];
 
@@ -1383,12 +1462,123 @@
     if (!degradedSitesList || degradedSitesList.length === 0) return;
     const ws = XLSX.utils.json_to_sheet(degradedSitesList);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Degraded_Sites");
-    XLSX.writeFile(wb, "Degraded_Sites_Comparison.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Degraded_Avail_Sites");
+    XLSX.writeFile(wb, "Degraded_Avail_Sites.xlsx");
   }
 
   // =========================================================================
-  // SUB-MODULE 3: ESCALATION DASHBOARD & TARGET TRACKER LOGIC
+  // SUB-MODULE 3: USER DEGRADATION TRACKER LOGIC
+  // =========================================================================
+  let userDegradedSitesList = [];
+
+  function runUserDegradedAnalysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const prevDate = document.getElementById("user-deg-prev-date").value;
+    const nextDate = document.getElementById("user-deg-next-date").value;
+    const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
+    const selectedSsa = document.getElementById("user-deg-ssa-select").value;
+    const searchOfficer = (document.getElementById("user-deg-incharge-search").value || "").toLowerCase().trim();
+
+    if (!prevDate || !nextDate || prevDate === nextDate) {
+      document.getElementById("user-degraded-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day user comparison.</td></tr>`;
+      return;
+    }
+
+    const prevMap = {};
+    let totalCompared = 0;
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        if (selectedSsa === "ALL" || r.ssa === selectedSsa) {
+          prevMap[r.siteId] = r;
+        }
+      }
+    });
+
+    userDegradedSitesList = [];
+    let totalUsersLost = 0;
+    let sumDropPct = 0;
+
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === nextDate) {
+        if (selectedSsa === "ALL" || r.ssa === selectedSsa) {
+          const prevRec = prevMap[r.siteId];
+          if (prevRec) {
+            totalCompared++;
+            const baseUsers = prevRec.maxActiveUser;
+            const nextUsers = r.maxActiveUser;
+            if (baseUsers > 0 && nextUsers < baseUsers) {
+              const dropCount = baseUsers - nextUsers;
+              const dropPct = (dropCount / baseUsers) * 100;
+
+              if (dropPct >= minDropPct) {
+                if (!searchOfficer || r.l1.toLowerCase().includes(searchOfficer)) {
+                  totalUsersLost += dropCount;
+                  sumDropPct += dropPct;
+                  userDegradedSitesList.push({
+                    siteId: r.siteId,
+                    btsIp: r.btsIp,
+                    siteName: r.siteName,
+                    ssa: r.ssa,
+                    category: r.category,
+                    baseUsers: baseUsers,
+                    nextUsers: nextUsers,
+                    dropCount: dropCount,
+                    dropPct: dropPct,
+                    l1: r.l1,
+                    media: r.media
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
+
+    // Update User Degradation KPIs
+    document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
+    document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
+    document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
+    const avgDrop = userDegradedSitesList.length > 0 ? (sumDropPct / userDegradedSitesList.length).toFixed(1) : "0.0";
+    document.getElementById("user-deg-kpi-drop-pct").innerText = avgDrop + "%";
+
+    const tbody = document.getElementById("user-degraded-tbody");
+    tbody.innerHTML = "";
+    if (userDegradedSitesList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found with Max Active User degradation matching selected threshold (${minDropPct}%).</td></tr>`;
+      return;
+    }
+
+    userDegradedSitesList.forEach(r => {
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${r.category}</td>
+          <td class="num">${r.baseUsers.toLocaleString()}</td>
+          <td class="num">${r.nextUsers.toLocaleString()}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+        </tr>`;
+    });
+  }
+
+  function exportUserDegradedSitesExcel() {
+    if (!userDegradedSitesList || userDegradedSitesList.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(userDegradedSitesList);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "User_Degradation");
+    XLSX.writeFile(wb, "Max_Active_User_Degradation.xlsx");
+  }
+
+  // =========================================================================
+  // SUB-MODULE 4: ESCALATION DASHBOARD LOGIC (WHATSAPP ALERTS INCLUDED)
   // =========================================================================
   let escalationData = [];
 
@@ -1433,15 +1623,14 @@
         low90: d.low90,
         lt90: d.lt90,
         actualPct: actualPct,
+        targetPct: targetPct,
         targetCountNeeded: targetCountNeeded,
         shortfall: shortfall
       };
     });
 
-    // 1. Sort from Highest to Lowest based on >=98% count (%)
     escalationData.sort((a, b) => b.actualPct - a.actualPct);
 
-    // 2. Assign Rank (Only for Officers with >= 15 total sites)
     let currentRank = 1;
     escalationData.forEach(d => {
       if (d.total >= 15) {
@@ -1459,12 +1648,14 @@
       return true;
     });
 
+    window.currentEscalationFiltered = filtered;
+
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found for selected filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found for selected filters.</td></tr>`;
       return;
     }
 
-    filtered.forEach(d => {
+    filtered.forEach((d, idx) => {
       const pGte = d.total > 0 ? ((d.gte98 / d.total) * 100).toFixed(1) : 0;
       const pMid = d.total > 0 ? ((d.mid94 / d.total) * 100).toFixed(1) : 0;
       const pLow = d.total > 0 ? ((d.low90 / d.total) * 100).toFixed(1) : 0;
@@ -1492,8 +1683,58 @@
           <td class="num">${d.targetCountNeeded} sites</td>
           <td class="num" style="color:${d.shortfall > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${d.shortfall} sites</td>
           <td style="text-align:center;">${statusBadge}</td>
+          <td style="text-align:center;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareSingleOfficerWhatsApp(${idx})">💬 Alert</button>
+          </td>
         </tr>`;
     });
+  }
+
+  // 3a. Single Officer WhatsApp Alert
+  function shareSingleOfficerWhatsApp(idx) {
+    if (!window.currentEscalationFiltered || !window.currentEscalationFiltered[idx]) return;
+    const d = window.currentEscalationFiltered[idx];
+    const selectedDate = document.getElementById("esc-date-select").value;
+
+    let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
+    msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
+    if (d.rank) msg += `*Performance Rank:* #${d.rank} (in circle)\n`;
+    msg += `*Total Sites Managed:* ${d.total}\n`;
+    msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
+    msg += `*Target Benchmark:* ${d.targetPct}% (${d.targetCountNeeded} sites)\n`;
+    
+    if (d.shortfall > 0) {
+      msg += `*⚠️ Lagging Behind Target By:* ${d.shortfall} sites\n\n`;
+      msg += `Kindly prioritize restoration and rectification of degraded sites.\n\n`;
+    } else {
+      msg += `*✅ Target Achieved:* Outstanding performance!\n\n`;
+    }
+    msg += `For detailed site list please visit https://jtoqoslte.github.io/cnmc-progress/`;
+
+    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
+    window.open(whatsappUrl, "_blank");
+  }
+
+  // 3b. Bulk SSA Escalation WhatsApp Share
+  function shareBulkEscalationWhatsApp() {
+    if (!window.currentEscalationFiltered || window.currentEscalationFiltered.length === 0) return;
+    const chosenSsa = document.getElementById("esc-ssa-select").value;
+    const selectedDate = document.getElementById("esc-date-select").value;
+    const targetPct = document.getElementById("esc-target-select").value;
+
+    let msg = `*🎯 J&K CM Escalation & Target Tracker (${selectedDate})*\n`;
+    msg += `*SSA / Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} | *Target:* ${targetPct}%\n\n`;
+
+    window.currentEscalationFiltered.forEach(d => {
+      const rankStr = d.rank ? `[#${d.rank}] ` : "";
+      const statusIcon = d.shortfall > 0 ? `⚠️ Lagging: -${d.shortfall} sites` : `✅ Target Met`;
+      msg += `${rankStr}*${d.officer}* (${d.ssa}): Total ${d.total} | *≥98%: ${d.gte98} (${d.actualPct.toFixed(1)}%)* | Req: ${d.targetCountNeeded} | ${statusIcon}\n`;
+    });
+
+    msg += `\nFor detailed site list please visit https://jtoqoslte.github.io/cnmc-progress/`;
+
+    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
+    window.open(whatsappUrl, "_blank");
   }
 
   function exportEscalationExcel() {
