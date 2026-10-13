@@ -49,14 +49,14 @@
       z-index: 0;
     }
 
-    .container { position: relative; z-index: 1; max-width: 1460px; margin: 0 auto; }
+    .container { position: relative; z-index: 1; max-width: 1480px; margin: 0 auto; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
     h1 { margin: 0; font-size: 24px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
 
     /* Module Navigation */
     .module-nav { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; }
-    .module-btn { background: #e2e8f0; border: none; padding: 12px 22px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 15px; color: #334155; transition: all 0.2s ease; }
+    .module-btn { background: #e2e8f0; border: none; padding: 12px 22px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 14px; color: #334155; transition: all 0.2s ease; }
     .module-btn:hover { background: #cbd5e1; }
     .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
 
@@ -71,6 +71,8 @@
     .btn-green { background: #16a34a; color: white; }
     .btn-whatsapp { background: #25D366; color: white; }
     .btn-whatsapp:hover { background: #1ebe5d; }
+    .btn-mail { background: #0284c7; color: white; }
+    .btn-mail:hover { background: #0369a1; }
     .btn-red { background: #dc2626; color: white; }
     .btn-sm { padding: 5px 10px; font-size: 11px; }
 
@@ -123,6 +125,9 @@
     /* Badges */
     .badge-dbn { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-ndbn { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
+    .badge-fault { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
+    .badge-tech { background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 11px; }
+    .badge-media { background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 11px; }
     .badge-lag { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
     .badge-ok { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
     .badge-rank { background: #003366; color: #ffffff; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 11px; }
@@ -153,18 +158,21 @@
     </div>
   </div>
 
-  <!-- Top-Level Module Navigation -->
+  <!-- Top-Level Module Navigation: 3 Main Modules -->
   <div class="module-nav">
     <button class="module-btn active" id="btn-mod-infra" onclick="switchModule('mod-infra', this)">
-      🏢 CNMC Site Infra & Power Report Tracker
+      🏢 CNMC Site Infra & Power Tracker
     </button>
     <button class="module-btn" id="btn-mod-dbn" onclick="switchModule('mod-dbn', this)">
       📊 DBN_NDBN Avail Dashboard
     </button>
+    <button class="module-btn" id="btn-mod-down" onclick="switchModule('mod-down', this)">
+      🚨 Down Sites Tracker
+    </button>
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODULE 1: CNMC SITE INFRA & POWER REPORT TRACKER                          -->
+  <!-- MODULE 1: CNMC SITE INFRA & POWER TRACKER                                 -->
   <!-- ========================================================================= -->
   <div id="mod-infra">
     <div class="toolbar">
@@ -284,12 +292,10 @@
   <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD                                        -->
   <!-- ========================================================================= -->
   <div id="mod-dbn" style="display: none;">
-    <!-- Metric Scope Note Banner -->
     <div class="metric-legend-note">
       ℹ️ <strong>Note:</strong> Avail % is for rolling 30 days, max. active user is max. for last 30 days, voice erl and data GB are avg. of last 30 days.
     </div>
 
-    <!-- Module 2 Sub-Nav: 4 Dedicated Views -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDbnSubTab('dbn-main-view', this)">📊 1. Availability Overview</button>
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-degraded-view', this)">⚠️ 2. Degraded Sites (Avail Drop)</button>
@@ -297,9 +303,8 @@
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 4. Escalation Dashboard</button>
     </div>
 
-    <!-- ==================== SUB-VIEW 1: CORE AVAILABILITY OVERVIEW ==================== -->
+    <!-- SUB-VIEW 1: CORE AVAILABILITY OVERVIEW -->
     <div class="dbn-sub-section" id="dbn-main-view">
-      <!-- Slicer & Filter Toolbar -->
       <div class="toolbar">
         <div class="toolbar-group">
           <label for="dbn-date-select"><strong>Report Date:</strong></label>
@@ -338,7 +343,6 @@
         </div>
       </div>
 
-      <!-- DBN KPI Cards -->
       <div class="kpi-container">
         <div class="kpi-card"><div class="title">Total Sites</div><div class="value" id="dbn-kpi-total">-</div></div>
         <div class="kpi-card"><div class="title">Avg Network Avail %</div><div class="value" id="dbn-kpi-avail">-</div></div>
@@ -347,7 +351,6 @@
         <div class="kpi-card"><div class="title">Critical Sites (&lt;90%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
       </div>
 
-      <!-- Chart Analytics Row -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
         <div class="section" style="margin-bottom: 0; padding: 14px;">
           <h2 style="font-size: 15px;">4-Bucket Availability Distribution</h2>
@@ -363,7 +366,6 @@
         </div>
       </div>
 
-      <!-- SSA Summary Table with Category-Aware WhatsApp Share Button -->
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <h2 style="margin:0;">SSA Availability Summary Breakdown (Count & % of Sites)</h2>
@@ -392,7 +394,6 @@
         </div>
       </div>
 
-      <!-- Detailed Site List -->
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div>
@@ -425,7 +426,7 @@
       </div>
     </div>
 
-    <!-- ==================== SUB-VIEW 2: AVAILABILITY DEGRADED SITES ==================== -->
+    <!-- SUB-VIEW 2: AVAILABILITY DEGRADED SITES -->
     <div class="dbn-sub-section" id="dbn-degraded-view" style="display: none;">
       <div class="section">
         <h2>Day-over-Day Degraded Sites Inspector (>98% on Day 1 → Dropped <98% on Day 2)</h2>
@@ -476,7 +477,7 @@
       </div>
     </div>
 
-    <!-- ==================== SUB-VIEW 3: USER DEGRADATION TRACKER ==================== -->
+    <!-- SUB-VIEW 3: USER DEGRADATION TRACKER -->
     <div class="dbn-sub-section" id="dbn-user-degraded-view" style="display: none;">
       <div class="section">
         <h2>Max Active User Degradation Tracker (Day-over-Day Drift)</h2>
@@ -541,7 +542,7 @@
       </div>
     </div>
 
-    <!-- ==================== SUB-VIEW 4: ESCALATION DASHBOARD ==================== -->
+    <!-- SUB-VIEW 4: ESCALATION DASHBOARD -->
     <div class="dbn-sub-section" id="dbn-escalation-view" style="display: none;">
       <div class="section">
         <h2>Site In-Charge Escalation & Target Gap Tracker</h2>
@@ -550,14 +551,12 @@
             <label for="esc-date-select"><strong>Report Date:</strong></label>
             <select id="esc-date-select" onchange="renderEscalationDashboard()"></select>
           </div>
-          <!-- SSA Filter inside Escalation Dashboard -->
           <div class="toolbar-group">
             <label for="esc-ssa-select"><strong>SSA:</strong></label>
             <select id="esc-ssa-select" onchange="renderEscalationDashboard()">
               <option value="ALL">All SSAs (Circle)</option>
             </select>
           </div>
-          <!-- Target Options -->
           <div class="toolbar-group">
             <label for="esc-target-select"><strong>Target % of Sites Having ≥98% Avail:</strong></label>
             <select id="esc-target-select" onchange="renderEscalationDashboard()">
@@ -569,7 +568,6 @@
           <div class="toolbar-group" style="flex: 1; min-width: 180px;">
             <input type="text" id="esc-search-input" placeholder="Search In-charge Officer..." oninput="renderEscalationDashboard()" style="width: 100%;">
           </div>
-          <!-- Bulk SSA WhatsApp Share & Excel Buttons -->
           <button class="btn btn-whatsapp btn-sm" onclick="shareBulkEscalationWhatsApp()">💬 Share Escalation on WhatsApp</button>
           <button class="btn btn-green btn-sm" onclick="exportEscalationExcel()">📥 Export Escalation Matrix</button>
         </div>
@@ -598,8 +596,166 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODULE 3: DOWN SITES TRACKER (>1 DAY & <1 DAY SPLIT & L2 SHARE VIA WHATSAPP/MAIL) -->
+  <!-- ========================================================================= -->
+  <div id="mod-down" style="display: none;">
+    <!-- Slicer Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label for="down-ba-select"><strong>BA:</strong></label>
+        <select id="down-ba-select" onchange="applyDownSitesFilters()">
+          <option value="ALL">All BAs</option>
+        </select>
+      </div>
+
+      <div class="toolbar-group">
+        <label for="down-ssa-select"><strong>SSA:</strong></label>
+        <select id="down-ssa-select" onchange="applyDownSitesFilters()">
+          <option value="ALL">All SSAs</option>
+        </select>
+      </div>
+
+      <div class="toolbar-group">
+        <label for="down-device-select"><strong>Device Type:</strong></label>
+        <select id="down-device-select" onchange="applyDownSitesFilters()">
+          <option value="ALL">All Device Types</option>
+        </select>
+      </div>
+
+      <div class="toolbar-group">
+        <label for="down-fault-select"><strong>Fault Type:</strong></label>
+        <select id="down-fault-select" onchange="applyDownSitesFilters()">
+          <option value="ALL">All Fault Types</option>
+        </select>
+      </div>
+
+      <div class="toolbar-group">
+        <label for="down-search-l1"><strong>L1 In-charge:</strong></label>
+        <input type="text" id="down-search-l1" placeholder="Search L1..." oninput="applyDownSitesFilters()" style="width: 140px;">
+      </div>
+
+      <div class="toolbar-group">
+        <label for="down-search-l2"><strong>L2 In-charge:</strong></label>
+        <input type="text" id="down-search-l2" placeholder="Search L2..." oninput="applyDownSitesFilters()" style="width: 140px;">
+      </div>
+
+      <div class="toolbar-group" style="flex: 1; min-width: 160px;">
+        <input type="text" id="down-search-input" placeholder="Search Site ID / Name / IP / Remark..." oninput="applyDownSitesFilters()" style="width: 100%;">
+      </div>
+    </div>
+
+    <!-- Down Sites KPI Cards -->
+    <div class="kpi-container">
+      <div class="kpi-card"><div class="title">Total Down Sites</div><div class="value" id="down-kpi-total" style="color:#dc2626;">-</div></div>
+      <div class="kpi-card"><div class="title">&gt; 1 Day Down Sites</div><div class="value" id="down-kpi-gt1d" style="color:#b91c1c;">-</div></div>
+      <div class="kpi-card"><div class="title">&lt; 1 Day Down Sites</div><div class="value" id="down-kpi-lt1d" style="color:#d97706;">-</div></div>
+      <div class="kpi-card"><div class="title">LTE Down</div><div class="value" id="down-kpi-lte">-</div></div>
+      <div class="kpi-card"><div class="title">GSM Down</div><div class="value" id="down-kpi-gsm">-</div></div>
+    </div>
+
+    <!-- Sub-Tabs for Down Sites -->
+    <div class="sub-tabs">
+      <button class="sub-tab-btn active" onclick="switchDownSubTab('down-gt1d-view', this)">🚨 1. &gt; 1 Day Down Sites</button>
+      <button class="sub-tab-btn" onclick="switchDownSubTab('down-lt1d-view', this)">⚠️ 2. &lt; 1 Day Down Sites</button>
+      <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 3. Fault-Wise SSA Matrix</button>
+    </div>
+
+    <!-- SUB-VIEW 1: > 1 DAY DOWN SITES (WITH L2 & WHATSAPP/MAIL SHARE TO L2) -->
+    <div class="down-sub-section" id="down-gt1d-view">
+      <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h2 style="margin:0; color:#b91c1c;">Sites Down For More Than 1 Day (Sorted: Longest Outage First)</h2>
+            <span id="down-gt1d-count-badge" style="font-size:12px; color:#64748b;">Showing active prolonged outages</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareGt1dWhatsAppToL2()">💬 Share to L2 on WhatsApp</button>
+            <button class="btn btn-mail btn-sm" onclick="shareGt1dMailToL2()">✉️ Share to L2 on Mail</button>
+            <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('gt1d')">📥 Export &gt; 1 Day Excel</button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Site ID</th>
+                <th>BTS IP ID</th>
+                <th>BTS Name</th>
+                <th>BA</th>
+                <th>SSA</th>
+                <th>Device</th>
+                <th>Media</th>
+                <th>Down Date</th>
+                <th>Down Period</th>
+                <th>Fault Type</th>
+                <th>Remarks</th>
+                <th>L1 In-charge</th>
+                <th>L2 In-charge</th>
+                <th class="num">30-Day Avail %</th>
+              </tr>
+            </thead>
+            <tbody id="down-gt1d-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 2: < 1 DAY DOWN SITES -->
+    <div class="down-sub-section" id="down-lt1d-view" style="display: none;">
+      <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h2 style="margin:0; color:#d97706;">Sites Down For Less Than 1 Day (Sorted: Longest Outage First)</h2>
+            <span id="down-lt1d-count-badge" style="font-size:12px; color:#64748b;">Showing recent outages (&lt; 24 hours)</span>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('lt1d')">📥 Export &lt; 1 Day Excel</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Site ID</th>
+                <th>BTS IP ID</th>
+                <th>BTS Name</th>
+                <th>BA</th>
+                <th>SSA</th>
+                <th>Device</th>
+                <th>Media</th>
+                <th>Down Date</th>
+                <th>Down Period</th>
+                <th>Fault Type</th>
+                <th>Remarks</th>
+                <th>L1 In-charge</th>
+                <th class="num">30-Day Avail %</th>
+              </tr>
+            </thead>
+            <tbody id="down-lt1d-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 3: FAULT-WISE MATRIX ACROSS SSAS -->
+    <div class="down-sub-section" id="down-matrix-view" style="display: none;">
+      <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <h2 style="margin:0;">Fault-Wise Summary Matrix Across SSAs</h2>
+          <button class="btn btn-green btn-sm" onclick="exportDownMatrixExcel()">📥 Export Matrix Excel</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead id="down-matrix-thead"></thead>
+            <tbody id="down-matrix-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
   </div>
+
 </div>
 
 <!-- DRILL-DOWN MODAL FOR CNMC INFRA TRACKER -->
@@ -645,9 +801,46 @@
   // =========================================================================
   const SHEET_INFRA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
   const SHEET_DBN_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=551656182&single=true&output=csv";
+  const SHEET_DOWNSITES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_qbW-YIfSR2BdLSiNwHRVz12-z6DJh4-Qty6TjFLQTIIFennmvZwg_pfYDv9d6Q/pub?gid=1879073474&single=true&output=csv";
 
   let currentActiveModule = "mod-infra";
   let dbnDataLoaded = false;
+  let downDataLoaded = false;
+
+  // Global Cross-Matching Master Lookups
+  const masterInchargeByIp = {};
+  const masterL2ByIp = {};
+  const masterAvailByIp = {};
+  const masterMediaByIp = {};
+
+  function normalizeIpKey(key) {
+    if (!key) return "";
+    let str = key.toString().trim().toUpperCase();
+    let numOnly = str.replace(/^0+/, "");
+    return numOnly || str;
+  }
+
+  // Parse down period string (e.g. "7 days 10 h", "4 days 15 h", "5 hours", "45 mins") into total minutes
+  function parseDownPeriodToMinutes(periodStr) {
+    if (!periodStr) return 0;
+    const str = periodStr.toLowerCase().trim();
+    let totalMinutes = 0;
+
+    const dayMatch = str.match(/(\d+)\s*(?:days?|d)/);
+    if (dayMatch) totalMinutes += parseInt(dayMatch[1], 10) * 1440;
+
+    const hrMatch = str.match(/(\d+)\s*(?:hours?|hrs?|h)/);
+    if (hrMatch) totalMinutes += parseInt(hrMatch[1], 10) * 60;
+
+    const minMatch = str.match(/(\d+)\s*(?:minutes?|mins?|m)/);
+    if (minMatch) totalMinutes += parseInt(minMatch[1], 10);
+
+    if (totalMinutes === 0 && !isNaN(parseFloat(str))) {
+      totalMinutes = parseFloat(str) * 60;
+    }
+
+    return totalMinutes;
+  }
 
   // =========================================================================
   // MODULE 1: CNMC SITE INFRA LOGIC
@@ -712,6 +905,12 @@
       const btsName = (row[6] || "").trim();
       const l1 = (row[69] || "Unassigned").trim();
       const l2 = (row[70] || "-").trim();
+
+      if (phyId) {
+        const pKey = normalizeIpKey(phyId);
+        if (l1 && l1 !== "Unassigned") masterInchargeByIp[pKey] = l1;
+        if (l2 && l2 !== "-") masterL2ByIp[pKey] = l2;
+      }
 
       let filledCount = 0;
       const missingFields = [];
@@ -1029,13 +1228,26 @@
           const reportDate = (r["Report Date"] || "").trim();
           const maxActiveUser = parseInt(r["Max active User"] || r["Max active user"] || 0) || 0;
           const l1 = (r["Static_Site_Hierarchy.CM L1_Name_number"] || "Unassigned").trim();
+          const l2 = (r["Static_Site_Hierarchy.CM L2_Name_number"] || r["L2 Incharge"] || "-").trim();
           const media = (r["Static_Site_Hierarchy.Media"] || "-").trim();
           const voiceErl = parseFloat(r["avg Voice_erl"]) || 0;
           const dataGb = parseFloat(r["avg DATA(GB)"]) || 0;
 
           if (reportDate) dateSet.add(reportDate);
 
-          return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, maxActiveUser, l1, media, voiceErl, dataGb };
+          const ipKey = normalizeIpKey(btsIp);
+          const siteKey = normalizeIpKey(siteId);
+
+          [ipKey, siteKey].forEach(k => {
+            if (k) {
+              masterAvailByIp[k] = avail;
+              if (l1 && l1 !== "Unassigned") masterInchargeByIp[k] = l1;
+              if (l2 && l2 !== "-") masterL2ByIp[k] = l2;
+              if (media && media !== "-") masterMediaByIp[k] = media;
+            }
+          });
+
+          return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, maxActiveUser, l1, l2, media, voiceErl, dataGb };
         }).filter(r => r.ssa !== "" && r.siteId !== "");
 
         dbnAvailableDates = Array.from(dateSet).sort().reverse();
@@ -1046,27 +1258,26 @@
         runUserDegradedAnalysis();
         renderEscalationDashboard();
 
+        if (downDataLoaded) applyDownSitesFilters();
+
         status.innerText = `DBN Connected • Loaded ${dbnRawRecords.length.toLocaleString()} rows • ${new Date().toLocaleTimeString()}`;
       }
     });
   }
 
   function populateDbnControls() {
-    // 1. Core Overview Date Select
     const dateSelect = document.getElementById("dbn-date-select");
     dateSelect.innerHTML = "";
     dbnAvailableDates.forEach(d => { dateSelect.innerHTML += `<option value="${d}">${d}</option>`; });
     dateSelect.innerHTML += `<option value="ALL">All Available Dates</option>`;
     dateSelect.value = dbnAvailableDates[0];
 
-    // 2. Core Overview SSA Select
     const ssaSelect = document.getElementById("dbn-ssa-select");
     const ssaSet = new Set();
     dbnRawRecords.forEach(r => { if (r.ssa) ssaSet.add(r.ssa); });
     ssaSelect.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
     Array.from(ssaSet).sort().forEach(s => { ssaSelect.innerHTML += `<option value="${s}">${s}</option>`; });
 
-    // 3. Avail Degraded Site Date Selectors
     const degPrev = document.getElementById("deg-prev-date");
     const degNext = document.getElementById("deg-next-date");
     const degSsa = document.getElementById("deg-ssa-select");
@@ -1080,7 +1291,6 @@
     degSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
     Array.from(ssaSet).sort().forEach(s => { degSsa.innerHTML += `<option value="${s}">${s}</option>`; });
 
-    // 4. User Degraded Site Selectors
     const userPrev = document.getElementById("user-deg-prev-date");
     const userNext = document.getElementById("user-deg-next-date");
     const userSsa = document.getElementById("user-deg-ssa-select");
@@ -1094,7 +1304,6 @@
     userSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
     Array.from(ssaSet).sort().forEach(s => { userSsa.innerHTML += `<option value="${s}">${s}</option>`; });
 
-    // 5. Escalation Controls
     const escDate = document.getElementById("esc-date-select");
     escDate.innerHTML = "";
     dbnAvailableDates.forEach(d => { escDate.innerHTML += `<option value="${d}">${d}</option>`; });
@@ -1307,7 +1516,6 @@
       </tr>`;
   }
 
-  // 1. Dynamic WhatsApp Heading based on Category Filter
   function shareSsaSummaryWhatsApp() {
     if (!window.currentSsaSummaryCache) return;
     const { ssaAgg, total, gte98, mid94, low90, lt90, avgAvail } = window.currentSsaSummaryCache;
@@ -1537,7 +1745,6 @@
 
     userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
 
-    // Update User Degradation KPIs
     document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
     document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
     document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
@@ -1578,7 +1785,7 @@
   }
 
   // =========================================================================
-  // SUB-MODULE 4: ESCALATION DASHBOARD LOGIC (WHATSAPP ALERTS INCLUDED)
+  // SUB-MODULE 4: ESCALATION DASHBOARD LOGIC (L1 <15 SITES AT BOTTOM)
   // =========================================================================
   let escalationData = [];
 
@@ -1607,10 +1814,10 @@
       if (r.bucket === ">=98%") inchargeMap[key].gte98++;
       else if (r.bucket === "94-98%") inchargeMap[key].mid94++;
       else if (r.bucket === "90-94%") inchargeMap[key].low90++;
-      else inchargeMap[key].lt90++;
+      else if (r.bucket === "<90%") inchargeMap[key].lt90++;
     });
 
-    escalationData = Object.values(inchargeMap).map(d => {
+    const parsedData = Object.values(inchargeMap).map(d => {
       const actualPct = d.total > 0 ? (d.gte98 / d.total) * 100 : 0;
       const targetCountNeeded = Math.ceil((targetPct / 100) * d.total);
       const shortfall = Math.max(0, targetCountNeeded - d.gte98);
@@ -1629,16 +1836,20 @@
       };
     });
 
-    escalationData.sort((a, b) => b.actualPct - a.actualPct);
+    // 1. Separate into >=15 Sites (Top Group) and <15 Sites (Bottom Group)
+    const topGroup = parsedData.filter(d => d.total >= 15);
+    const bottomGroup = parsedData.filter(d => d.total < 15);
 
-    let currentRank = 1;
-    escalationData.forEach(d => {
-      if (d.total >= 15) {
-        d.rank = currentRank++;
-      } else {
-        d.rank = null;
-      }
-    });
+    // 2. Sort both groups by >=98% availability (Highest to Lowest)
+    topGroup.sort((a, b) => b.actualPct - a.actualPct);
+    bottomGroup.sort((a, b) => b.actualPct - a.actualPct);
+
+    // 3. Assign sequential ranks to top group, mark bottom group as <15 sites
+    topGroup.forEach((d, idx) => { d.rank = idx + 1; });
+    bottomGroup.forEach(d => { d.rank = null; });
+
+    // 4. Combine with <15 sites strictly at the bottom
+    escalationData = [...topGroup, ...bottomGroup];
 
     const tbody = document.getElementById("escalation-tbody");
     tbody.innerHTML = "";
@@ -1690,7 +1901,6 @@
     });
   }
 
-  // 3a. Single Officer WhatsApp Alert
   function shareSingleOfficerWhatsApp(idx) {
     if (!window.currentEscalationFiltered || !window.currentEscalationFiltered[idx]) return;
     const d = window.currentEscalationFiltered[idx];
@@ -1715,7 +1925,6 @@
     window.open(whatsappUrl, "_blank");
   }
 
-  // 3b. Bulk SSA Escalation WhatsApp Share
   function shareBulkEscalationWhatsApp() {
     if (!window.currentEscalationFiltered || window.currentEscalationFiltered.length === 0) return;
     const chosenSsa = document.getElementById("esc-ssa-select").value;
@@ -1746,70 +1955,391 @@
   }
 
   // =========================================================================
-  // EXPORT UTILITIES FOR DBN
+  // MODULE 3: DOWN SITES TRACKER LOGIC (>1 DAY & <1 DAY SPLIT & L2 SHARE)
   // =========================================================================
-  function exportDbnSummaryExcel() {
-    const ssaAgg = {};
-    dbnFilteredRecords.forEach(r => {
-      if (!ssaAgg[r.ssa]) ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
-      ssaAgg[r.ssa].total++;
-      ssaAgg[r.ssa].availSum += r.avail;
-      if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
-      else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
-      if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
-      else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
-      else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
-      else if (r.bucket === "<90%") ssaAgg[r.ssa].lt90++;
-    });
+  let downRawRecords = [];
+  let downGt1dRecords = [];
+  let downLt1dRecords = [];
 
-    const rows = Object.keys(ssaAgg).sort().map(s => {
-      const a = ssaAgg[s];
-      return {
-        "SSA": s,
-        "Total Sites": a.total,
-        "DBN Count": a.dbn,
-        "NDBN Count": a.ndbn,
-        ">=98% Count": a.gte98,
-        ">=98% Share %": ((a.gte98 / a.total) * 100).toFixed(1) + "%",
-        "94-98% Count": a.mid94,
-        "94-98% Share %": ((a.mid94 / a.total) * 100).toFixed(1) + "%",
-        "90-94% Count": a.low90,
-        "90-94% Share %": ((a.low90 / a.total) * 100).toFixed(1) + "%",
-        "<90% Count": a.lt90,
-        "<90% Share %": ((a.lt90 / a.total) * 100).toFixed(1) + "%",
-        "Average Avail %": (a.availSum / a.total).toFixed(2) + "%"
-      };
-    });
+  async function fetchAndRenderDownSites() {
+    const status = document.getElementById("status-bar");
+    status.innerText = "Downloading Down Sites dataset...";
+    const targetUrl = SHEET_DOWNSITES_URL + (SHEET_DOWNSITES_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "SSA_Summary");
-    XLSX.writeFile(wb, "DBN_NDBN_SSA_Summary_4Buckets.xlsx");
+    try {
+      let res = await fetch(targetUrl);
+      if (!res.ok) throw new Error("Status: " + res.status);
+      let csvText = await res.text();
+      parseDownSitesCsv(csvText);
+    } catch (err) {
+      console.warn("Direct Down Sites fetch failed, trying proxy gateway...", err);
+      try {
+        let proxyRes = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl));
+        let proxyCsv = await proxyRes.text();
+        parseDownSitesCsv(proxyCsv);
+      } catch (backupErr) {
+        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error loading Down Sites dataset. Check sheet URL.</span>`;
+      }
+    }
   }
 
-  function exportDbnSitesExcel() {
-    const rows = dbnFilteredRecords.map((r, i) => ({
+  function parseDownSitesCsv(csvText) {
+    const status = document.getElementById("status-bar");
+    Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        const data = results.data;
+        if (!data || data.length === 0) {
+          status.innerText = "⚠️ Down Sites Dataset is empty.";
+          return;
+        }
+
+        downRawRecords = data.map(r => {
+          const ba = (r["BA"] || "").trim();
+          const ssa = (r["ssa_id"] || r["SSA"] || "").trim();
+          const sdca = (r["sdca_name"] || "-").trim();
+          const siteId = (r["btsSiteId"] || r["btsSiteID"] || "").trim();
+          const btsName = (r["btsName"] || "").trim();
+          const btsIpId = (r["btsIpId"] || "").trim();
+          const btsIpIdNew = (r["btsIpIdNew"] || "").trim();
+          const deviceType = (r["deviceType"] || "Unknown").trim().toUpperCase();
+          const vendor = (r["vendorId"] || "").trim();
+          const downDt = (r["downDt"] || "").trim();
+          const downPeriod = (r["downPeriod"] || "-").trim();
+          const faultType = (r["fault_type"] || "Unspecified").trim();
+          const remark = (r["remark"] || "-").trim();
+
+          const rawKey = btsIpId || btsIpIdNew;
+          const ipKey = normalizeIpKey(rawKey);
+          const siteKey = normalizeIpKey(siteId);
+
+          const incharge = masterInchargeByIp[ipKey] || masterInchargeByIp[siteKey] || "Unassigned";
+          const l2 = masterL2ByIp[ipKey] || masterL2ByIp[siteKey] || "-";
+          const media = masterMediaByIp[ipKey] || masterMediaByIp[siteKey] || "-";
+          const availVal = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
+
+          const durationMinutes = parseDownPeriodToMinutes(downPeriod);
+
+          return { ba, ssa, sdca, siteId, btsName, btsIpId: rawKey, deviceType, vendor, downDt, downPeriod, durationMinutes, faultType, remark, incharge, l2, media, availVal };
+        }).filter(r => r.siteId !== "" || r.btsName !== "");
+
+        populateDownSitesControls();
+        downDataLoaded = true;
+        applyDownSitesFilters();
+        status.innerText = `Down Sites Connected • ${downRawRecords.length.toLocaleString()} active down sites • ${new Date().toLocaleTimeString()}`;
+      }
+    });
+  }
+
+  function populateDownSitesControls() {
+    const baSelect = document.getElementById("down-ba-select");
+    const ssaSelect = document.getElementById("down-ssa-select");
+    const devSelect = document.getElementById("down-device-select");
+    const faultSelect = document.getElementById("down-fault-select");
+
+    const baSet = new Set(), ssaSet = new Set(), devSet = new Set(), faultSet = new Set();
+    downRawRecords.forEach(r => {
+      if (r.ba) baSet.add(r.ba);
+      if (r.ssa) ssaSet.add(r.ssa);
+      if (r.deviceType) devSet.add(r.deviceType);
+      if (r.faultType) faultSet.add(r.faultType);
+    });
+
+    baSelect.innerHTML = `<option value="ALL">All BAs</option>`;
+    Array.from(baSet).sort().forEach(b => baSelect.innerHTML += `<option value="${b}">${b}</option>`);
+
+    ssaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
+    Array.from(ssaSet).sort().forEach(s => ssaSelect.innerHTML += `<option value="${s}">${s}</option>`);
+
+    devSelect.innerHTML = `<option value="ALL">All Device Types</option>`;
+    Array.from(devSet).sort().forEach(d => devSelect.innerHTML += `<option value="${d}">${d}</option>`);
+
+    faultSelect.innerHTML = `<option value="ALL">All Fault Types</option>`;
+    Array.from(faultSet).sort().forEach(f => faultSelect.innerHTML += `<option value="${f}">${f}</option>`);
+  }
+
+  function applyDownSitesFilters() {
+    if (!downRawRecords || downRawRecords.length === 0) return;
+
+    const chosenBa = document.getElementById("down-ba-select").value;
+    const chosenSsa = document.getElementById("down-ssa-select").value;
+    const chosenDev = document.getElementById("down-device-select").value;
+    const chosenFault = document.getElementById("down-fault-select").value;
+    const searchL1 = (document.getElementById("down-search-l1").value || "").toLowerCase().trim();
+    const searchL2 = (document.getElementById("down-search-l2").value || "").toLowerCase().trim();
+    const searchVal = (document.getElementById("down-search-input").value || "").toLowerCase().trim();
+
+    const filtered = downRawRecords.map(r => {
+      const ipKey = normalizeIpKey(r.btsIpId);
+      const siteKey = normalizeIpKey(r.siteId);
+      if (r.incharge === "Unassigned") r.incharge = masterInchargeByIp[ipKey] || masterInchargeByIp[siteKey] || "Unassigned";
+      if (r.l2 === "-") r.l2 = masterL2ByIp[ipKey] || masterL2ByIp[siteKey] || "-";
+      if (r.media === "-") r.media = masterMediaByIp[ipKey] || masterMediaByIp[siteKey] || "-";
+      if (r.availVal === null) r.availVal = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
+      return r;
+    }).filter(r => {
+      if (chosenBa !== "ALL" && r.ba !== chosenBa) return false;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (chosenDev !== "ALL" && r.deviceType !== chosenDev) return false;
+      if (chosenFault !== "ALL" && r.faultType !== chosenFault) return false;
+      if (searchL1 && !r.incharge.toLowerCase().includes(searchL1)) return false;
+      if (searchL2 && !r.l2.toLowerCase().includes(searchL2)) return false;
+      if (searchVal) {
+        const matches = r.siteId.toLowerCase().includes(searchVal) ||
+                        r.btsName.toLowerCase().includes(searchVal) ||
+                        r.btsIpId.toLowerCase().includes(searchVal) ||
+                        r.remark.toLowerCase().includes(searchVal);
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    // Partition into > 1 Day (>= 1440 mins) and < 1 Day (< 1440 mins)
+    downGt1dRecords = filtered.filter(r => r.durationMinutes >= 1440);
+    downLt1dRecords = filtered.filter(r => r.durationMinutes < 1440);
+
+    // Sort both: highest down period to lowest
+    downGt1dRecords.sort((a, b) => b.durationMinutes - a.durationMinutes);
+    downLt1dRecords.sort((a, b) => b.durationMinutes - a.durationMinutes);
+
+    renderDownSitesDashboard(filtered);
+  }
+
+  function renderDownSitesDashboard(filtered) {
+    const total = filtered.length;
+    let lteCount = 0, gsmCount = 0;
+    const ssaSet = new Set(), matrix = {};
+
+    filtered.forEach(r => {
+      if (r.deviceType.includes("LTE")) lteCount++;
+      else if (r.deviceType.includes("GSM")) gsmCount++;
+      ssaSet.add(r.ssa);
+
+      if (!matrix[r.faultType]) matrix[r.faultType] = {};
+      matrix[r.faultType][r.ssa] = (matrix[r.faultType][r.ssa] || 0) + 1;
+    });
+
+    document.getElementById("down-kpi-total").innerText = total.toLocaleString();
+    document.getElementById("down-kpi-gt1d").innerText = downGt1dRecords.length.toLocaleString();
+    document.getElementById("down-kpi-lt1d").innerText = downLt1dRecords.length.toLocaleString();
+    document.getElementById("down-kpi-lte").innerText = lteCount.toLocaleString();
+    document.getElementById("down-kpi-gsm").innerText = gsmCount.toLocaleString();
+
+    renderGt1dTable(downGt1dRecords);
+    renderLt1dTable(downLt1dRecords);
+    renderDownSitesMatrix(matrix, Array.from(ssaSet).sort(), total);
+  }
+
+  function renderGt1dTable(records) {
+    const tbody = document.getElementById("down-gt1d-tbody");
+    const countBadge = document.getElementById("down-gt1d-count-badge");
+    tbody.innerHTML = "";
+    countBadge.innerText = `Showing ${records.length.toLocaleString()} sites down > 1 day`;
+
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites down for more than 1 day!</td></tr>`;
+      return;
+    }
+
+    records.forEach(r => {
+      const availText = r.availVal !== null 
+        ? `<span style="font-weight:bold; color:${r.availVal >= 98 ? '#16a34a' : (r.availVal >= 94 ? '#d97706' : '#dc2626')}">${r.availVal.toFixed(1)}%</span>`
+        : `<span style="color:#64748b;">N/A</span>`;
+
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIpId || "-"}</td>
+          <td>${r.btsName}</td>
+          <td>${r.ba}</td>
+          <td>${r.ssa}</td>
+          <td><span class="badge-tech">${r.deviceType}</span></td>
+          <td><span class="badge-media">${r.media}</span></td>
+          <td>${r.downDt}</td>
+          <td><strong style="color:#dc2626;">${r.downPeriod}</strong></td>
+          <td><span class="badge-fault">${r.faultType}</span></td>
+          <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td>
+          <td><strong>${r.incharge}</strong></td>
+          <td><strong>${r.l2}</strong></td>
+          <td class="num">${availText}</td>
+        </tr>`;
+    });
+  }
+
+  function renderLt1dTable(records) {
+    const tbody = document.getElementById("down-lt1d-tbody");
+    const countBadge = document.getElementById("down-lt1d-count-badge");
+    tbody.innerHTML = "";
+    countBadge.innerText = `Showing ${records.length.toLocaleString()} sites down < 1 day`;
+
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites down for less than 1 day.</td></tr>`;
+      return;
+    }
+
+    records.forEach(r => {
+      const availText = r.availVal !== null 
+        ? `<span style="font-weight:bold; color:${r.availVal >= 98 ? '#16a34a' : (r.availVal >= 94 ? '#d97706' : '#dc2626')}">${r.availVal.toFixed(1)}%</span>`
+        : `<span style="color:#64748b;">N/A</span>`;
+
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIpId || "-"}</td>
+          <td>${r.btsName}</td>
+          <td>${r.ba}</td>
+          <td>${r.ssa}</td>
+          <td><span class="badge-tech">${r.deviceType}</span></td>
+          <td><span class="badge-media">${r.media}</span></td>
+          <td>${r.downDt}</td>
+          <td><strong>${r.downPeriod}</strong></td>
+          <td><span class="badge-fault">${r.faultType}</span></td>
+          <td style="max-width:220px; font-size:12px; color:#475569;">${r.remark}</td>
+          <td><strong>${r.incharge}</strong></td>
+          <td class="num">${availText}</td>
+        </tr>`;
+    });
+  }
+
+  function renderDownSitesMatrix(matrix, ssaList, total) {
+    const thead = document.getElementById("down-matrix-thead");
+    const tbody = document.getElementById("down-matrix-tbody");
+
+    let thHtml = `<tr><th>Fault Category</th>`;
+    ssaList.forEach(s => { thHtml += `<th class="num">${s}</th>`; });
+    thHtml += `<th class="num">Circle Total</th><th class="num">% of Outages</th></tr>`;
+    thead.innerHTML = thHtml;
+
+    tbody.innerHTML = "";
+    const ssaColTotals = {};
+    ssaList.forEach(s => ssaColTotals[s] = 0);
+
+    const sortedFaults = Object.keys(matrix).sort((a, b) => {
+      let sumA = Object.values(matrix[a]).reduce((acc, v) => acc + v, 0);
+      let sumB = Object.values(matrix[b]).reduce((acc, v) => acc + v, 0);
+      return sumB - sumA;
+    });
+
+    sortedFaults.forEach(fault => {
+      let rowTotal = 0;
+      let trHtml = `<tr><td><span class="badge-fault">${fault}</span></td>`;
+      ssaList.forEach(s => {
+        const count = matrix[fault][s] || 0;
+        rowTotal += count;
+        ssaColTotals[s] += count;
+        trHtml += `<td class="num">${count > 0 ? '<strong>' + count + '</strong>' : '-'}</td>`;
+      });
+      const pct = total > 0 ? ((rowTotal / total) * 100).toFixed(1) : 0;
+      trHtml += `<td class="num"><strong>${rowTotal}</strong></td><td class="num"><strong>${pct}%</strong></td></tr>`;
+      tbody.innerHTML += trHtml;
+    });
+
+    let totalRowHtml = `<tr class="circle-row"><td>TOTAL DOWN SITES</td>`;
+    ssaList.forEach(s => { totalRowHtml += `<td class="num">${ssaColTotals[s]}</td>`; });
+    totalRowHtml += `<td class="num">${total}</td><td class="num">100%</td></tr>`;
+    tbody.innerHTML += totalRowHtml;
+  }
+
+  // Build the message content for L2 dispatch
+  function buildL2MessageText() {
+    const searchL2 = (document.getElementById("down-search-l2").value || "").trim();
+    let l2Title = searchL2 ? ` (${searchL2})` : "";
+
+    let msg = `Dear Sir/Mam,\nFollowing BTS sites are down for more than 1 days${l2Title}:\n\n`;
+
+    downGt1dRecords.forEach((r, idx) => {
+      msg += `${idx + 1}. ${r.btsName} (${r.downPeriod}) - Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
+    });
+
+    msg += `\nPlease restore these site on priority.\nThanks`;
+    return msg;
+  }
+
+  // Share to L2 via WhatsApp
+  function shareGt1dWhatsAppToL2() {
+    if (!downGt1dRecords || downGt1dRecords.length === 0) {
+      alert("No > 1 day down sites matching the active search/filters to share.");
+      return;
+    }
+
+    const msg = buildL2MessageText();
+    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
+    window.open(whatsappUrl, "_blank");
+  }
+
+  // Share to L2 via Email
+  function shareGt1dMailToL2() {
+    if (!downGt1dRecords || downGt1dRecords.length === 0) {
+      alert("No > 1 day down sites matching the active search/filters to share.");
+      return;
+    }
+
+    const searchL2 = (document.getElementById("down-search-l2").value || "").trim();
+    const subject = `Outage Alert: >1 Day Down BTS Sites - J&K CM${searchL2 ? ' (' + searchL2 + ')' : ''}`;
+    const body = buildL2MessageText();
+
+    const mailtoUrl = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    window.location.href = mailtoUrl;
+  }
+
+  function exportDownSitesExcel(type) {
+    const list = type === 'gt1d' ? downGt1dRecords : downLt1dRecords;
+    if (!list || list.length === 0) return;
+
+    const rows = list.map((r, i) => ({
       "S.No": i + 1,
-      "Date": r.reportDate,
-      "SSA": r.ssa,
-      "BA": r.ba,
       "Site ID": r.siteId,
-      "Site IP ID": r.btsIp,
-      "Site Name": r.siteName,
-      "Category": r.category,
-      "Availability %": r.avail,
-      "Bucket": r.bucket,
-      "Max Active User": r.maxActiveUser,
-      "L1 Officer": r.l1,
+      "BTS IP ID": r.btsIpId,
+      "BTS Name": r.btsName,
+      "BA": r.ba,
+      "SSA": r.ssa,
+      "SDCA": r.sdca,
+      "Device Type": r.deviceType,
       "Media": r.media,
-      "Voice (Erl)": r.voiceErl,
-      "Data (GB)": r.dataGb
+      "Vendor": r.vendor,
+      "Down Date": r.downDt,
+      "Down Period": r.downPeriod,
+      "Fault Type": r.faultType,
+      "Remark": r.remark,
+      "Site Incharge (L1)": r.incharge,
+      "L2 Incharge": r.l2,
+      "30-Day Avail %": r.availVal !== null ? r.availVal.toFixed(2) + "%" : "N/A"
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "DBN_Filtered_Sites");
-    XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
+    const sheetName = type === 'gt1d' ? "Down_GT_1Day" : "Down_LT_1Day";
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, `${sheetName}_Sites.xlsx`);
+  }
+
+  function exportDownMatrixExcel() {
+    const ssaSet = new Set(), matrix = {};
+    const all = [...downGt1dRecords, ...downLt1dRecords];
+    all.forEach(r => {
+      ssaSet.add(r.ssa);
+      if (!matrix[r.faultType]) matrix[r.faultType] = {};
+      matrix[r.faultType][r.ssa] = (matrix[r.faultType][r.ssa] || 0) + 1;
+    });
+    const ssaList = Array.from(ssaSet).sort();
+
+    const rows = Object.keys(matrix).map(f => {
+      const row = { "Fault Category": f };
+      let sum = 0;
+      ssaList.forEach(s => {
+        const count = matrix[f][s] || 0;
+        row[s] = count;
+        sum += count;
+      });
+      row["Total"] = sum;
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Fault_Matrix");
+    XLSX.writeFile(wb, "Down_Sites_Fault_Matrix.xlsx");
   }
 
   // =========================================================================
@@ -1819,6 +2349,7 @@
     document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("mod-infra").style.display = "none";
     document.getElementById("mod-dbn").style.display = "none";
+    document.getElementById("mod-down").style.display = "none";
 
     document.getElementById(modId).style.display = "block";
     btn.classList.add("active");
@@ -1826,6 +2357,9 @@
 
     if (modId === "mod-dbn" && !dbnDataLoaded) {
       fetchAndRenderDbn();
+    }
+    if (modId === "mod-down" && !downDataLoaded) {
+      fetchAndRenderDownSites();
     }
   }
 
@@ -1843,13 +2377,22 @@
     if (btn) btn.classList.add("active");
   }
 
+  function switchDownSubTab(viewId, btn) {
+    document.querySelectorAll("#mod-down .sub-tabs .sub-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".down-sub-section").forEach(s => s.style.display = "none");
+    document.getElementById(viewId).style.display = "block";
+    if (btn) btn.classList.add("active");
+  }
+
   function refreshCurrentModule() {
     if (currentActiveModule === "mod-infra") fetchAndRenderInfra();
-    else fetchAndRenderDbn();
+    else if (currentActiveModule === "mod-dbn") fetchAndRenderDbn();
+    else if (currentActiveModule === "mod-down") fetchAndRenderDownSites();
   }
 
   window.onload = function() {
     fetchAndRenderInfra();
+    setTimeout(() => { if (!dbnDataLoaded) fetchAndRenderDbn(); }, 800);
   };
 </script>
 </body>
