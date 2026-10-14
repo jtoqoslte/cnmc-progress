@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Report & Tracker</title>
-  <!-- Libraries for CSV Parsing, Excel Export, PDF Export, Chart.js & Chart DataLabels -->
+  <!-- Libraries for CSV Parsing, Excel Import/Export, PDF Export, Chart.js & Chart DataLabels -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -73,6 +73,8 @@
     .btn-whatsapp:hover { background: #1ebe5d; }
     .btn-mail { background: #0284c7; color: white; }
     .btn-mail:hover { background: #0369a1; }
+    .btn-file { background: #475569; color: white; }
+    .btn-file:hover { background: #334155; }
     .btn-red { background: #dc2626; color: white; }
     .btn-sm { padding: 5px 10px; font-size: 11px; }
 
@@ -189,7 +191,6 @@
       </div>
     </div>
 
-    <!-- KPI Summary Overview -->
     <div class="kpi-container">
       <div class="kpi-card"><div class="title">Total Sites</div><div class="value" id="kpi-total">-</div></div>
       <div class="kpi-card"><div class="title">Completed (100%)</div><div class="value" id="kpi-completed">-</div></div>
@@ -198,7 +199,6 @@
       <div class="kpi-card"><div class="title">Fill Completion %</div><div class="value" id="kpi-circle-pct">-</div></div>
     </div>
 
-    <!-- Sub Tabs inside Module 1 -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchSubTab('oa-view', this)">1. OA / SSA Summary</button>
       <button class="sub-tab-btn" onclick="switchSubTab('owner-view', this)">2. L1 / In-Charge Summary</button>
@@ -206,7 +206,6 @@
       <button class="sub-tab-btn" id="search-tab-btn" onclick="switchSubTab('search-view', this)" style="display: none;">Site Search Results</button>
     </div>
 
-    <!-- VIEW 1: OA SUMMARY -->
     <div class="section sub-section" id="oa-view">
       <h2>OA / SSA-Wise Completion Status <span style="font-size:12px; font-weight:normal; color:#64748b;">(Click row to inspect sites)</span></h2>
       <div class="table-container">
@@ -228,7 +227,6 @@
       </div>
     </div>
 
-    <!-- VIEW 2: OWNER SUMMARY -->
     <div class="section sub-section" id="owner-view" style="display:none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
         <h2 style="margin: 0;">Site In-Charge (L1 / L2) Progress</h2>
@@ -255,7 +253,6 @@
       </div>
     </div>
 
-    <!-- VIEW 3: PARAMETER HEATMAP -->
     <div class="section sub-section" id="param-view" style="display:none;">
       <h2>Mandatory Parameter Fill % Heatmap Matrix</h2>
       <div class="table-container">
@@ -266,7 +263,6 @@
       </div>
     </div>
 
-    <!-- VIEW 4: SITE SEARCH VIEW -->
     <div class="section sub-section" id="search-view" style="display:none;">
       <h2>Site Search Results</h2>
       <div class="table-container">
@@ -599,7 +595,7 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODULE 3: DOWN SITES TRACKER (>1 DAY & <1 DAY SPLIT & L2 SHARE VIA WHATSAPP/MAIL) -->
+  <!-- MODULE 3: DOWN SITES TRACKER                                              -->
   <!-- ========================================================================= -->
   <div id="mod-down" style="display: none;">
     <!-- Slicer Toolbar -->
@@ -634,24 +630,31 @@
 
       <div class="toolbar-group">
         <label for="down-search-l1"><strong>L1 In-charge:</strong></label>
-        <input type="text" id="down-search-l1" placeholder="Search L1..." oninput="applyDownSitesFilters()" style="width: 140px;">
+        <input type="text" id="down-search-l1" placeholder="Search L1..." oninput="applyDownSitesFilters()" style="width: 130px;">
       </div>
 
       <div class="toolbar-group">
         <label for="down-search-l2"><strong>L2 In-charge:</strong></label>
-        <input type="text" id="down-search-l2" placeholder="Search L2..." oninput="applyDownSitesFilters()" style="width: 140px;">
+        <input type="text" id="down-search-l2" placeholder="Search L2..." oninput="applyDownSitesFilters()" style="width: 130px;">
       </div>
 
       <div class="toolbar-group" style="flex: 1; min-width: 160px;">
         <input type="text" id="down-search-input" placeholder="Search Site ID / Name / IP / Remark..." oninput="applyDownSitesFilters()" style="width: 100%;">
+      </div>
+
+      <!-- Feature 2: Local File Upload Button -->
+      <div class="toolbar-group">
+        <button class="btn btn-file btn-sm" onclick="document.getElementById('down-file-input').click()">📂 Upload Local File</button>
+        <input type="file" id="down-file-input" accept=".csv, .xlsx, .xls" style="display: none;" onchange="handleDownFileUpload(event)">
       </div>
     </div>
 
     <!-- Down Sites KPI Cards -->
     <div class="kpi-container">
       <div class="kpi-card"><div class="title">Total Down Sites</div><div class="value" id="down-kpi-total" style="color:#dc2626;">-</div></div>
-      <div class="kpi-card"><div class="title">&gt; 1 Day Down Sites</div><div class="value" id="down-kpi-gt1d" style="color:#b91c1c;">-</div></div>
-      <div class="kpi-card"><div class="title">&lt; 1 Day Down Sites</div><div class="value" id="down-kpi-lt1d" style="color:#d97706;">-</div></div>
+      <div class="kpi-card"><div class="title">&gt; 1 Day Down</div><div class="value" id="down-kpi-gt1d" style="color:#b91c1c;">-</div></div>
+      <div class="kpi-card"><div class="title">&lt; 1 Day Down</div><div class="value" id="down-kpi-lt1d" style="color:#d97706;">-</div></div>
+      <div class="kpi-card"><div class="title">Down with Avail &ge; 98%</div><div class="value" id="down-kpi-healthy" style="color:#16a34a;">-</div></div>
       <div class="kpi-card"><div class="title">LTE Down</div><div class="value" id="down-kpi-lte">-</div></div>
       <div class="kpi-card"><div class="title">GSM Down</div><div class="value" id="down-kpi-gsm">-</div></div>
     </div>
@@ -660,10 +663,11 @@
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDownSubTab('down-gt1d-view', this)">🚨 1. &gt; 1 Day Down Sites</button>
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-lt1d-view', this)">⚠️ 2. &lt; 1 Day Down Sites</button>
-      <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 3. Fault-Wise SSA Matrix</button>
+      <button class="sub-tab-btn" onclick="switchDownSubTab('down-healthy-view', this)">⭐ 3. Healthy Sites Currently Down (Avail &ge;98%)</button>
+      <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 4. Fault-Wise SSA Matrix</button>
     </div>
 
-    <!-- SUB-VIEW 1: > 1 DAY DOWN SITES (WITH L2 & WHATSAPP/MAIL SHARE TO L2) -->
+    <!-- SUB-VIEW 1: > 1 DAY DOWN SITES -->
     <div class="down-sub-section" id="down-gt1d-view">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -738,11 +742,90 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: FAULT-WISE MATRIX ACROSS SSAS -->
+    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN (Avail >= 98%) -->
+    <div class="down-sub-section" id="down-healthy-view" style="display: none;">
+      <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h2 style="margin:0; color:#16a34a;">High-Availability Sites Currently Down (Rolling 30-Day Avail &ge; 98.0%)</h2>
+            <span id="down-healthy-count-badge" style="font-size:12px; color:#64748b;">Critical focus: Protect high-availability sites from degrading</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareHealthyDownWhatsAppToL2()">💬 Share to L2 on WhatsApp</button>
+            <button class="btn btn-mail btn-sm" onclick="shareHealthyDownMailToL2()">✉️ Share to L2 on Mail</button>
+            <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('healthy')">📥 Export Healthy Down Excel</button>
+          </div>
+        </div>
+
+        <!-- Filter bar for Healthy Sites Down -->
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <div class="toolbar-group">
+            <label for="healthy-date-select"><strong>Down Date:</strong></label>
+            <select id="healthy-date-select" onchange="renderHealthyDownSitesTable()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="healthy-ssa-select"><strong>SSA:</strong></label>
+            <select id="healthy-ssa-select" onchange="renderHealthyDownSitesTable()">
+              <option value="ALL">All SSAs</option>
+            </select>
+          </div>
+          <div class="toolbar-group">
+            <label for="healthy-search-l1"><strong>L1:</strong></label>
+            <input type="text" id="healthy-search-l1" placeholder="Search L1..." oninput="renderHealthyDownSitesTable()" style="width: 120px;">
+          </div>
+          <div class="toolbar-group">
+            <label for="healthy-search-l2"><strong>L2:</strong></label>
+            <input type="text" id="healthy-search-l2" placeholder="Search L2..." oninput="renderHealthyDownSitesTable()" style="width: 120px;">
+          </div>
+          <div class="toolbar-group" style="flex: 1; min-width: 160px;">
+            <input type="text" id="healthy-search-input" placeholder="Search Site ID / Name / Remarks..." oninput="renderHealthyDownSitesTable()" style="width: 100%;">
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Site ID</th>
+                <th>BTS IP ID</th>
+                <th>BTS Name</th>
+                <th>BA</th>
+                <th>SSA</th>
+                <th>Device</th>
+                <th>Media</th>
+                <th>Down Date</th>
+                <th>Down Period</th>
+                <th>Fault Type</th>
+                <th>Remarks</th>
+                <th>L1 In-charge</th>
+                <th>L2 In-charge</th>
+                <th class="num">30-Day Avail %</th>
+              </tr>
+            </thead>
+            <tbody id="down-healthy-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 4: FAULT-WISE MATRIX ACROSS SSAS (WITH DURATION FILTER) -->
     <div class="down-sub-section" id="down-matrix-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-          <h2 style="margin:0;">Fault-Wise Summary Matrix Across SSAs</h2>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <h2 style="margin:0;">Fault-Wise Summary Matrix Across SSAs</h2>
+            <!-- Feature 1: Duration Filter inside Matrix -->
+            <div class="toolbar-group" style="margin: 0;">
+              <label for="matrix-duration-filter"><strong>Filter Duration:</strong></label>
+              <select id="matrix-duration-filter" onchange="applyMatrixDurationFilter()" style="font-weight:600; color:var(--primary);">
+                <option value="ALL">All Down Sites</option>
+                <option value="LT1D">&lt; 1 Day Down</option>
+                <option value="GT1D">&gt; 1 Day Down</option>
+                <option value="GT3D">&gt; 3 Days Down</option>
+                <option value="GT7D">&gt; 7 Days Down</option>
+              </select>
+            </div>
+          </div>
           <button class="btn btn-green btn-sm" onclick="exportDownMatrixExcel()">📥 Export Matrix Excel</button>
         </div>
         <div class="table-container">
@@ -801,7 +884,7 @@
   // =========================================================================
   const SHEET_INFRA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
   const SHEET_DBN_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=551656182&single=true&output=csv";
-  const SHEET_DOWNSITES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_qbW-YIfSR2BdLSiNwHRVz12-z6DJh4-Qty6TjFLQTIIFennmvZwg_pfYDv9d6Q/pub?gid=1879073474&single=true&output=csv";
+  const SHEET_DOWNSITES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=0&single=true&output=csv";
 
   let currentActiveModule = "mod-infra";
   let dbnDataLoaded = false;
@@ -820,7 +903,7 @@
     return numOnly || str;
   }
 
-  // Parse down period string (e.g. "7 days 10 h", "4 days 15 h", "5 hours", "45 mins") into total minutes
+  // Parse down period string into total minutes
   function parseDownPeriodToMinutes(periodStr) {
     if (!periodStr) return 0;
     const str = periodStr.toLowerCase().trim();
@@ -1836,19 +1919,15 @@
       };
     });
 
-    // 1. Separate into >=15 Sites (Top Group) and <15 Sites (Bottom Group)
     const topGroup = parsedData.filter(d => d.total >= 15);
     const bottomGroup = parsedData.filter(d => d.total < 15);
 
-    // 2. Sort both groups by >=98% availability (Highest to Lowest)
     topGroup.sort((a, b) => b.actualPct - a.actualPct);
     bottomGroup.sort((a, b) => b.actualPct - a.actualPct);
 
-    // 3. Assign sequential ranks to top group, mark bottom group as <15 sites
     topGroup.forEach((d, idx) => { d.rank = idx + 1; });
     bottomGroup.forEach(d => { d.rank = null; });
 
-    // 4. Combine with <15 sites strictly at the bottom
     escalationData = [...topGroup, ...bottomGroup];
 
     const tbody = document.getElementById("escalation-tbody");
@@ -1955,11 +2034,44 @@
   }
 
   // =========================================================================
-  // MODULE 3: DOWN SITES TRACKER LOGIC (>1 DAY & <1 DAY SPLIT & L2 SHARE)
+  // MODULE 3: DOWN SITES TRACKER LOGIC
   // =========================================================================
   let downRawRecords = [];
+  let downFilteredRecords = [];
   let downGt1dRecords = [];
   let downLt1dRecords = [];
+  let downHealthyRecords = [];
+
+  // Feature 2: Local File Upload Handler
+  function handleDownFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const status = document.getElementById("status-bar");
+    status.innerText = `Loading local file: ${file.name}...`;
+
+    const fileName = file.name.toLowerCase();
+    const reader = new FileReader();
+
+    if (fileName.endsWith(".csv")) {
+      reader.onload = function(e) {
+        parseDownSitesCsv(e.target.result);
+        status.innerText = `Loaded local CSV: ${file.name} • ${new Date().toLocaleTimeString()}`;
+      };
+      reader.readAsText(file);
+    } else {
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const csvText = XLSX.utils.sheet_to_csv(worksheet);
+        parseDownSitesCsv(csvText);
+        status.innerText = `Loaded local Excel: ${file.name} • ${new Date().toLocaleTimeString()}`;
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  }
 
   async function fetchAndRenderDownSites() {
     const status = document.getElementById("status-bar");
@@ -1999,19 +2111,17 @@
           const ba = (r["BA"] || "").trim();
           const ssa = (r["ssa_id"] || r["SSA"] || "").trim();
           const sdca = (r["sdca_name"] || "-").trim();
-          const siteId = (r["btsSiteId"] || r["btsSiteID"] || "").trim();
-          const btsName = (r["btsName"] || "").trim();
-          const btsIpId = (r["btsIpId"] || "").trim();
-          const btsIpIdNew = (r["btsIpIdNew"] || "").trim();
-          const deviceType = (r["deviceType"] || "Unknown").trim().toUpperCase();
-          const vendor = (r["vendorId"] || "").trim();
-          const downDt = (r["downDt"] || "").trim();
-          const downPeriod = (r["downPeriod"] || "-").trim();
-          const faultType = (r["fault_type"] || "Unspecified").trim();
-          const remark = (r["remark"] || "-").trim();
+          const siteId = (r["btsSiteId"] || r["btsSiteID"] || r["Site ID"] || r["PHY_Site_ID"] || "").trim();
+          const btsName = (r["btsName"] || r["BTS Name"] || "").trim();
+          const btsIpId = (r["btsIpId"] || r["btsIpIdNew"] || r["BTS IP ID"] || "").trim();
+          const deviceType = (r["deviceType"] || r["Device Type"] || "Unknown").trim().toUpperCase();
+          const vendor = (r["vendorId"] || r["Vendor"] || "").trim();
+          const downDt = (r["downDt"] || r["Down Date"] || "").trim();
+          const downPeriod = (r["downPeriod"] || r["Down Period"] || "-").trim();
+          const faultType = (r["fault_type"] || r["Fault Type"] || "Unspecified").trim();
+          const remark = (r["remark"] || r["Remark"] || "-").trim();
 
-          const rawKey = btsIpId || btsIpIdNew;
-          const ipKey = normalizeIpKey(rawKey);
+          const ipKey = normalizeIpKey(btsIpId);
           const siteKey = normalizeIpKey(siteId);
 
           const incharge = masterInchargeByIp[ipKey] || masterInchargeByIp[siteKey] || "Unassigned";
@@ -2021,7 +2131,7 @@
 
           const durationMinutes = parseDownPeriodToMinutes(downPeriod);
 
-          return { ba, ssa, sdca, siteId, btsName, btsIpId: rawKey, deviceType, vendor, downDt, downPeriod, durationMinutes, faultType, remark, incharge, l2, media, availVal };
+          return { ba, ssa, sdca, siteId, btsName, btsIpId, deviceType, vendor, downDt, downPeriod, durationMinutes, faultType, remark, incharge, l2, media, availVal };
         }).filter(r => r.siteId !== "" || r.btsName !== "");
 
         populateDownSitesControls();
@@ -2037,13 +2147,16 @@
     const ssaSelect = document.getElementById("down-ssa-select");
     const devSelect = document.getElementById("down-device-select");
     const faultSelect = document.getElementById("down-fault-select");
+    const healthyDateSelect = document.getElementById("healthy-date-select");
+    const healthySsaSelect = document.getElementById("healthy-ssa-select");
 
-    const baSet = new Set(), ssaSet = new Set(), devSet = new Set(), faultSet = new Set();
+    const baSet = new Set(), ssaSet = new Set(), devSet = new Set(), faultSet = new Set(), dateSet = new Set();
     downRawRecords.forEach(r => {
       if (r.ba) baSet.add(r.ba);
       if (r.ssa) ssaSet.add(r.ssa);
       if (r.deviceType) devSet.add(r.deviceType);
       if (r.faultType) faultSet.add(r.faultType);
+      if (r.downDt) dateSet.add(r.downDt);
     });
 
     baSelect.innerHTML = `<option value="ALL">All BAs</option>`;
@@ -2057,6 +2170,13 @@
 
     faultSelect.innerHTML = `<option value="ALL">All Fault Types</option>`;
     Array.from(faultSet).sort().forEach(f => faultSelect.innerHTML += `<option value="${f}">${f}</option>`);
+
+    // Populate Healthy Down Sub-View Filters
+    healthyDateSelect.innerHTML = `<option value="ALL">All Dates</option>`;
+    Array.from(dateSet).sort().reverse().forEach(dt => healthyDateSelect.innerHTML += `<option value="${dt}">${dt}</option>`);
+
+    healthySsaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
+    Array.from(ssaSet).sort().forEach(s => healthySsaSelect.innerHTML += `<option value="${s}">${s}</option>`);
   }
 
   function applyDownSitesFilters() {
@@ -2070,7 +2190,7 @@
     const searchL2 = (document.getElementById("down-search-l2").value || "").toLowerCase().trim();
     const searchVal = (document.getElementById("down-search-input").value || "").toLowerCase().trim();
 
-    const filtered = downRawRecords.map(r => {
+    downFilteredRecords = downRawRecords.map(r => {
       const ipKey = normalizeIpKey(r.btsIpId);
       const siteKey = normalizeIpKey(r.siteId);
       if (r.incharge === "Unassigned") r.incharge = masterInchargeByIp[ipKey] || masterInchargeByIp[siteKey] || "Unassigned";
@@ -2095,40 +2215,37 @@
       return true;
     });
 
-    // Partition into > 1 Day (>= 1440 mins) and < 1 Day (< 1440 mins)
-    downGt1dRecords = filtered.filter(r => r.durationMinutes >= 1440);
-    downLt1dRecords = filtered.filter(r => r.durationMinutes < 1440);
+    downGt1dRecords = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
+    downLt1dRecords = downFilteredRecords.filter(r => r.durationMinutes < 1440);
+    downHealthyRecords = downFilteredRecords.filter(r => r.availVal !== null && r.availVal >= 98.0);
 
-    // Sort both: highest down period to lowest
     downGt1dRecords.sort((a, b) => b.durationMinutes - a.durationMinutes);
     downLt1dRecords.sort((a, b) => b.durationMinutes - a.durationMinutes);
+    downHealthyRecords.sort((a, b) => b.durationMinutes - a.durationMinutes);
 
-    renderDownSitesDashboard(filtered);
+    renderDownSitesDashboard();
   }
 
-  function renderDownSitesDashboard(filtered) {
-    const total = filtered.length;
+  function renderDownSitesDashboard() {
+    const total = downFilteredRecords.length;
     let lteCount = 0, gsmCount = 0;
-    const ssaSet = new Set(), matrix = {};
 
-    filtered.forEach(r => {
+    downFilteredRecords.forEach(r => {
       if (r.deviceType.includes("LTE")) lteCount++;
       else if (r.deviceType.includes("GSM")) gsmCount++;
-      ssaSet.add(r.ssa);
-
-      if (!matrix[r.faultType]) matrix[r.faultType] = {};
-      matrix[r.faultType][r.ssa] = (matrix[r.faultType][r.ssa] || 0) + 1;
     });
 
     document.getElementById("down-kpi-total").innerText = total.toLocaleString();
     document.getElementById("down-kpi-gt1d").innerText = downGt1dRecords.length.toLocaleString();
     document.getElementById("down-kpi-lt1d").innerText = downLt1dRecords.length.toLocaleString();
+    document.getElementById("down-kpi-healthy").innerText = downHealthyRecords.length.toLocaleString();
     document.getElementById("down-kpi-lte").innerText = lteCount.toLocaleString();
     document.getElementById("down-kpi-gsm").innerText = gsmCount.toLocaleString();
 
     renderGt1dTable(downGt1dRecords);
     renderLt1dTable(downLt1dRecords);
-    renderDownSitesMatrix(matrix, Array.from(ssaSet).sort(), total);
+    renderHealthyDownSitesTable();
+    applyMatrixDurationFilter();
   }
 
   function renderGt1dTable(records) {
@@ -2202,6 +2319,86 @@
     });
   }
 
+  // Feature 3: Render Healthy Sites Currently Down (Avail >= 98%)
+  function renderHealthyDownSitesTable() {
+    const tbody = document.getElementById("down-healthy-tbody");
+    const countBadge = document.getElementById("down-healthy-count-badge");
+
+    const chosenDt = document.getElementById("healthy-date-select") ? document.getElementById("healthy-date-select").value : "ALL";
+    const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
+    const searchL1 = (document.getElementById("healthy-search-l1") ? document.getElementById("healthy-search-l1").value : "").toLowerCase().trim();
+    const searchL2 = (document.getElementById("healthy-search-l2") ? document.getElementById("healthy-search-l2").value : "").toLowerCase().trim();
+    const searchVal = (document.getElementById("healthy-search-input") ? document.getElementById("healthy-search-input").value : "").toLowerCase().trim();
+
+    window.activeHealthyDownFiltered = downHealthyRecords.filter(r => {
+      if (chosenDt !== "ALL" && r.downDt !== chosenDt) return false;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (searchL1 && !r.incharge.toLowerCase().includes(searchL1)) return false;
+      if (searchL2 && !r.l2.toLowerCase().includes(searchL2)) return false;
+      if (searchVal) {
+        const matches = r.siteId.toLowerCase().includes(searchVal) ||
+                        r.btsName.toLowerCase().includes(searchVal) ||
+                        r.btsIpId.toLowerCase().includes(searchVal) ||
+                        r.remark.toLowerCase().includes(searchVal);
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    tbody.innerHTML = "";
+    countBadge.innerText = `Showing ${window.activeHealthyDownFiltered.length.toLocaleString()} high-availability sites currently down`;
+
+    if (window.activeHealthyDownFiltered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No high-availability sites currently down matching active filters.</td></tr>`;
+      return;
+    }
+
+    window.activeHealthyDownFiltered.forEach(r => {
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIpId || "-"}</td>
+          <td>${r.btsName}</td>
+          <td>${r.ba}</td>
+          <td>${r.ssa}</td>
+          <td><span class="badge-tech">${r.deviceType}</span></td>
+          <td><span class="badge-media">${r.media}</span></td>
+          <td>${r.downDt}</td>
+          <td><strong style="color:#dc2626;">${r.downPeriod}</strong></td>
+          <td><span class="badge-fault">${r.faultType}</span></td>
+          <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td>
+          <td><strong>${r.incharge}</strong></td>
+          <td><strong>${r.l2}</strong></td>
+          <td class="num"><span style="color:#16a34a; font-weight:bold;">${r.availVal.toFixed(1)}%</span></td>
+        </tr>`;
+    });
+  }
+
+  // Feature 1: Fault-Wise SSA Matrix Duration Filter
+  function applyMatrixDurationFilter() {
+    const durVal = document.getElementById("matrix-duration-filter").value;
+    let recordsForMatrix = downFilteredRecords;
+
+    if (durVal === "LT1D") {
+      recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 1440);
+    } else if (durVal === "GT1D") {
+      recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
+    } else if (durVal === "GT3D") {
+      recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 4320); // 3 days = 4320 mins
+    } else if (durVal === "GT7D") {
+      recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 10080); // 7 days = 10080 mins
+    }
+
+    const ssaSet = new Set(), matrix = {};
+    recordsForMatrix.forEach(r => {
+      ssaSet.add(r.ssa);
+      if (!matrix[r.faultType]) matrix[r.faultType] = {};
+      matrix[r.faultType][r.ssa] = (matrix[r.faultType][r.ssa] || 0) + 1;
+    });
+
+    renderDownSitesMatrix(matrix, Array.from(ssaSet).sort(), recordsForMatrix.length);
+  }
+
   function renderDownSitesMatrix(matrix, ssaList, total) {
     const thead = document.getElementById("down-matrix-thead");
     const tbody = document.getElementById("down-matrix-tbody");
@@ -2241,50 +2438,84 @@
     tbody.innerHTML += totalRowHtml;
   }
 
-  // Build the message content for L2 dispatch
+  // Message builder for >1 Day Outages
   function buildL2MessageText() {
     const searchL2 = (document.getElementById("down-search-l2").value || "").trim();
     let l2Title = searchL2 ? ` (${searchL2})` : "";
 
     let msg = `Dear Sir/Mam,\nFollowing BTS sites are down for more than 1 days${l2Title}:\n\n`;
-
     downGt1dRecords.forEach((r, idx) => {
       msg += `${idx + 1}. ${r.btsName} (${r.downPeriod}) - Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
     });
-
     msg += `\nPlease restore these site on priority.\nThanks`;
     return msg;
   }
 
-  // Share to L2 via WhatsApp
   function shareGt1dWhatsAppToL2() {
     if (!downGt1dRecords || downGt1dRecords.length === 0) {
       alert("No > 1 day down sites matching the active search/filters to share.");
       return;
     }
-
     const msg = buildL2MessageText();
     const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
     window.open(whatsappUrl, "_blank");
   }
 
-  // Share to L2 via Email
   function shareGt1dMailToL2() {
     if (!downGt1dRecords || downGt1dRecords.length === 0) {
       alert("No > 1 day down sites matching the active search/filters to share.");
       return;
     }
-
     const searchL2 = (document.getElementById("down-search-l2").value || "").trim();
     const subject = `Outage Alert: >1 Day Down BTS Sites - J&K CM${searchL2 ? ' (' + searchL2 + ')' : ''}`;
     const body = buildL2MessageText();
+    window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+  }
 
-    const mailtoUrl = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
-    window.location.href = mailtoUrl;
+  // Message builder for Healthy Sites Currently Down (Avail >= 98%)
+  function buildHealthyDownMessageText() {
+    const records = window.activeHealthyDownFiltered || downHealthyRecords;
+    const searchL2 = (document.getElementById("healthy-search-l2") ? document.getElementById("healthy-search-l2").value : "").trim();
+    let l2Title = searchL2 ? ` (${searchL2})` : "";
+
+    let msg = `Dear Sir/Mam,\nFollowing High Availability BTS sites (Rolling 30-Day Avail >= 98%) are currently DOWN${l2Title}:\n\n`;
+    records.forEach((r, idx) => {
+      msg += `${idx + 1}. ${r.btsName} (${r.downPeriod}) - Avail: ${r.availVal.toFixed(1)}% | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
+    });
+    msg += `\nPlease restore these high-availability sites on topmost priority to protect circle SLA.\nThanks`;
+    return msg;
+  }
+
+  function shareHealthyDownWhatsAppToL2() {
+    const records = window.activeHealthyDownFiltered || downHealthyRecords;
+    if (!records || records.length === 0) {
+      alert("No healthy down sites matching active filters to share.");
+      return;
+    }
+    const msg = buildHealthyDownMessageText();
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+
+  function shareHealthyDownMailToL2() {
+    const records = window.activeHealthyDownFiltered || downHealthyRecords;
+    if (!records || records.length === 0) {
+      alert("No healthy down sites matching active filters to share.");
+      return;
+    }
+    const searchL2 = (document.getElementById("healthy-search-l2") ? document.getElementById("healthy-search-l2").value : "").trim();
+    const subject = `Urgent Alert: High Availability Sites Currently Down (Avail >=98%) - J&K CM${searchL2 ? ' (' + searchL2 + ')' : ''}`;
+    const body = buildHealthyDownMessageText();
+    window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
   function exportDownSitesExcel(type) {
-    const list = type === 'gt1d' ? downGt1dRecords : downLt1dRecords;
+    let list = downFilteredRecords;
+    let sheetName = "Down_Sites";
+
+    if (type === 'gt1d') { list = downGt1dRecords; sheetName = "Down_GT_1Day"; }
+    else if (type === 'lt1d') { list = downLt1dRecords; sheetName = "Down_LT_1Day"; }
+    else if (type === 'healthy') { list = window.activeHealthyDownFiltered || downHealthyRecords; sheetName = "Healthy_Down_Gte98"; }
+
     if (!list || list.length === 0) return;
 
     const rows = list.map((r, i) => ({
@@ -2309,15 +2540,20 @@
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    const sheetName = type === 'gt1d' ? "Down_GT_1Day" : "Down_LT_1Day";
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, `${sheetName}_Sites.xlsx`);
   }
 
   function exportDownMatrixExcel() {
+    const durVal = document.getElementById("matrix-duration-filter").value;
+    let recordsForMatrix = downFilteredRecords;
+    if (durVal === "LT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 1440);
+    else if (durVal === "GT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
+    else if (durVal === "GT3D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 4320);
+    else if (durVal === "GT7D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 10080);
+
     const ssaSet = new Set(), matrix = {};
-    const all = [...downGt1dRecords, ...downLt1dRecords];
-    all.forEach(r => {
+    recordsForMatrix.forEach(r => {
       ssaSet.add(r.ssa);
       if (!matrix[r.faultType]) matrix[r.faultType] = {};
       matrix[r.faultType][r.ssa] = (matrix[r.faultType][r.ssa] || 0) + 1;
@@ -2339,7 +2575,7 @@
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Fault_Matrix");
-    XLSX.writeFile(wb, "Down_Sites_Fault_Matrix.xlsx");
+    XLSX.writeFile(wb, `Down_Sites_Fault_Matrix_${durVal}.xlsx`);
   }
 
   // =========================================================================
