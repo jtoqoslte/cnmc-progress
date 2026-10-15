@@ -159,7 +159,7 @@
     </div>
   </div>
 
-  <!-- Top-Level Module Navigation -->
+  <!-- Top-Level Module Navigation: 3 Main Modules -->
   <div class="module-nav">
     <button class="module-btn active" id="btn-mod-infra" onclick="switchModule('mod-infra', this)">
       🏢 CNMC Site Infra & Power Tracker
@@ -313,7 +313,6 @@
           </select>
         </div>
 
-        <!-- Universal Category Slicer (DBN / NDBN / ALL) -->
         <div class="toolbar-group">
           <label><strong>Category:</strong></label>
           <div class="slicer-group" id="slicer-category">
@@ -441,7 +440,6 @@
               <option value="ALL">All SSAs</option>
             </select>
           </div>
-          <!-- Category selector in Degraded View -->
           <div class="toolbar-group">
             <label for="deg-cat-select"><strong>Category:</strong></label>
             <select id="deg-cat-select" onchange="runDegradedAnalysis()">
@@ -511,7 +509,6 @@
               <option value="ALL">All SSAs</option>
             </select>
           </div>
-          <!-- Category selector in User Degraded View -->
           <div class="toolbar-group">
             <label for="user-deg-cat-select"><strong>Category:</strong></label>
             <select id="user-deg-cat-select" onchange="runUserDegradedAnalysis()">
@@ -571,7 +568,6 @@
               <option value="ALL">All SSAs (Circle)</option>
             </select>
           </div>
-          <!-- Category selector in Escalation View -->
           <div class="toolbar-group">
             <label for="esc-cat-select"><strong>Category:</strong></label>
             <select id="esc-cat-select" onchange="renderEscalationDashboard()">
@@ -629,19 +625,18 @@
     <div class="toolbar">
       <div class="toolbar-group">
         <label for="down-ba-select"><strong>BA:</strong></label>
-        <select id="down-ba-select" onchange="applyDownSitesFilters()">
+        <select id="down-ba-select" onchange="handleDownSsaChange()">
           <option value="ALL">All BAs</option>
         </select>
       </div>
 
       <div class="toolbar-group">
         <label for="down-ssa-select"><strong>SSA:</strong></label>
-        <select id="down-ssa-select" onchange="applyDownSitesFilters()">
+        <select id="down-ssa-select" onchange="handleDownSsaChange()">
           <option value="ALL">All SSAs</option>
         </select>
       </div>
 
-      <!-- Item 3: Category Slicer in Down Sites Tracker (ALL, DBN, NDBN) -->
       <div class="toolbar-group">
         <label for="down-cat-select"><strong>Category:</strong></label>
         <select id="down-cat-select" onchange="applyDownSitesFilters()">
@@ -665,7 +660,6 @@
         </select>
       </div>
 
-      <!-- Item 1: Period Filter Dropdown (>1 Day, >3 Day, >7 Day, <1 Day, <12 Hr, All) -->
       <div class="toolbar-group">
         <label for="down-period-filter"><strong>Period:</strong></label>
         <select id="down-period-filter" onchange="applyDownSitesFilters()" style="font-weight:600; color:var(--primary);">
@@ -678,7 +672,7 @@
         </select>
       </div>
 
-      <!-- Item 1: Dropdown Selection Options for L1 and L2 (No Text Search) -->
+      <!-- Cascading L1 and L2 Dropdowns (Narrowed by SSA) -->
       <div class="toolbar-group">
         <label for="down-select-l1"><strong>L1:</strong></label>
         <select id="down-select-l1" onchange="applyDownSitesFilters()" style="max-width: 150px;">
@@ -713,7 +707,7 @@
       <div class="kpi-card"><div class="title">GSM Down</div><div class="value" id="down-kpi-gsm">-</div></div>
     </div>
 
-    <!-- Sub-Tabs for Down Sites: Includes Item 4 Information Summary -->
+    <!-- Sub-Tabs for Down Sites -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDownSubTab('down-unified-view', this)">🚨 1. Down Sites List</button>
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-info-summary-view', this)">📋 2. Information Summary</button>
@@ -721,7 +715,7 @@
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 4. Fault-Wise SSA Matrix</button>
     </div>
 
-    <!-- SUB-VIEW 1: UNIFIED DOWN SITES LIST (WITH PERIOD FILTER, L1/L2 DROPDOWNS & SHARE) -->
+    <!-- SUB-VIEW 1: UNIFIED DOWN SITES LIST -->
     <div class="down-sub-section" id="down-unified-view">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -763,7 +757,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 2: INFORMATION SUMMARY (ITEM 4: GSM, UMTS, LTE DBN/NDBN & TOTAL GROUPED) -->
+    <!-- SUB-VIEW 2: INFORMATION SUMMARY -->
     <div class="down-sub-section" id="down-info-summary-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -778,7 +772,6 @@
           </div>
         </div>
 
-        <!-- Info Summary Specific Controls -->
         <div class="toolbar" style="margin-bottom: 14px;">
           <div class="toolbar-group">
             <label for="info-group-by-select"><strong>Group Summary By:</strong></label>
@@ -848,11 +841,10 @@
           </div>
           <div class="toolbar-group">
             <label for="healthy-ssa-select"><strong>SSA:</strong></label>
-            <select id="healthy-ssa-select" onchange="renderHealthyDownSitesTable()">
+            <select id="healthy-ssa-select" onchange="handleHealthySsaChange()">
               <option value="ALL">All SSAs</option>
             </select>
           </div>
-          <!-- Item 3: Category in Healthy Down LTE View -->
           <div class="toolbar-group">
             <label for="healthy-cat-select"><strong>Category:</strong></label>
             <select id="healthy-cat-select" onchange="renderHealthyDownSitesTable()">
@@ -861,7 +853,6 @@
               <option value="NDBN">NDBN</option>
             </select>
           </div>
-          <!-- Item 2: Dropdown Selection Options for L1 and L2 in Healthy Down LTE Sites -->
           <div class="toolbar-group">
             <label for="healthy-select-l1"><strong>L1:</strong></label>
             <select id="healthy-select-l1" onchange="renderHealthyDownSitesTable()" style="max-width: 150px;">
@@ -1022,6 +1013,14 @@
     }
 
     return totalMinutes;
+  }
+
+  // Dynamic Closing Signature: Thanks & Regards J&K Circle Team / OA Team (<SSA>)
+  function getClosingSignature(ssaValue) {
+    if (!ssaValue || ssaValue === "ALL") {
+      return "Thanks & Regards,\nJ&K Circle Team";
+    }
+    return `Thanks & Regards,\nOA Team (${ssaValue})`;
   }
 
   // =========================================================================
@@ -1718,6 +1717,7 @@
     if (!window.currentSsaSummaryCache) return;
     const { ssaAgg, total, gte98, mid94, low90, lt90, avgAvail } = window.currentSsaSummaryCache;
     const selectedDate = document.getElementById("dbn-date-select").value;
+    const chosenSsa = document.getElementById("dbn-ssa-select").value;
 
     let catHeading = "DBN+NDBN";
     if (selectedCategory === "DBN") catHeading = "DBN";
@@ -1739,7 +1739,8 @@
     msg += `*94-98% Degraded*: ${mid94.toLocaleString()}\n`;
     msg += `*90-94% Low*: ${low90.toLocaleString()}\n`;
     msg += `*<90% Outage*: ${lt90.toLocaleString()}\n`;
-    msg += `*Circle Avg Availability*: ${avgAvail}%\n`;
+    msg += `*Circle Avg Availability*: ${avgAvail}%\n\n`;
+    msg += getClosingSignature(chosenSsa);
 
     const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
     window.open(whatsappUrl, "_blank");
@@ -1781,211 +1782,7 @@
   }
 
   // =========================================================================
-  // SUB-MODULE 2: AVAILABILITY DEGRADED SITES LOGIC
-  // =========================================================================
-  let degradedSitesList = [];
-
-  function runDegradedAnalysis() {
-    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
-    const prevDate = document.getElementById("deg-prev-date").value;
-    const nextDate = document.getElementById("deg-next-date").value;
-    const selectedSsa = document.getElementById("deg-ssa-select").value;
-    const selectedCat = document.getElementById("deg-cat-select") ? document.getElementById("deg-cat-select").value : "ALL";
-
-    if (!prevDate || !nextDate || prevDate === nextDate) {
-      document.getElementById("degraded-sites-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
-      return;
-    }
-
-    const prevMap = {};
-    let baseHealthyCount = 0;
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === prevDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
-          prevMap[r.siteId] = r;
-          if (r.avail >= 98.0) baseHealthyCount++;
-        }
-      }
-    });
-
-    degradedSitesList = [];
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === nextDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
-          const prevRec = prevMap[r.siteId];
-          if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
-            const drop = (r.avail - prevRec.avail).toFixed(2);
-            degradedSitesList.push({
-              siteId: r.siteId,
-              btsIp: r.btsIp,
-              siteName: r.siteName,
-              ssa: r.ssa,
-              category: r.category,
-              prevAvail: prevRec.avail,
-              nextAvail: r.avail,
-              dropDelta: drop,
-              bucket: r.bucket,
-              l1: r.l1,
-              media: r.media
-            });
-          }
-        }
-      }
-    });
-
-    degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
-
-    document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
-    document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
-    const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
-    document.getElementById("deg-kpi-rate").innerText = rate + "%";
-
-    const tbody = document.getElementById("degraded-sites-tbody");
-    tbody.innerHTML = "";
-    if (degradedSitesList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">Great! No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
-      return;
-    }
-
-    degradedSitesList.forEach(r => {
-      tbody.innerHTML += `
-        <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIp || "-"}</td>
-          <td>${r.siteName}</td>
-          <td>${r.ssa}</td>
-          <td>${r.category}</td>
-          <td class="num" style="color:#16a34a; font-weight:600;">${r.prevAvail.toFixed(2)}%</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${r.nextAvail.toFixed(2)}%</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${r.dropDelta}%</td>
-          <td>${r.bucket}</td>
-          <td>${r.l1}</td>
-          <td>${r.media}</td>
-        </tr>`;
-    });
-  }
-
-  function exportDegradedSitesExcel() {
-    if (!degradedSitesList || degradedSitesList.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(degradedSitesList);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Degraded_Avail_Sites");
-    XLSX.writeFile(wb, "Degraded_Avail_Sites.xlsx");
-  }
-
-  // =========================================================================
-  // SUB-MODULE 3: USER DEGRADATION TRACKER LOGIC
-  // =========================================================================
-  let userDegradedSitesList = [];
-
-  function runUserDegradedAnalysis() {
-    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
-    const prevDate = document.getElementById("user-deg-prev-date").value;
-    const nextDate = document.getElementById("user-deg-next-date").value;
-    const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
-    const selectedSsa = document.getElementById("user-deg-ssa-select").value;
-    const selectedCat = document.getElementById("user-deg-cat-select") ? document.getElementById("user-deg-cat-select").value : "ALL";
-    const searchOfficer = (document.getElementById("user-deg-incharge-search").value || "").toLowerCase().trim();
-
-    if (!prevDate || !nextDate || prevDate === nextDate) {
-      document.getElementById("user-degraded-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day user comparison.</td></tr>`;
-      return;
-    }
-
-    const prevMap = {};
-    let totalCompared = 0;
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === prevDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
-          prevMap[r.siteId] = r;
-        }
-      }
-    });
-
-    userDegradedSitesList = [];
-    let totalUsersLost = 0;
-    let sumDropPct = 0;
-
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === nextDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
-          const prevRec = prevMap[r.siteId];
-          if (prevRec) {
-            totalCompared++;
-            const baseUsers = prevRec.maxActiveUser;
-            const nextUsers = r.maxActiveUser;
-            if (baseUsers > 0 && nextUsers < baseUsers) {
-              const dropCount = baseUsers - nextUsers;
-              const dropPct = (dropCount / baseUsers) * 100;
-
-              if (dropPct >= minDropPct) {
-                if (!searchOfficer || r.l1.toLowerCase().includes(searchOfficer)) {
-                  totalUsersLost += dropCount;
-                  sumDropPct += dropPct;
-                  userDegradedSitesList.push({
-                    siteId: r.siteId,
-                    btsIp: r.btsIp,
-                    siteName: r.siteName,
-                    ssa: r.ssa,
-                    category: r.category,
-                    baseUsers: baseUsers,
-                    nextUsers: nextUsers,
-                    dropCount: dropCount,
-                    dropPct: dropPct,
-                    l1: r.l1,
-                    media: r.media
-                  });
-                }
-              }
-            }
-          }
-        }
-      }
-    });
-
-    userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
-
-    document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
-    document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
-    document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
-    const avgDrop = userDegradedSitesList.length > 0 ? (sumDropPct / userDegradedSitesList.length).toFixed(1) : "0.0";
-    document.getElementById("user-deg-kpi-drop-pct").innerText = avgDrop + "%";
-
-    const tbody = document.getElementById("user-degraded-tbody");
-    tbody.innerHTML = "";
-    if (userDegradedSitesList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found with Max Active User degradation matching selected threshold (${minDropPct}%).</td></tr>`;
-      return;
-    }
-
-    userDegradedSitesList.forEach(r => {
-      tbody.innerHTML += `
-        <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIp || "-"}</td>
-          <td>${r.siteName}</td>
-          <td>${r.ssa}</td>
-          <td>${r.category}</td>
-          <td class="num">${r.baseUsers.toLocaleString()}</td>
-          <td class="num">${r.nextUsers.toLocaleString()}</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
-          <td>${r.l1}</td>
-          <td>${r.media}</td>
-        </tr>`;
-    });
-  }
-
-  function exportUserDegradedSitesExcel() {
-    if (!userDegradedSitesList || userDegradedSitesList.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(userDegradedSitesList);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "User_Degradation");
-    XLSX.writeFile(wb, "Max_Active_User_Degradation.xlsx");
-  }
-
-  // =========================================================================
-  // SUB-MODULE 4: ESCALATION DASHBOARD LOGIC (L1 <15 SITES AT BOTTOM)
+  // SUB-MODULE 4: ESCALATION DASHBOARD LOGIC (CONTEXT-AWARE RANKING)
   // =========================================================================
   let escalationData = [];
 
@@ -2099,14 +1896,20 @@
     });
   }
 
+  // Change 4: Context-Aware Rank Reporting in WhatsApp Alert (Circle Rank vs SSA Rank)
   function shareSingleOfficerWhatsApp(idx) {
     if (!window.currentEscalationFiltered || !window.currentEscalationFiltered[idx]) return;
     const d = window.currentEscalationFiltered[idx];
     const selectedDate = document.getElementById("esc-date-select").value;
+    const chosenSsa = document.getElementById("esc-ssa-select").value;
+
+    const rankType = (chosenSsa && chosenSsa !== "ALL") ? "SSA Rank" : "Circle Rank";
 
     let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
     msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
-    if (d.rank) msg += `*Performance Rank:* #${d.rank} (in circle)\n`;
+    if (d.rank) {
+      msg += `*Performance Rank:* #${d.rank} (${rankType})\n`;
+    }
     msg += `*Total Sites Managed:* ${d.total}\n`;
     msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
     msg += `*Target Benchmark:* ${d.targetPct}% (${d.targetCountNeeded} sites)\n`;
@@ -2117,7 +1920,9 @@
     } else {
       msg += `*✅ Target Achieved:* Outstanding performance!\n\n`;
     }
-    msg += `For detailed site list please visit https://jtoqoslte.github.io/cnmc-progress/`;
+    
+    // Change 2: Contextual signature
+    msg += getClosingSignature(chosenSsa);
 
     const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
     window.open(whatsappUrl, "_blank");
@@ -2138,7 +1943,7 @@
       msg += `${rankStr}*${d.officer}* (${d.ssa}): Total ${d.total} | *≥98%: ${d.gte98} (${d.actualPct.toFixed(1)}%)* | Req: ${d.targetCountNeeded} | ${statusIcon}\n`;
     });
 
-    msg += `\nFor detailed site list please visit https://jtoqoslte.github.io/cnmc-progress/`;
+    msg += `\n${getClosingSignature(chosenSsa)}`;
 
     const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
     window.open(whatsappUrl, "_blank");
@@ -2268,24 +2073,17 @@
     const ssaSelect = document.getElementById("down-ssa-select");
     const devSelect = document.getElementById("down-device-select");
     const faultSelect = document.getElementById("down-fault-select");
-    const l1Select = document.getElementById("down-select-l1");
-    const l2Select = document.getElementById("down-select-l2");
     
     const infoSsaSelect = document.getElementById("info-ssa-select");
     const healthySsaSelect = document.getElementById("healthy-ssa-select");
-    const healthyL1Select = document.getElementById("healthy-select-l1");
-    const healthyL2Select = document.getElementById("healthy-select-l2");
 
     const baSet = new Set(), ssaSet = new Set(), devSet = new Set(), faultSet = new Set();
-    const l1Set = new Set(), l2Set = new Set();
 
     downRawRecords.forEach(r => {
       if (r.ba) baSet.add(r.ba);
       if (r.ssa) ssaSet.add(r.ssa);
       if (r.deviceType) devSet.add(r.deviceType);
       if (r.faultType) faultSet.add(r.faultType);
-      if (r.incharge && r.incharge !== "Unassigned") l1Set.add(r.incharge);
-      if (r.l2 && r.l2 !== "-") l2Set.add(r.l2);
     });
 
     baSelect.innerHTML = `<option value="ALL">All BAs</option>`;
@@ -2300,28 +2098,81 @@
     faultSelect.innerHTML = `<option value="ALL">All Fault Types</option>`;
     Array.from(faultSet).sort().forEach(f => faultSelect.innerHTML += `<option value="${f}">${f}</option>`);
 
-    // Item 1: L1 and L2 Dropdown Selection Options
-    l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
-    Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
-
-    l2Select.innerHTML = `<option value="ALL">All L2 Officers</option>`;
-    Array.from(l2Set).sort().forEach(l => l2Select.innerHTML += `<option value="${l}">${l}</option>`);
-
-    // Item 2: L1 and L2 Dropdown Selection Options in Healthy Down LTE View
-    healthyL1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
-    Array.from(l1Set).sort().forEach(l => healthyL1Select.innerHTML += `<option value="${l}">${l}</option>`);
-
-    healthyL2Select.innerHTML = `<option value="ALL">All L2 Officers</option>`;
-    Array.from(l2Set).sort().forEach(l => healthyL2Select.innerHTML += `<option value="${l}">${l}</option>`);
-
-    // SSA Dropdowns in Sub-Views
     infoSsaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
     Array.from(ssaSet).sort().forEach(s => infoSsaSelect.innerHTML += `<option value="${s}">${s}</option>`);
 
     healthySsaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
     Array.from(ssaSet).sort().forEach(s => healthySsaSelect.innerHTML += `<option value="${s}">${s}</option>`);
 
+    // Populate initial cascading dropdowns
+    updateDownOfficerDropdowns();
+    updateHealthyOfficerDropdowns();
     populateHealthyReportDateControl();
+  }
+
+  // Change 3: Cascading L1 & L2 dropdowns narrowed by SSA in Down Sites Tracker
+  function handleDownSsaChange() {
+    updateDownOfficerDropdowns();
+    applyDownSitesFilters();
+  }
+
+  function updateDownOfficerDropdowns() {
+    const chosenSsa = document.getElementById("down-ssa-select").value;
+    const l1Select = document.getElementById("down-select-l1");
+    const l2Select = document.getElementById("down-select-l2");
+
+    const currentL1 = l1Select.value;
+    const currentL2 = l2Select.value;
+
+    const l1Set = new Set(), l2Set = new Set();
+
+    downRawRecords.forEach(r => {
+      if (chosenSsa === "ALL" || r.ssa === chosenSsa) {
+        if (r.incharge && r.incharge !== "Unassigned") l1Set.add(r.incharge);
+        if (r.l2 && r.l2 !== "-") l2Set.add(r.l2);
+      }
+    });
+
+    l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+    Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
+    if (currentL1 && Array.from(l1Select.options).some(o => o.value === currentL1)) l1Select.value = currentL1;
+
+    l2Select.innerHTML = `<option value="ALL">All L2 Officers</option>`;
+    Array.from(l2Set).sort().forEach(l => l2Select.innerHTML += `<option value="${l}">${l}</option>`);
+    if (currentL2 && Array.from(l2Select.options).some(o => o.value === currentL2)) l2Select.value = currentL2;
+  }
+
+  // Cascading L1 & L2 dropdowns for Healthy Down Sites View
+  function handleHealthySsaChange() {
+    updateHealthyOfficerDropdowns();
+    renderHealthyDownSitesTable();
+  }
+
+  function updateHealthyOfficerDropdowns() {
+    const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
+    const l1Select = document.getElementById("healthy-select-l1");
+    const l2Select = document.getElementById("healthy-select-l2");
+    if (!l1Select || !l2Select) return;
+
+    const currentL1 = l1Select.value;
+    const currentL2 = l2Select.value;
+
+    const l1Set = new Set(), l2Set = new Set();
+
+    downRawRecords.forEach(r => {
+      if (r.deviceType.includes("LTE") && (chosenSsa === "ALL" || r.ssa === chosenSsa)) {
+        if (r.incharge && r.incharge !== "Unassigned") l1Set.add(r.incharge);
+        if (r.l2 && r.l2 !== "-") l2Set.add(r.l2);
+      }
+    });
+
+    l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+    Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
+    if (currentL1 && Array.from(l1Select.options).some(o => o.value === currentL1)) l1Select.value = currentL1;
+
+    l2Select.innerHTML = `<option value="ALL">All L2 Officers</option>`;
+    Array.from(l2Set).sort().forEach(l => l2Select.innerHTML += `<option value="${l}">${l}</option>`);
+    if (currentL2 && Array.from(l2Select.options).some(o => o.value === currentL2)) l2Select.value = currentL2;
   }
 
   function applyDownSitesFilters() {
@@ -2357,7 +2208,6 @@
       if (chosenL1 !== "ALL" && r.incharge !== chosenL1) return false;
       if (chosenL2 !== "ALL" && r.l2 !== chosenL2) return false;
 
-      // Item 1: Period filter condition
       if (chosenPeriod === "LT12H" && r.durationMinutes >= 720) return false;
       if (chosenPeriod === "LT1D" && r.durationMinutes >= 1440) return false;
       if (chosenPeriod === "GT1D" && r.durationMinutes < 1440) return false;
@@ -2374,7 +2224,6 @@
       return true;
     });
 
-    // Item 1: Sort Unified Down Sites list based on down period highest to lowest
     downUnifiedDisplayRecords = [...downFilteredRecords].sort((a, b) => b.durationMinutes - a.durationMinutes);
 
     renderDownSitesDashboard();
@@ -2404,7 +2253,6 @@
     applyMatrixDurationFilter();
   }
 
-  // Item 1: Unified Down Sites Table Rendering
   function renderUnifiedDownTable(records) {
     const tbody = document.getElementById("down-unified-tbody");
     const countBadge = document.getElementById("down-unified-count-badge");
@@ -2445,7 +2293,7 @@
     });
   }
 
-  // Item 4: Information Summary Table (GSM, UMTS, LTE DBN/NDBN & Total by L1, L2, or SDCA)
+  // Information Summary Table
   function renderInfoSummaryTable() {
     const tbody = document.getElementById("down-info-summary-tbody");
     const groupHeader = document.getElementById("info-table-group-header");
@@ -2485,7 +2333,6 @@
         if (r.category === "DBN") agg[fullKey].lteDbn++;
         else agg[fullKey].lteNdbn++;
       } else {
-        // Default to LTE NDBN if unspecified
         agg[fullKey].lteTotal++;
         agg[fullKey].lteNdbn++;
       }
@@ -2537,7 +2384,7 @@
       </tr>`;
   }
 
-  // Feature 2 & 3: Render Healthy Sites Currently Down (LTE ONLY & Report Date from Master)
+  // Render Healthy Sites Currently Down (LTE ONLY & Report Date from Master)
   function renderHealthyDownSitesTable() {
     const tbody = document.getElementById("down-healthy-tbody");
     const countBadge = document.getElementById("down-healthy-count-badge");
@@ -2549,7 +2396,6 @@
     const chosenL2 = document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL";
     const searchVal = (document.getElementById("healthy-search-input") ? document.getElementById("healthy-search-input").value : "").toLowerCase().trim();
 
-    // Filter strictly for LTE sites
     const lteDownSites = downFilteredRecords.filter(r => r.deviceType.includes("LTE"));
 
     const candidateSites = lteDownSites.map(r => {
@@ -2566,7 +2412,6 @@
       return { ...r, reportDateAvail: dateAvail };
     }).filter(r => r.reportDateAvail !== null && r.reportDateAvail >= 98.0);
 
-    // Update KPI Card with ONLY LTE down sites count
     document.getElementById("down-kpi-healthy").innerText = candidateSites.length.toLocaleString();
 
     window.activeHealthyDownFiltered = candidateSites.filter(r => {
@@ -2679,11 +2524,12 @@
   }
 
   // =========================================================================
-  // WHATSAPP & MAIL DISPATCHERS
+  // WHATSAPP & MAIL DISPATCHERS (WITH DYNAMIC CLOSING SIGNATURE)
   // =========================================================================
 
   // Unified Down Sites Dispatchers
   function buildUnifiedDownMessageText() {
+    const chosenSsa = document.getElementById("down-ssa-select").value;
     const chosenL2 = document.getElementById("down-select-l2").value;
     const chosenL1 = document.getElementById("down-select-l1").value;
     const chosenPeriod = document.getElementById("down-period-filter").value;
@@ -2696,7 +2542,8 @@
     downUnifiedDisplayRecords.forEach((r, idx) => {
       msg += `${idx + 1}. *${r.btsName}* (${r.downPeriod}) - Tech: ${r.deviceType} | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
     });
-    msg += `\nPlease restore these sites on priority.\nThanks`;
+    msg += `\nPlease restore these sites on priority.\n\n`;
+    msg += getClosingSignature(chosenSsa);
     return msg;
   }
 
@@ -2714,13 +2561,14 @@
       alert("No down sites matching active filters to share.");
       return;
     }
+    const chosenSsa = document.getElementById("down-ssa-select").value;
     const chosenL2 = document.getElementById("down-select-l2").value;
     const subject = `Outage Alert: Down BTS Sites - J&K CM${chosenL2 !== 'ALL' ? ' (' + chosenL2 + ')' : ''}`;
     const body = buildUnifiedDownMessageText();
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
-  // Information Summary Dispatchers
+  // Change 1 & 2: Information Summary Dispatchers (Removed portal link & dynamic signature)
   function buildInfoSummaryMessageText() {
     const groupBy = document.getElementById("info-group-by-select").value;
     const chosenSsa = document.getElementById("info-ssa-select").value;
@@ -2733,7 +2581,7 @@
       msg += `*${r.entity}* (${r.ssa}): Total: *${r.total}* [GSM: ${r.gsm}, UMTS: ${r.umts}, LTE: ${r.lteTotal} (DBN: ${r.lteDbn}, NDBN: ${r.lteNdbn})]\n`;
     });
 
-    msg += `\nFor site-level details, please visit https://jtoqoslte.github.io/cnmc-progress/\nThanks`;
+    msg += `\n${getClosingSignature(chosenSsa)}`;
     return msg;
   }
 
@@ -2762,6 +2610,7 @@
   // Healthy Down LTE Dispatchers
   function buildHealthyDownMessageText() {
     const records = window.activeHealthyDownFiltered || [];
+    const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
     const chosenL2 = (document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL");
     const chosenReportDate = document.getElementById("healthy-report-date-select") ? document.getElementById("healthy-report-date-select").value : "";
     let l2Title = chosenL2 !== "ALL" ? ` [L2: ${chosenL2}]` : "";
@@ -2770,7 +2619,8 @@
     records.forEach((r, idx) => {
       msg += `${idx + 1}. *${r.btsName}* (${r.downPeriod}) - Avail: ${r.reportDateAvail.toFixed(1)}% | Cat: ${r.category} | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
     });
-    msg += `\nPlease restore these high-availability LTE sites on topmost priority to protect circle SLA.\nThanks`;
+    msg += `\nPlease restore these high-availability LTE sites on topmost priority to protect circle SLA.\n\n`;
+    msg += getClosingSignature(chosenSsa);
     return msg;
   }
 
@@ -2790,6 +2640,7 @@
       alert("No healthy LTE down sites matching active filters to share.");
       return;
     }
+    const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
     const chosenL2 = document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL";
     const subject = `Urgent Alert: High Availability LTE Sites Down (Avail >=98%) - J&K CM${chosenL2 !== 'ALL' ? ' (' + chosenL2 + ')' : ''}`;
     const body = buildHealthyDownMessageText();
