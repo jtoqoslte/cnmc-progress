@@ -23,7 +23,6 @@
     }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     
-    /* BSNL Watermark Background */
     body {
       margin: 0;
       padding: 20px;
@@ -79,9 +78,9 @@
     .btn-sm { padding: 5px 10px; font-size: 11px; }
 
     /* Toolbars */
-    .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .toolbar-group { display: flex; align-items: center; gap: 8px; }
-    .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; }
+    .toolbar select, .toolbar input { padding: 7px 11px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; }
 
     /* Slicer Pills */
     .slicer-group { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -160,7 +159,7 @@
     </div>
   </div>
 
-  <!-- Top-Level Module Navigation: 3 Main Modules -->
+  <!-- Top-Level Module Navigation -->
   <div class="module-nav">
     <button class="module-btn active" id="btn-mod-infra" onclick="switchModule('mod-infra', this)">
       🏢 CNMC Site Infra & Power Tracker
@@ -314,6 +313,7 @@
           </select>
         </div>
 
+        <!-- Universal Category Slicer (DBN / NDBN / ALL) -->
         <div class="toolbar-group">
           <label><strong>Category:</strong></label>
           <div class="slicer-group" id="slicer-category">
@@ -441,6 +441,15 @@
               <option value="ALL">All SSAs</option>
             </select>
           </div>
+          <!-- Category selector in Degraded View -->
+          <div class="toolbar-group">
+            <label for="deg-cat-select"><strong>Category:</strong></label>
+            <select id="deg-cat-select" onchange="runDegradedAnalysis()">
+              <option value="ALL">ALL (DBN + NDBN)</option>
+              <option value="DBN">DBN</option>
+              <option value="NDBN">NDBN</option>
+            </select>
+          </div>
           <button class="btn btn-green btn-sm" onclick="exportDegradedSitesExcel()">📥 Export Degraded Sites Excel</button>
         </div>
 
@@ -502,6 +511,15 @@
               <option value="ALL">All SSAs</option>
             </select>
           </div>
+          <!-- Category selector in User Degraded View -->
+          <div class="toolbar-group">
+            <label for="user-deg-cat-select"><strong>Category:</strong></label>
+            <select id="user-deg-cat-select" onchange="runUserDegradedAnalysis()">
+              <option value="ALL">ALL (DBN + NDBN)</option>
+              <option value="DBN">DBN</option>
+              <option value="NDBN">NDBN</option>
+            </select>
+          </div>
           <div class="toolbar-group" style="flex: 1; min-width: 200px;">
             <input type="text" id="user-deg-incharge-search" placeholder="Search In-charge Officer..." oninput="runUserDegradedAnalysis()" style="width: 100%;">
           </div>
@@ -553,6 +571,15 @@
               <option value="ALL">All SSAs (Circle)</option>
             </select>
           </div>
+          <!-- Category selector in Escalation View -->
+          <div class="toolbar-group">
+            <label for="esc-cat-select"><strong>Category:</strong></label>
+            <select id="esc-cat-select" onchange="renderEscalationDashboard()">
+              <option value="ALL">ALL (DBN + NDBN)</option>
+              <option value="DBN">DBN</option>
+              <option value="NDBN">NDBN</option>
+            </select>
+          </div>
           <div class="toolbar-group">
             <label for="esc-target-select"><strong>Target % of Sites Having ≥98% Avail:</strong></label>
             <select id="esc-target-select" onchange="renderEscalationDashboard()">
@@ -598,7 +625,7 @@
   <!-- MODULE 3: DOWN SITES TRACKER                                              -->
   <!-- ========================================================================= -->
   <div id="mod-down" style="display: none;">
-    <!-- Slicer Toolbar -->
+    <!-- Universal Down Sites Toolbar -->
     <div class="toolbar">
       <div class="toolbar-group">
         <label for="down-ba-select"><strong>BA:</strong></label>
@@ -611,6 +638,16 @@
         <label for="down-ssa-select"><strong>SSA:</strong></label>
         <select id="down-ssa-select" onchange="applyDownSitesFilters()">
           <option value="ALL">All SSAs</option>
+        </select>
+      </div>
+
+      <!-- Item 3: Category Slicer in Down Sites Tracker (ALL, DBN, NDBN) -->
+      <div class="toolbar-group">
+        <label for="down-cat-select"><strong>Category:</strong></label>
+        <select id="down-cat-select" onchange="applyDownSitesFilters()">
+          <option value="ALL">ALL (DBN + NDBN)</option>
+          <option value="DBN">DBN</option>
+          <option value="NDBN">NDBN</option>
         </select>
       </div>
 
@@ -628,14 +665,32 @@
         </select>
       </div>
 
+      <!-- Item 1: Period Filter Dropdown (>1 Day, >3 Day, >7 Day, <1 Day, <12 Hr, All) -->
       <div class="toolbar-group">
-        <label for="down-search-l1"><strong>L1 In-charge:</strong></label>
-        <input type="text" id="down-search-l1" placeholder="Search L1..." oninput="applyDownSitesFilters()" style="width: 130px;">
+        <label for="down-period-filter"><strong>Period:</strong></label>
+        <select id="down-period-filter" onchange="applyDownSitesFilters()" style="font-weight:600; color:var(--primary);">
+          <option value="ALL">All Durations</option>
+          <option value="LT12H">&lt; 12 Hr. Down</option>
+          <option value="LT1D">&lt; 1 Day Down</option>
+          <option value="GT1D">&gt; 1 Day Down</option>
+          <option value="GT3D">&gt; 3 Day Down</option>
+          <option value="GT7D">&gt; 7 Day Down</option>
+        </select>
+      </div>
+
+      <!-- Item 1: Dropdown Selection Options for L1 and L2 (No Text Search) -->
+      <div class="toolbar-group">
+        <label for="down-select-l1"><strong>L1:</strong></label>
+        <select id="down-select-l1" onchange="applyDownSitesFilters()" style="max-width: 150px;">
+          <option value="ALL">All L1 Officers</option>
+        </select>
       </div>
 
       <div class="toolbar-group">
-        <label for="down-search-l2"><strong>L2 In-charge:</strong></label>
-        <input type="text" id="down-search-l2" placeholder="Search L2..." oninput="applyDownSitesFilters()" style="width: 130px;">
+        <label for="down-select-l2"><strong>L2:</strong></label>
+        <select id="down-select-l2" onchange="applyDownSitesFilters()" style="max-width: 150px;">
+          <option value="ALL">All L2 Officers</option>
+        </select>
       </div>
 
       <div class="toolbar-group" style="flex: 1; min-width: 160px;">
@@ -648,7 +703,7 @@
       </div>
     </div>
 
-    <!-- Down Sites KPI Cards: Healthy reflects ONLY LTE count -->
+    <!-- Down Sites KPI Cards -->
     <div class="kpi-container">
       <div class="kpi-card"><div class="title">Total Down Sites</div><div class="value" id="down-kpi-total" style="color:#dc2626;">-</div></div>
       <div class="kpi-card"><div class="title">&gt; 1 Day Down</div><div class="value" id="down-kpi-gt1d" style="color:#b91c1c;">-</div></div>
@@ -658,26 +713,26 @@
       <div class="kpi-card"><div class="title">GSM Down</div><div class="value" id="down-kpi-gsm">-</div></div>
     </div>
 
-    <!-- Sub-Tabs for Down Sites -->
+    <!-- Sub-Tabs for Down Sites: Includes Item 4 Information Summary -->
     <div class="sub-tabs">
-      <button class="sub-tab-btn active" onclick="switchDownSubTab('down-gt1d-view', this)">🚨 1. &gt; 1 Day Down Sites</button>
-      <button class="sub-tab-btn" onclick="switchDownSubTab('down-lt1d-view', this)">⚠️ 2. &lt; 1 Day Down Sites</button>
+      <button class="sub-tab-btn active" onclick="switchDownSubTab('down-unified-view', this)">🚨 1. Down Sites List</button>
+      <button class="sub-tab-btn" onclick="switchDownSubTab('down-info-summary-view', this)">📋 2. Information Summary</button>
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-healthy-view', this)">⭐ 3. Healthy Sites Currently Down (Avail &ge;98% - LTE Only)</button>
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 4. Fault-Wise SSA Matrix</button>
     </div>
 
-    <!-- SUB-VIEW 1: > 1 DAY DOWN SITES -->
-    <div class="down-sub-section" id="down-gt1d-view">
+    <!-- SUB-VIEW 1: UNIFIED DOWN SITES LIST (WITH PERIOD FILTER, L1/L2 DROPDOWNS & SHARE) -->
+    <div class="down-sub-section" id="down-unified-view">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div>
-            <h2 style="margin:0; color:#b91c1c;">Sites Down For More Than 1 Day (Sorted: Longest Outage First)</h2>
-            <span id="down-gt1d-count-badge" style="font-size:12px; color:#64748b;">Showing active prolonged outages</span>
+            <h2 style="margin:0; color:#b91c1c;">Down Sites Detailed Inventory (Sorted: Longest Outage First)</h2>
+            <span id="down-unified-count-badge" style="font-size:12px; color:#64748b;">Showing matching down sites</span>
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-whatsapp btn-sm" onclick="shareGt1dWhatsAppToL2()">💬 Share to L2 on WhatsApp</button>
-            <button class="btn btn-mail btn-sm" onclick="shareGt1dMailToL2()">✉️ Share to L2 on Mail</button>
-            <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('gt1d')">📥 Export &gt; 1 Day Excel</button>
+            <button class="btn btn-whatsapp btn-sm" onclick="shareUnifiedDownWhatsApp()">💬 Share on WhatsApp</button>
+            <button class="btn btn-mail btn-sm" onclick="shareUnifiedDownMail()">✉️ Share on Mail</button>
+            <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('unified')">📥 Export Down Sites Excel</button>
           </div>
         </div>
         <div class="table-container">
@@ -689,6 +744,8 @@
                 <th>BTS Name</th>
                 <th>BA</th>
                 <th>SSA</th>
+                <th>SDCA</th>
+                <th>Category</th>
                 <th>Device</th>
                 <th>Media</th>
                 <th>Down Date</th>
@@ -700,48 +757,76 @@
                 <th class="num">30-Day Avail %</th>
               </tr>
             </thead>
-            <tbody id="down-gt1d-tbody"></tbody>
+            <tbody id="down-unified-tbody"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- SUB-VIEW 2: < 1 DAY DOWN SITES -->
-    <div class="down-sub-section" id="down-lt1d-view" style="display: none;">
+    <!-- SUB-VIEW 2: INFORMATION SUMMARY (ITEM 4: GSM, UMTS, LTE DBN/NDBN & TOTAL GROUPED) -->
+    <div class="down-sub-section" id="down-info-summary-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div>
-            <h2 style="margin:0; color:#d97706;">Sites Down For Less Than 1 Day (Sorted: Longest Outage First)</h2>
-            <span id="down-lt1d-count-badge" style="font-size:12px; color:#64748b;">Showing recent outages (&lt; 24 hours)</span>
+            <h2 style="margin:0;">Down Sites Information Summary (Technology & Category Breakdown)</h2>
+            <span style="font-size:12px; color:#64748b;">Dynamic breakdown by L1, L2, or SDCA across SSAs</span>
           </div>
-          <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('lt1d')">📥 Export &lt; 1 Day Excel</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareInfoSummaryWhatsApp()">💬 Share Summary on WhatsApp</button>
+            <button class="btn btn-mail btn-sm" onclick="shareInfoSummaryMail()">✉️ Share Summary on Mail</button>
+            <button class="btn btn-green btn-sm" onclick="exportInfoSummaryExcel()">📥 Export Summary Excel</button>
+          </div>
         </div>
+
+        <!-- Info Summary Specific Controls -->
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <div class="toolbar-group">
+            <label for="info-group-by-select"><strong>Group Summary By:</strong></label>
+            <select id="info-group-by-select" onchange="renderInfoSummaryTable()" style="font-weight:bold; color:var(--primary);">
+              <option value="L1" selected>Site In-Charge (L1)</option>
+              <option value="L2">Cluster Lead (L2)</option>
+              <option value="SDCA">SDCA Name (sdca_name)</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <label for="info-ssa-select"><strong>Filter SSA:</strong></label>
+            <select id="info-ssa-select" onchange="renderInfoSummaryTable()">
+              <option value="ALL">All SSAs</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <label for="info-cat-select"><strong>Category:</strong></label>
+            <select id="info-cat-select" onchange="renderInfoSummaryTable()">
+              <option value="ALL">ALL (DBN + NDBN)</option>
+              <option value="DBN">DBN Only</option>
+              <option value="NDBN">NDBN Only</option>
+            </select>
+          </div>
+        </div>
+
         <div class="table-container">
           <table>
             <thead>
               <tr>
-                <th>Site ID</th>
-                <th>BTS IP ID</th>
-                <th>BTS Name</th>
-                <th>BA</th>
+                <th id="info-table-group-header">Group Entity</th>
                 <th>SSA</th>
-                <th>Device</th>
-                <th>Media</th>
-                <th>Down Date</th>
-                <th>Down Period</th>
-                <th>Fault Type</th>
-                <th>Remarks</th>
-                <th>L1 In-charge</th>
-                <th class="num">30-Day Avail %</th>
+                <th class="num">GSM Down</th>
+                <th class="num">UMTS Down</th>
+                <th class="num">LTE (DBN) Down</th>
+                <th class="num">LTE (NDBN) Down</th>
+                <th class="num" style="color:var(--primary); font-weight:bold;">Total LTE Down</th>
+                <th class="num" style="color:#dc2626; font-weight:bold;">Total Outage Sites</th>
               </tr>
             </thead>
-            <tbody id="down-lt1d-tbody"></tbody>
+            <tbody id="down-info-summary-tbody"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN (LTE ONLY & REPORT DATE FILTERED) -->
+    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN (LTE ONLY & REPORT DATE FILTERED & DROPDOWN L1/L2) -->
     <div class="down-sub-section" id="down-healthy-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -756,7 +841,6 @@
           </div>
         </div>
 
-        <!-- Filter bar for Healthy Sites Down: Uses Master Consolidated Report Date -->
         <div class="toolbar" style="margin-bottom: 14px;">
           <div class="toolbar-group">
             <label for="healthy-report-date-select"><strong>Report Date (Master):</strong></label>
@@ -768,13 +852,27 @@
               <option value="ALL">All SSAs</option>
             </select>
           </div>
+          <!-- Item 3: Category in Healthy Down LTE View -->
           <div class="toolbar-group">
-            <label for="healthy-search-l1"><strong>L1:</strong></label>
-            <input type="text" id="healthy-search-l1" placeholder="Search L1..." oninput="renderHealthyDownSitesTable()" style="width: 120px;">
+            <label for="healthy-cat-select"><strong>Category:</strong></label>
+            <select id="healthy-cat-select" onchange="renderHealthyDownSitesTable()">
+              <option value="ALL">ALL (DBN + NDBN)</option>
+              <option value="DBN">DBN</option>
+              <option value="NDBN">NDBN</option>
+            </select>
+          </div>
+          <!-- Item 2: Dropdown Selection Options for L1 and L2 in Healthy Down LTE Sites -->
+          <div class="toolbar-group">
+            <label for="healthy-select-l1"><strong>L1:</strong></label>
+            <select id="healthy-select-l1" onchange="renderHealthyDownSitesTable()" style="max-width: 150px;">
+              <option value="ALL">All L1 Officers</option>
+            </select>
           </div>
           <div class="toolbar-group">
-            <label for="healthy-search-l2"><strong>L2:</strong></label>
-            <input type="text" id="healthy-search-l2" placeholder="Search L2..." oninput="renderHealthyDownSitesTable()" style="width: 120px;">
+            <label for="healthy-select-l2"><strong>L2:</strong></label>
+            <select id="healthy-select-l2" onchange="renderHealthyDownSitesTable()" style="max-width: 150px;">
+              <option value="ALL">All L2 Officers</option>
+            </select>
           </div>
           <div class="toolbar-group" style="flex: 1; min-width: 160px;">
             <input type="text" id="healthy-search-input" placeholder="Search Site ID / Name / Remarks..." oninput="renderHealthyDownSitesTable()" style="width: 100%;">
@@ -790,6 +888,7 @@
                 <th>BTS Name</th>
                 <th>BA</th>
                 <th>SSA</th>
+                <th>Category</th>
                 <th>Device</th>
                 <th>Media</th>
                 <th>Down Date</th>
@@ -807,7 +906,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 4: FAULT-WISE MATRIX ACROSS SSAS (WITH DURATION FILTER) -->
+    <!-- SUB-VIEW 4: FAULT-WISE MATRIX ACROSS SSAS -->
     <div class="down-sub-section" id="down-matrix-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -817,6 +916,7 @@
               <label for="matrix-duration-filter"><strong>Filter Duration:</strong></label>
               <select id="matrix-duration-filter" onchange="applyMatrixDurationFilter()" style="font-weight:600; color:var(--primary);">
                 <option value="ALL">All Down Sites</option>
+                <option value="LT12H">&lt; 12 Hr. Down</option>
                 <option value="LT1D">&lt; 1 Day Down</option>
                 <option value="GT1D">&gt; 1 Day Down</option>
                 <option value="GT3D">&gt; 3 Days Down</option>
@@ -893,8 +993,7 @@
   const masterL2ByIp = {};
   const masterAvailByIp = {};
   const masterMediaByIp = {};
-
-  // Date-wise Availability Lookup for Master Consolidated: key = "DATE____IPKEY"
+  const masterCategoryByIp = {};
   const masterAvailByDateAndIp = {};
 
   function normalizeIpKey(key) {
@@ -1324,6 +1423,7 @@
           [ipKey, siteKey].forEach(k => {
             if (k) {
               masterAvailByIp[k] = avail;
+              if (cat) masterCategoryByIp[k] = cat;
               if (reportDate) {
                 masterAvailByDateAndIp[`${reportDate}____${k}`] = avail;
               }
@@ -1690,6 +1790,7 @@
     const prevDate = document.getElementById("deg-prev-date").value;
     const nextDate = document.getElementById("deg-next-date").value;
     const selectedSsa = document.getElementById("deg-ssa-select").value;
+    const selectedCat = document.getElementById("deg-cat-select") ? document.getElementById("deg-cat-select").value : "ALL";
 
     if (!prevDate || !nextDate || prevDate === nextDate) {
       document.getElementById("degraded-sites-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
@@ -1700,7 +1801,7 @@
     let baseHealthyCount = 0;
     dbnRawRecords.forEach(r => {
       if (r.reportDate === prevDate) {
-        if (selectedSsa === "ALL" || r.ssa === selectedSsa) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
           prevMap[r.siteId] = r;
           if (r.avail >= 98.0) baseHealthyCount++;
         }
@@ -1710,7 +1811,7 @@
     degradedSitesList = [];
     dbnRawRecords.forEach(r => {
       if (r.reportDate === nextDate) {
-        if (selectedSsa === "ALL" || r.ssa === selectedSsa) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
           const prevRec = prevMap[r.siteId];
           if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
             const drop = (r.avail - prevRec.avail).toFixed(2);
@@ -1783,6 +1884,7 @@
     const nextDate = document.getElementById("user-deg-next-date").value;
     const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
     const selectedSsa = document.getElementById("user-deg-ssa-select").value;
+    const selectedCat = document.getElementById("user-deg-cat-select") ? document.getElementById("user-deg-cat-select").value : "ALL";
     const searchOfficer = (document.getElementById("user-deg-incharge-search").value || "").toLowerCase().trim();
 
     if (!prevDate || !nextDate || prevDate === nextDate) {
@@ -1794,7 +1896,7 @@
     let totalCompared = 0;
     dbnRawRecords.forEach(r => {
       if (r.reportDate === prevDate) {
-        if (selectedSsa === "ALL" || r.ssa === selectedSsa) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
           prevMap[r.siteId] = r;
         }
       }
@@ -1806,7 +1908,7 @@
 
     dbnRawRecords.forEach(r => {
       if (r.reportDate === nextDate) {
-        if (selectedSsa === "ALL" || r.ssa === selectedSsa) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
           const prevRec = prevMap[r.siteId];
           if (prevRec) {
             totalCompared++;
@@ -1891,12 +1993,14 @@
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
     const chosenDate = document.getElementById("esc-date-select").value;
     const chosenSsa = document.getElementById("esc-ssa-select").value;
+    const chosenCat = document.getElementById("esc-cat-select") ? document.getElementById("esc-cat-select").value : "ALL";
     const targetPct = parseFloat(document.getElementById("esc-target-select").value) || 80.0;
     const searchVal = (document.getElementById("esc-search-input").value || "").toLowerCase().trim();
 
     const dateRecords = dbnRawRecords.filter(r => {
       if (r.reportDate !== chosenDate) return false;
       if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
       return true;
     });
 
@@ -2053,8 +2157,7 @@
   // =========================================================================
   let downRawRecords = [];
   let downFilteredRecords = [];
-  let downGt1dRecords = [];
-  let downLt1dRecords = [];
+  let downUnifiedDisplayRecords = [];
 
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
@@ -2123,7 +2226,7 @@
         downRawRecords = data.map(r => {
           const ba = (r["BA"] || "").trim();
           const ssa = (r["ssa_id"] || r["SSA"] || "").trim();
-          const sdca = (r["sdca_name"] || "-").trim();
+          const sdca = (r["sdca_name"] || r["SDCA"] || "-").trim();
           const siteId = (r["btsSiteId"] || r["btsSiteID"] || r["Site ID"] || r["PHY_Site_ID"] || "").trim();
           const btsName = (r["btsName"] || r["BTS Name"] || "").trim();
           const btsIpId = (r["btsIpId"] || r["btsIpIdNew"] || r["BTS IP ID"] || "").trim();
@@ -2132,7 +2235,6 @@
           const downDt = (r["downDt"] || r["Down Date"] || "").trim();
           const downPeriod = (r["downPeriod"] || r["Down Period"] || "-").trim();
           
-          // Change 3: If fault_type is missing/blank, mention "Reason not updated" instead of "Unspecified"
           let rawFault = (r["fault_type"] || r["Fault Type"] || "").trim();
           const faultType = rawFault !== "" ? rawFault : "Reason not updated";
           
@@ -2144,11 +2246,12 @@
           const incharge = masterInchargeByIp[ipKey] || masterInchargeByIp[siteKey] || "Unassigned";
           const l2 = masterL2ByIp[ipKey] || masterL2ByIp[siteKey] || "-";
           const media = masterMediaByIp[ipKey] || masterMediaByIp[siteKey] || "-";
+          const category = (r["CATEGORY"] || masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey] || "NDBN").trim().toUpperCase();
           const availVal = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
 
           const durationMinutes = parseDownPeriodToMinutes(downPeriod);
 
-          return { ba, ssa, sdca, siteId, btsName, btsIpId, deviceType, vendor, downDt, downPeriod, durationMinutes, faultType, remark, incharge, l2, media, availVal };
+          return { ba, ssa, sdca, siteId, btsName, btsIpId, category, deviceType, vendor, downDt, downPeriod, durationMinutes, faultType, remark, incharge, l2, media, availVal };
         }).filter(r => r.siteId !== "" || r.btsName !== "");
 
         populateDownSitesControls();
@@ -2159,19 +2262,30 @@
     });
   }
 
+  // Populate dynamic dropdown options for Down Sites
   function populateDownSitesControls() {
     const baSelect = document.getElementById("down-ba-select");
     const ssaSelect = document.getElementById("down-ssa-select");
     const devSelect = document.getElementById("down-device-select");
     const faultSelect = document.getElementById("down-fault-select");
+    const l1Select = document.getElementById("down-select-l1");
+    const l2Select = document.getElementById("down-select-l2");
+    
+    const infoSsaSelect = document.getElementById("info-ssa-select");
     const healthySsaSelect = document.getElementById("healthy-ssa-select");
+    const healthyL1Select = document.getElementById("healthy-select-l1");
+    const healthyL2Select = document.getElementById("healthy-select-l2");
 
     const baSet = new Set(), ssaSet = new Set(), devSet = new Set(), faultSet = new Set();
+    const l1Set = new Set(), l2Set = new Set();
+
     downRawRecords.forEach(r => {
       if (r.ba) baSet.add(r.ba);
       if (r.ssa) ssaSet.add(r.ssa);
       if (r.deviceType) devSet.add(r.deviceType);
       if (r.faultType) faultSet.add(r.faultType);
+      if (r.incharge && r.incharge !== "Unassigned") l1Set.add(r.incharge);
+      if (r.l2 && r.l2 !== "-") l2Set.add(r.l2);
     });
 
     baSelect.innerHTML = `<option value="ALL">All BAs</option>`;
@@ -2186,7 +2300,24 @@
     faultSelect.innerHTML = `<option value="ALL">All Fault Types</option>`;
     Array.from(faultSet).sort().forEach(f => faultSelect.innerHTML += `<option value="${f}">${f}</option>`);
 
-    // Ssa filter for Healthy Sites Down sub-view
+    // Item 1: L1 and L2 Dropdown Selection Options
+    l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+    Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
+
+    l2Select.innerHTML = `<option value="ALL">All L2 Officers</option>`;
+    Array.from(l2Set).sort().forEach(l => l2Select.innerHTML += `<option value="${l}">${l}</option>`);
+
+    // Item 2: L1 and L2 Dropdown Selection Options in Healthy Down LTE View
+    healthyL1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+    Array.from(l1Set).sort().forEach(l => healthyL1Select.innerHTML += `<option value="${l}">${l}</option>`);
+
+    healthyL2Select.innerHTML = `<option value="ALL">All L2 Officers</option>`;
+    Array.from(l2Set).sort().forEach(l => healthyL2Select.innerHTML += `<option value="${l}">${l}</option>`);
+
+    // SSA Dropdowns in Sub-Views
+    infoSsaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
+    Array.from(ssaSet).sort().forEach(s => infoSsaSelect.innerHTML += `<option value="${s}">${s}</option>`);
+
     healthySsaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
     Array.from(ssaSet).sort().forEach(s => healthySsaSelect.innerHTML += `<option value="${s}">${s}</option>`);
 
@@ -2198,10 +2329,12 @@
 
     const chosenBa = document.getElementById("down-ba-select").value;
     const chosenSsa = document.getElementById("down-ssa-select").value;
+    const chosenCat = document.getElementById("down-cat-select").value;
     const chosenDev = document.getElementById("down-device-select").value;
     const chosenFault = document.getElementById("down-fault-select").value;
-    const searchL1 = (document.getElementById("down-search-l1").value || "").toLowerCase().trim();
-    const searchL2 = (document.getElementById("down-search-l2").value || "").toLowerCase().trim();
+    const chosenPeriod = document.getElementById("down-period-filter").value;
+    const chosenL1 = document.getElementById("down-select-l1").value;
+    const chosenL2 = document.getElementById("down-select-l2").value;
     const searchVal = (document.getElementById("down-search-input").value || "").toLowerCase().trim();
 
     downFilteredRecords = downRawRecords.map(r => {
@@ -2210,15 +2343,27 @@
       if (r.incharge === "Unassigned") r.incharge = masterInchargeByIp[ipKey] || masterInchargeByIp[siteKey] || "Unassigned";
       if (r.l2 === "-") r.l2 = masterL2ByIp[ipKey] || masterL2ByIp[siteKey] || "-";
       if (r.media === "-") r.media = masterMediaByIp[ipKey] || masterMediaByIp[siteKey] || "-";
+      if (r.category === "NDBN" && (masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey])) {
+        r.category = masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey];
+      }
       if (r.availVal === null) r.availVal = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
       return r;
     }).filter(r => {
       if (chosenBa !== "ALL" && r.ba !== chosenBa) return false;
       if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
       if (chosenDev !== "ALL" && r.deviceType !== chosenDev) return false;
       if (chosenFault !== "ALL" && r.faultType !== chosenFault) return false;
-      if (searchL1 && !r.incharge.toLowerCase().includes(searchL1)) return false;
-      if (searchL2 && !r.l2.toLowerCase().includes(searchL2)) return false;
+      if (chosenL1 !== "ALL" && r.incharge !== chosenL1) return false;
+      if (chosenL2 !== "ALL" && r.l2 !== chosenL2) return false;
+
+      // Item 1: Period filter condition
+      if (chosenPeriod === "LT12H" && r.durationMinutes >= 720) return false;
+      if (chosenPeriod === "LT1D" && r.durationMinutes >= 1440) return false;
+      if (chosenPeriod === "GT1D" && r.durationMinutes < 1440) return false;
+      if (chosenPeriod === "GT3D" && r.durationMinutes < 4320) return false;
+      if (chosenPeriod === "GT7D" && r.durationMinutes < 10080) return false;
+
       if (searchVal) {
         const matches = r.siteId.toLowerCase().includes(searchVal) ||
                         r.btsName.toLowerCase().includes(searchVal) ||
@@ -2229,44 +2374,45 @@
       return true;
     });
 
-    downGt1dRecords = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
-    downLt1dRecords = downFilteredRecords.filter(r => r.durationMinutes < 1440);
-
-    downGt1dRecords.sort((a, b) => b.durationMinutes - a.durationMinutes);
-    downLt1dRecords.sort((a, b) => b.durationMinutes - a.durationMinutes);
+    // Item 1: Sort Unified Down Sites list based on down period highest to lowest
+    downUnifiedDisplayRecords = [...downFilteredRecords].sort((a, b) => b.durationMinutes - a.durationMinutes);
 
     renderDownSitesDashboard();
   }
 
   function renderDownSitesDashboard() {
     const total = downFilteredRecords.length;
-    let lteCount = 0, gsmCount = 0;
+    let lteCount = 0, gsmCount = 0, gt1dCount = 0, lt1dCount = 0;
 
     downFilteredRecords.forEach(r => {
       if (r.deviceType.includes("LTE")) lteCount++;
       else if (r.deviceType.includes("GSM")) gsmCount++;
+
+      if (r.durationMinutes >= 1440) gt1dCount++;
+      else lt1dCount++;
     });
 
     document.getElementById("down-kpi-total").innerText = total.toLocaleString();
-    document.getElementById("down-kpi-gt1d").innerText = downGt1dRecords.length.toLocaleString();
-    document.getElementById("down-kpi-lt1d").innerText = downLt1dRecords.length.toLocaleString();
+    document.getElementById("down-kpi-gt1d").innerText = gt1dCount.toLocaleString();
+    document.getElementById("down-kpi-lt1d").innerText = lt1dCount.toLocaleString();
     document.getElementById("down-kpi-lte").innerText = lteCount.toLocaleString();
     document.getElementById("down-kpi-gsm").innerText = gsmCount.toLocaleString();
 
-    renderGt1dTable(downGt1dRecords);
-    renderLt1dTable(downLt1dRecords);
+    renderUnifiedDownTable(downUnifiedDisplayRecords);
+    renderInfoSummaryTable();
     renderHealthyDownSitesTable();
     applyMatrixDurationFilter();
   }
 
-  function renderGt1dTable(records) {
-    const tbody = document.getElementById("down-gt1d-tbody");
-    const countBadge = document.getElementById("down-gt1d-count-badge");
+  // Item 1: Unified Down Sites Table Rendering
+  function renderUnifiedDownTable(records) {
+    const tbody = document.getElementById("down-unified-tbody");
+    const countBadge = document.getElementById("down-unified-count-badge");
     tbody.innerHTML = "";
-    countBadge.innerText = `Showing ${records.length.toLocaleString()} sites down > 1 day`;
+    countBadge.innerText = `Showing ${records.length.toLocaleString()} matching down sites`;
 
     if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites down for more than 1 day!</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No down sites found matching active filter set.</td></tr>`;
       return;
     }
 
@@ -2275,6 +2421,8 @@
         ? `<span style="font-weight:bold; color:${r.availVal >= 98 ? '#16a34a' : (r.availVal >= 94 ? '#d97706' : '#dc2626')}">${r.availVal.toFixed(1)}%</span>`
         : `<span style="color:#64748b;">N/A</span>`;
 
+      const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
+
       tbody.innerHTML += `
         <tr>
           <td><strong>${r.siteId}</strong></td>
@@ -2282,10 +2430,12 @@
           <td>${r.btsName}</td>
           <td>${r.ba}</td>
           <td>${r.ssa}</td>
+          <td>${r.sdca}</td>
+          <td>${catBadge}</td>
           <td><span class="badge-tech">${r.deviceType}</span></td>
           <td><span class="badge-media">${r.media}</span></td>
           <td>${r.downDt}</td>
-          <td><strong style="color:#dc2626;">${r.downPeriod}</strong></td>
+          <td><strong style="color:${r.durationMinutes >= 1440 ? '#dc2626' : '#d97706'};">${r.downPeriod}</strong></td>
           <td><span class="badge-fault">${r.faultType}</span></td>
           <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td>
           <td><strong>${r.incharge}</strong></td>
@@ -2295,56 +2445,113 @@
     });
   }
 
-  function renderLt1dTable(records) {
-    const tbody = document.getElementById("down-lt1d-tbody");
-    const countBadge = document.getElementById("down-lt1d-count-badge");
-    tbody.innerHTML = "";
-    countBadge.innerText = `Showing ${records.length.toLocaleString()} sites down < 1 day`;
+  // Item 4: Information Summary Table (GSM, UMTS, LTE DBN/NDBN & Total by L1, L2, or SDCA)
+  function renderInfoSummaryTable() {
+    const tbody = document.getElementById("down-info-summary-tbody");
+    const groupHeader = document.getElementById("info-table-group-header");
+    const groupBy = document.getElementById("info-group-by-select").value;
+    const chosenSsa = document.getElementById("info-ssa-select").value;
+    const chosenCat = document.getElementById("info-cat-select").value;
 
-    if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites down for less than 1 day.</td></tr>`;
+    groupHeader.innerText = groupBy === "L1" ? "Site In-Charge (L1)" : (groupBy === "L2" ? "Cluster Lead (L2)" : "SDCA Name");
+
+    const agg = {};
+
+    downRawRecords.forEach(r => {
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
+
+      let key = "";
+      if (groupBy === "L1") key = (r.incharge && r.incharge !== "Unassigned") ? r.incharge : "Unassigned";
+      else if (groupBy === "L2") key = (r.l2 && r.l2 !== "-") ? r.l2 : "Unassigned / General";
+      else key = (r.sdca && r.sdca !== "-") ? r.sdca : "Unknown SDCA";
+
+      const ssaName = r.ssa || "-";
+      const fullKey = `${key}____${ssaName}`;
+
+      if (!agg[fullKey]) {
+        agg[fullKey] = { entity: key, ssa: ssaName, gsm: 0, umts: 0, lteDbn: 0, lteNdbn: 0, lteTotal: 0, total: 0 };
+      }
+
+      agg[fullKey].total++;
+
+      const dev = r.deviceType.toUpperCase();
+      if (dev.includes("GSM") || dev.includes("2G")) {
+        agg[fullKey].gsm++;
+      } else if (dev.includes("UMTS") || dev.includes("3G")) {
+        agg[fullKey].umts++;
+      } else if (dev.includes("LTE") || dev.includes("4G")) {
+        agg[fullKey].lteTotal++;
+        if (r.category === "DBN") agg[fullKey].lteDbn++;
+        else agg[fullKey].lteNdbn++;
+      } else {
+        // Default to LTE NDBN if unspecified
+        agg[fullKey].lteTotal++;
+        agg[fullKey].lteNdbn++;
+      }
+    });
+
+    const rows = Object.values(agg).sort((a, b) => b.total - a.total);
+    tbody.innerHTML = "";
+
+    window.currentInfoSummaryRows = rows;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No down sites found for selected parameters.</td></tr>`;
       return;
     }
 
-    records.forEach(r => {
-      const availText = r.availVal !== null 
-        ? `<span style="font-weight:bold; color:${r.availVal >= 98 ? '#16a34a' : (r.availVal >= 94 ? '#d97706' : '#dc2626')}">${r.availVal.toFixed(1)}%</span>`
-        : `<span style="color:#64748b;">N/A</span>`;
+    let totGsm = 0, totUmts = 0, totDbn = 0, totNdbn = 0, totLte = 0, grandTotal = 0;
+
+    rows.forEach(r => {
+      totGsm += r.gsm;
+      totUmts += r.umts;
+      totDbn += r.lteDbn;
+      totNdbn += r.lteNdbn;
+      totLte += r.lteTotal;
+      grandTotal += r.total;
 
       tbody.innerHTML += `
         <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIpId || "-"}</td>
-          <td>${r.btsName}</td>
-          <td>${r.ba}</td>
+          <td><strong>${r.entity}</strong></td>
           <td>${r.ssa}</td>
-          <td><span class="badge-tech">${r.deviceType}</span></td>
-          <td><span class="badge-media">${r.media}</span></td>
-          <td>${r.downDt}</td>
-          <td><strong>${r.downPeriod}</strong></td>
-          <td><span class="badge-fault">${r.faultType}</span></td>
-          <td style="max-width:220px; font-size:12px; color:#475569;">${r.remark}</td>
-          <td><strong>${r.incharge}</strong></td>
-          <td class="num">${availText}</td>
+          <td class="num">${r.gsm > 0 ? r.gsm : '-'}</td>
+          <td class="num">${r.umts > 0 ? r.umts : '-'}</td>
+          <td class="num" style="color:#1e40af; font-weight:600;">${r.lteDbn > 0 ? r.lteDbn : '-'}</td>
+          <td class="num" style="color:#92400e; font-weight:600;">${r.lteNdbn > 0 ? r.lteNdbn : '-'}</td>
+          <td class="num" style="color:var(--primary); font-weight:bold;">${r.lteTotal > 0 ? r.lteTotal : '-'}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.total}</td>
         </tr>`;
     });
+
+    tbody.innerHTML += `
+      <tr class="circle-row">
+        <td>TOTAL DOWN SITES</td>
+        <td>SUMMARY</td>
+        <td class="num">${totGsm}</td>
+        <td class="num">${totUmts}</td>
+        <td class="num">${totDbn}</td>
+        <td class="num">${totNdbn}</td>
+        <td class="num">${totLte}</td>
+        <td class="num">${grandTotal}</td>
+      </tr>`;
   }
 
-  // Feature 1 & 2: Render Healthy Sites Currently Down (LTE ONLY & Report Date from Master)
+  // Feature 2 & 3: Render Healthy Sites Currently Down (LTE ONLY & Report Date from Master)
   function renderHealthyDownSitesTable() {
     const tbody = document.getElementById("down-healthy-tbody");
     const countBadge = document.getElementById("down-healthy-count-badge");
 
     const chosenReportDate = document.getElementById("healthy-report-date-select") ? document.getElementById("healthy-report-date-select").value : (dbnAvailableDates[0] || "");
     const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
-    const searchL1 = (document.getElementById("healthy-search-l1") ? document.getElementById("healthy-search-l1").value : "").toLowerCase().trim();
-    const searchL2 = (document.getElementById("healthy-search-l2") ? document.getElementById("healthy-search-l2").value : "").toLowerCase().trim();
+    const chosenCat = document.getElementById("healthy-cat-select") ? document.getElementById("healthy-cat-select").value : "ALL";
+    const chosenL1 = document.getElementById("healthy-select-l1") ? document.getElementById("healthy-select-l1").value : "ALL";
+    const chosenL2 = document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL";
     const searchVal = (document.getElementById("healthy-search-input") ? document.getElementById("healthy-search-input").value : "").toLowerCase().trim();
 
-    // Filter down sites to ONLY LTE
+    // Filter strictly for LTE sites
     const lteDownSites = downFilteredRecords.filter(r => r.deviceType.includes("LTE"));
 
-    // Calculate availability for each site specifically based on the selected Report Date from Master Consolidated
     const candidateSites = lteDownSites.map(r => {
       const ipKey = normalizeIpKey(r.btsIpId);
       const siteKey = normalizeIpKey(r.siteId);
@@ -2354,26 +2561,19 @@
         dateAvail = masterAvailByDateAndIp[`${chosenReportDate}____${ipKey}`] ?? 
                     masterAvailByDateAndIp[`${chosenReportDate}____${siteKey}`] ?? null;
       }
-      
-      // Fallback to latest master avail if date lookup not available
-      if (dateAvail === null) {
-        dateAvail = r.availVal;
-      }
+      if (dateAvail === null) dateAvail = r.availVal;
 
-      return {
-        ...r,
-        reportDateAvail: dateAvail
-      };
+      return { ...r, reportDateAvail: dateAvail };
     }).filter(r => r.reportDateAvail !== null && r.reportDateAvail >= 98.0);
 
-    // Feature 2: Update KPI Card with the count of ONLY LTE down sites with avail >= 98%
+    // Update KPI Card with ONLY LTE down sites count
     document.getElementById("down-kpi-healthy").innerText = candidateSites.length.toLocaleString();
 
-    // Apply UI sub-filters (SSA, L1, L2, Search)
     window.activeHealthyDownFiltered = candidateSites.filter(r => {
       if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
-      if (searchL1 && !r.incharge.toLowerCase().includes(searchL1)) return false;
-      if (searchL2 && !r.l2.toLowerCase().includes(searchL2)) return false;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
+      if (chosenL1 !== "ALL" && r.incharge !== chosenL1) return false;
+      if (chosenL2 !== "ALL" && r.l2 !== chosenL2) return false;
       if (searchVal) {
         const matches = r.siteId.toLowerCase().includes(searchVal) ||
                         r.btsName.toLowerCase().includes(searchVal) ||
@@ -2384,18 +2584,18 @@
       return true;
     });
 
-    // Sort by duration descending
     window.activeHealthyDownFiltered.sort((a, b) => b.durationMinutes - a.durationMinutes);
 
     tbody.innerHTML = "";
-    countBadge.innerText = `Showing ${window.activeHealthyDownFiltered.length.toLocaleString()} healthy LTE sites currently down (as per report date: ${chosenReportDate || 'Latest'})`;
+    countBadge.innerText = `Showing ${window.activeHealthyDownFiltered.length.toLocaleString()} healthy LTE sites currently down (Report Date: ${chosenReportDate || 'Latest'})`;
 
     if (window.activeHealthyDownFiltered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No high-availability LTE sites currently down for report date ${chosenReportDate || 'selected'}.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No high-availability LTE sites currently down for report date ${chosenReportDate || 'selected'}.</td></tr>`;
       return;
     }
 
     window.activeHealthyDownFiltered.forEach(r => {
+      const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
       tbody.innerHTML += `
         <tr>
           <td><strong>${r.siteId}</strong></td>
@@ -2403,6 +2603,7 @@
           <td>${r.btsName}</td>
           <td>${r.ba}</td>
           <td>${r.ssa}</td>
+          <td>${catBadge}</td>
           <td><span class="badge-tech">${r.deviceType}</span></td>
           <td><span class="badge-media">${r.media}</span></td>
           <td>${r.downDt}</td>
@@ -2416,20 +2617,16 @@
     });
   }
 
-  // Feature 3: Matrix Duration Filter & Handling Reason Not Updated
+  // Matrix Duration Filter
   function applyMatrixDurationFilter() {
     const durVal = document.getElementById("matrix-duration-filter").value;
     let recordsForMatrix = downFilteredRecords;
 
-    if (durVal === "LT1D") {
-      recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 1440);
-    } else if (durVal === "GT1D") {
-      recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
-    } else if (durVal === "GT3D") {
-      recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 4320);
-    } else if (durVal === "GT7D") {
-      recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 10080);
-    }
+    if (durVal === "LT12H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 720);
+    else if (durVal === "LT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 1440);
+    else if (durVal === "GT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
+    else if (durVal === "GT3D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 4320);
+    else if (durVal === "GT7D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 10080);
 
     const ssaSet = new Set(), matrix = {};
     recordsForMatrix.forEach(r => {
@@ -2481,50 +2678,97 @@
     tbody.innerHTML += totalRowHtml;
   }
 
-  // Message builder for >1 Day Outages
-  function buildL2MessageText() {
-    const searchL2 = (document.getElementById("down-search-l2").value || "").trim();
-    let l2Title = searchL2 ? ` (${searchL2})` : "";
+  // =========================================================================
+  // WHATSAPP & MAIL DISPATCHERS
+  // =========================================================================
 
-    let msg = `Dear Sir/Mam,\nFollowing BTS sites are down for more than 1 days${l2Title}:\n\n`;
-    downGt1dRecords.forEach((r, idx) => {
-      msg += `${idx + 1}. ${r.btsName} (${r.downPeriod}) - Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
+  // Unified Down Sites Dispatchers
+  function buildUnifiedDownMessageText() {
+    const chosenL2 = document.getElementById("down-select-l2").value;
+    const chosenL1 = document.getElementById("down-select-l1").value;
+    const chosenPeriod = document.getElementById("down-period-filter").value;
+
+    let targetTitle = "";
+    if (chosenL2 !== "ALL") targetTitle += ` [L2: ${chosenL2}]`;
+    if (chosenL1 !== "ALL") targetTitle += ` [L1: ${chosenL1}]`;
+
+    let msg = `Dear Sir/Mam,\nFollowing BTS sites are currently DOWN${targetTitle} (${chosenPeriod}):\n\n`;
+    downUnifiedDisplayRecords.forEach((r, idx) => {
+      msg += `${idx + 1}. *${r.btsName}* (${r.downPeriod}) - Tech: ${r.deviceType} | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
     });
-    msg += `\nPlease restore these site on priority.\nThanks`;
+    msg += `\nPlease restore these sites on priority.\nThanks`;
     return msg;
   }
 
-  function shareGt1dWhatsAppToL2() {
-    if (!downGt1dRecords || downGt1dRecords.length === 0) {
-      alert("No > 1 day down sites matching the active search/filters to share.");
+  function shareUnifiedDownWhatsApp() {
+    if (!downUnifiedDisplayRecords || downUnifiedDisplayRecords.length === 0) {
+      alert("No down sites matching active filters to share.");
       return;
     }
-    const msg = buildL2MessageText();
-    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
-    window.open(whatsappUrl, "_blank");
+    const msg = buildUnifiedDownMessageText();
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
-  function shareGt1dMailToL2() {
-    if (!downGt1dRecords || downGt1dRecords.length === 0) {
-      alert("No > 1 day down sites matching the active search/filters to share.");
+  function shareUnifiedDownMail() {
+    if (!downUnifiedDisplayRecords || downUnifiedDisplayRecords.length === 0) {
+      alert("No down sites matching active filters to share.");
       return;
     }
-    const searchL2 = (document.getElementById("down-search-l2").value || "").trim();
-    const subject = `Outage Alert: >1 Day Down BTS Sites - J&K CM${searchL2 ? ' (' + searchL2 + ')' : ''}`;
-    const body = buildL2MessageText();
+    const chosenL2 = document.getElementById("down-select-l2").value;
+    const subject = `Outage Alert: Down BTS Sites - J&K CM${chosenL2 !== 'ALL' ? ' (' + chosenL2 + ')' : ''}`;
+    const body = buildUnifiedDownMessageText();
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
-  // Message builder for Healthy LTE Sites Currently Down (Avail >= 98%)
+  // Information Summary Dispatchers
+  function buildInfoSummaryMessageText() {
+    const groupBy = document.getElementById("info-group-by-select").value;
+    const chosenSsa = document.getElementById("info-ssa-select").value;
+    const rows = window.currentInfoSummaryRows || [];
+
+    let msg = `*📊 J&K CM Down Sites Information Summary*\n`;
+    msg += `*Grouped By:* ${groupBy} | *SSA:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n\n`;
+
+    rows.forEach(r => {
+      msg += `*${r.entity}* (${r.ssa}): Total: *${r.total}* [GSM: ${r.gsm}, UMTS: ${r.umts}, LTE: ${r.lteTotal} (DBN: ${r.lteDbn}, NDBN: ${r.lteNdbn})]\n`;
+    });
+
+    msg += `\nFor site-level details, please visit https://jtoqoslte.github.io/cnmc-progress/\nThanks`;
+    return msg;
+  }
+
+  function shareInfoSummaryWhatsApp() {
+    const rows = window.currentInfoSummaryRows || [];
+    if (rows.length === 0) {
+      alert("No information summary data to share.");
+      return;
+    }
+    const msg = buildInfoSummaryMessageText();
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+
+  function shareInfoSummaryMail() {
+    const rows = window.currentInfoSummaryRows || [];
+    if (rows.length === 0) {
+      alert("No information summary data to share.");
+      return;
+    }
+    const chosenSsa = document.getElementById("info-ssa-select").value;
+    const subject = `Information Summary: Down BTS Sites - J&K CM (${chosenSsa === 'ALL' ? 'Circle' : chosenSsa})`;
+    const body = buildInfoSummaryMessageText();
+    window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+  }
+
+  // Healthy Down LTE Dispatchers
   function buildHealthyDownMessageText() {
     const records = window.activeHealthyDownFiltered || [];
-    const searchL2 = (document.getElementById("healthy-search-l2") ? document.getElementById("healthy-search-l2").value : "").trim();
+    const chosenL2 = (document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL");
     const chosenReportDate = document.getElementById("healthy-report-date-select") ? document.getElementById("healthy-report-date-select").value : "";
-    let l2Title = searchL2 ? ` (${searchL2})` : "";
+    let l2Title = chosenL2 !== "ALL" ? ` [L2: ${chosenL2}]` : "";
 
     let msg = `Dear Sir/Mam,\nFollowing High Availability LTE BTS sites (Rolling 30-Day Avail >= 98% as of ${chosenReportDate}) are currently DOWN${l2Title}:\n\n`;
     records.forEach((r, idx) => {
-      msg += `${idx + 1}. ${r.btsName} (${r.downPeriod}) - Avail: ${r.reportDateAvail.toFixed(1)}% | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
+      msg += `${idx + 1}. *${r.btsName}* (${r.downPeriod}) - Avail: ${r.reportDateAvail.toFixed(1)}% | Cat: ${r.category} | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
     });
     msg += `\nPlease restore these high-availability LTE sites on topmost priority to protect circle SLA.\nThanks`;
     return msg;
@@ -2546,19 +2790,23 @@
       alert("No healthy LTE down sites matching active filters to share.");
       return;
     }
-    const searchL2 = (document.getElementById("healthy-search-l2") ? document.getElementById("healthy-search-l2").value : "").trim();
-    const subject = `Urgent Alert: High Availability LTE Sites Down (Avail >=98%) - J&K CM${searchL2 ? ' (' + searchL2 + ')' : ''}`;
+    const chosenL2 = document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL";
+    const subject = `Urgent Alert: High Availability LTE Sites Down (Avail >=98%) - J&K CM${chosenL2 !== 'ALL' ? ' (' + chosenL2 + ')' : ''}`;
     const body = buildHealthyDownMessageText();
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
+  // =========================================================================
+  // EXPORT UTILITIES
+  // =========================================================================
   function exportDownSitesExcel(type) {
-    let list = downFilteredRecords;
+    let list = downUnifiedDisplayRecords;
     let sheetName = "Down_Sites";
 
-    if (type === 'gt1d') { list = downGt1dRecords; sheetName = "Down_GT_1Day"; }
-    else if (type === 'lt1d') { list = downLt1dRecords; sheetName = "Down_LT_1Day"; }
-    else if (type === 'healthy') { list = window.activeHealthyDownFiltered || []; sheetName = "Healthy_LTE_Down_Gte98"; }
+    if (type === 'healthy') { 
+      list = window.activeHealthyDownFiltered || []; 
+      sheetName = "Healthy_LTE_Down_Gte98"; 
+    }
 
     if (!list || list.length === 0) return;
 
@@ -2570,6 +2818,7 @@
       "BA": r.ba,
       "SSA": r.ssa,
       "SDCA": r.sdca,
+      "Category": r.category,
       "Device Type": r.deviceType,
       "Media": r.media,
       "Vendor": r.vendor,
@@ -2585,13 +2834,36 @@
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, `${sheetName}_Sites.xlsx`);
+    XLSX.writeFile(wb, `${sheetName}_Report.xlsx`);
+  }
+
+  function exportInfoSummaryExcel() {
+    const rows = window.currentInfoSummaryRows || [];
+    if (!rows || rows.length === 0) return;
+
+    const data = rows.map((r, i) => ({
+      "S.No": i + 1,
+      "Entity": r.entity,
+      "SSA": r.ssa,
+      "GSM Down": r.gsm,
+      "UMTS Down": r.umts,
+      "LTE DBN Down": r.lteDbn,
+      "LTE NDBN Down": r.lteNdbn,
+      "Total LTE Down": r.lteTotal,
+      "Total Outage Sites": r.total
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Down_Info_Summary");
+    XLSX.writeFile(wb, "Down_Sites_Info_Summary.xlsx");
   }
 
   function exportDownMatrixExcel() {
     const durVal = document.getElementById("matrix-duration-filter").value;
     let recordsForMatrix = downFilteredRecords;
-    if (durVal === "LT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 1440);
+    if (durVal === "LT12H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 720);
+    else if (durVal === "LT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 1440);
     else if (durVal === "GT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
     else if (durVal === "GT3D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 4320);
     else if (durVal === "GT7D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 10080);
@@ -2621,6 +2893,70 @@
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Fault_Matrix");
     XLSX.writeFile(wb, `Down_Sites_Fault_Matrix_${durVal}.xlsx`);
+  }
+
+  function exportDbnSummaryExcel() {
+    const ssaAgg = {};
+    dbnFilteredRecords.forEach(r => {
+      if (!ssaAgg[r.ssa]) ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
+      ssaAgg[r.ssa].total++;
+      ssaAgg[r.ssa].availSum += r.avail;
+      if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
+      else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
+      if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
+      else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
+      else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
+      else if (r.bucket === "<90%") ssaAgg[r.ssa].lt90++;
+    });
+
+    const rows = Object.keys(ssaAgg).sort().map(s => {
+      const a = ssaAgg[s];
+      return {
+        "SSA": s,
+        "Total Sites": a.total,
+        "DBN Count": a.dbn,
+        "NDBN Count": a.ndbn,
+        ">=98% Count": a.gte98,
+        ">=98% Share %": ((a.gte98 / a.total) * 100).toFixed(1) + "%",
+        "94-98% Count": a.mid94,
+        "94-98% Share %": ((a.mid94 / a.total) * 100).toFixed(1) + "%",
+        "90-94% Count": a.low90,
+        "90-94% Share %": ((a.low90 / a.total) * 100).toFixed(1) + "%",
+        "<90% Count": a.lt90,
+        "<90% Share %": ((a.lt90 / a.total) * 100).toFixed(1) + "%",
+        "Average Avail %": (a.availSum / a.total).toFixed(2) + "%"
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SSA_Summary");
+    XLSX.writeFile(wb, "DBN_NDBN_SSA_Summary_4Buckets.xlsx");
+  }
+
+  function exportDbnSitesExcel() {
+    const rows = dbnFilteredRecords.map((r, i) => ({
+      "S.No": i + 1,
+      "Date": r.reportDate,
+      "SSA": r.ssa,
+      "BA": r.ba,
+      "Site ID": r.siteId,
+      "Site IP ID": r.btsIp,
+      "Site Name": r.siteName,
+      "Category": r.category,
+      "Availability %": r.avail,
+      "Bucket": r.bucket,
+      "Max Active User": r.maxActiveUser,
+      "L1 Officer": r.l1,
+      "Media": r.media,
+      "Voice (Erl)": r.voiceErl,
+      "Data (GB)": r.dataGb
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DBN_Filtered_Sites");
+    XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
   }
 
   // =========================================================================
