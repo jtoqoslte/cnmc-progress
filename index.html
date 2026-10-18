@@ -220,10 +220,16 @@
       </div>
     </div>
 
+    <!-- SUB-SECTION 2: CORRECTED L1 IN-CHARGE SUMMARY -->
     <div class="section sub-section" id="owner-view" style="display:none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-        <h2 style="margin: 0;">Site In-Charge (L1 / L2) Progress</h2>
-        <input type="text" id="owner-search" placeholder="Filter In-Charge Name..." onkeyup="renderOwnerTable()" style="padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" />
+        <h2 style="margin: 0;">Site In-Charge (L1) Infrastructure Progress</h2>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <label for="owner-l1-select"><strong>L1 Officer:</strong></label>
+          <select id="owner-l1-select" onchange="renderOwnerTable()" style="padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;"></select>
+          <input type="text" id="owner-search" placeholder="Search In-Charge..." onkeyup="renderOwnerTable()" style="padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" />
+          <button class="btn btn-whatsapp btn-sm" onclick="shareOwnerProgressWhatsApp()">💬 Share on WhatsApp</button>
+        </div>
       </div>
       <div class="table-container">
         <table>
@@ -675,6 +681,7 @@
         </select>
       </div>
 
+      <!-- Expanded Period Options -->
       <div class="toolbar-group">
         <label for="down-period-filter"><strong>Period:</strong></label>
         <select id="down-period-filter" onchange="applyDownSitesFilters()" style="font-weight:600; color:var(--primary);">
@@ -774,7 +781,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 2: INFORMATION SUMMARY -->
+    <!-- SUB-VIEW 2: INFORMATION SUMMARY (WITH PERIOD FILTER & SSA GROUPING) -->
     <div class="down-sub-section" id="down-info-summary-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -797,6 +804,21 @@
               <option value="L1" selected>Site In-Charge (L1)</option>
               <option value="L2">Cluster Lead (L2)</option>
               <option value="SDCA">SDCA Name (sdca_name)</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <label for="info-period-filter"><strong>Period:</strong></label>
+            <select id="info-period-filter" onchange="renderInfoSummaryTable()" style="font-weight:600; color:var(--primary);">
+              <option value="ALL">All Durations</option>
+              <option value="GT2H">&gt; 2 Hr. Down</option>
+              <option value="GT8H">&gt; 8 Hr. Down</option>
+              <option value="LT12H">&lt; 12 Hr. Down</option>
+              <option value="GT12H">&gt; 12 Hr. Down</option>
+              <option value="LT1D">&lt; 1 Day Down</option>
+              <option value="GT1D">&gt; 1 Day Down</option>
+              <option value="GT3D">&gt; 3 Day Down</option>
+              <option value="GT7D">&gt; 7 Day Down</option>
             </select>
           </div>
 
@@ -1049,7 +1071,7 @@
   let dbnDataLoaded = false;
   let downDataLoaded = false;
 
-  // Global DBN Data Stores (Restored & Guaranteed)
+  // Global DBN Data Stores
   let dbnRawRecords = [];
   let dbnFilteredRecords = [];
   let dbnAvailableDates = [];
@@ -1154,7 +1176,9 @@
     return match ? "91" + match[0] : "";
   }
 
-  // MODULE 1: CNMC SITE INFRA LOGIC
+  // =========================================================================
+  // MODULE 1: CNMC SITE INFRA LOGIC (CORRECTED L1 & L2 MAPPING)
+  // =========================================================================
   const EXCLUDED_INDICES = new Set([15, 31, 32, 33, 34, 35, 36, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]);
   let rawDataRows = [], globalHeaders = [], cachedSites = [];
   let currentModalSites = [], currentModalEntityName = "";
@@ -1208,13 +1232,40 @@
     rawDataRows = rows.slice(1);
     const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
 
+    // Dynamic resolution of L1 and L2 column indices
+    let l1Idx = -1, l2Idx = -1;
+    for (let i = 0; i < globalHeaders.length; i++) {
+      const h = safeStr(globalHeaders[i]).toLowerCase();
+      if (l1Idx === -1 && h.includes("l1") && !h.includes("avail") && !h.includes("%")) {
+        l1Idx = i;
+      }
+      if (l2Idx === -1 && h.includes("l2") && !h.includes("avail") && !h.includes("%")) {
+        l2Idx = i;
+      }
+    }
+    // Fallback: In this sheet, column 70 contains L1 officer and column 71 contains L2 officer
+    if (l1Idx === -1) l1Idx = 70;
+    if (l2Idx === -1) l2Idx = 71;
+
     cachedSites = rawDataRows.map(row => {
       const ba = safeStr(row[1]);
       const ssa = safeStr(row[2]);
       const phyId = safeStr(row[5]);
       const btsName = safeStr(row[6]);
-      const l1 = safeStr(row[69]) || "Unassigned";
-      const l2 = safeStr(row[70]) || "-";
+      
+      let l1 = safeStr(row[l1Idx]);
+      let l2 = safeStr(row[l2Idx]);
+
+      // Guard: if l1 was accidentally assigned a % value, read from col 70
+      if (!l1 || l1.endsWith("%") || !isNaN(parseFloat(l1))) {
+        l1 = safeStr(row[70]);
+      }
+      if (!l2) {
+        l2 = safeStr(row[71]);
+      }
+
+      if (!l1 || l1.endsWith("%")) l1 = "Unassigned";
+      if (!l2) l2 = "-";
 
       if (phyId) {
         const pKey = normalizeIpKey(phyId);
@@ -1255,7 +1306,27 @@
     let filtered = cachedSites;
     if (selectedFilter.startsWith("BA: ")) filtered = cachedSites.filter(s => s.ba === selectedFilter.replace("BA: ", ""));
     else if (selectedFilter.startsWith("SSA: ")) filtered = cachedSites.filter(s => s.ssa === selectedFilter.replace("SSA: ", ""));
+    
+    populateOwnerL1Dropdown(filtered);
     renderDashboardWithSites(filtered);
+  }
+
+  // Populate L1 dropdown in Module 1 filtered by active BA/SSA
+  function populateOwnerL1Dropdown(sites) {
+    const select = document.getElementById("owner-l1-select");
+    if (!select) return;
+    const currentVal = select.value;
+    const l1Set = new Set();
+    sites.forEach(s => {
+      if (s.l1 && s.l1 !== "Unassigned") l1Set.add(s.l1);
+    });
+    select.innerHTML = '<option value="ALL">All L1 Officers</option>';
+    Array.from(l1Set).sort().forEach(l => {
+      select.innerHTML += `<option value="${l}">${l}</option>`;
+    });
+    if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+      select.value = currentVal;
+    }
   }
 
   function renderDashboardWithSites(sites) {
@@ -1285,8 +1356,23 @@
         if (s.rawRow[idx] && s.rawRow[idx].toString().trim() !== "") ssaMap[s.ssa].fieldCounts[idx]++;
       });
 
-      const ownerKey = s.ssa + "____" + s.l1;
-      if (!ownerMap[ownerKey]) ownerMap[ownerKey] = { ssa: s.ssa, l1: s.l1, l2: s.l2, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, sites: [] };
+      // Group strictly by unique L1 In-Charge name
+      const ownerKey = s.l1;
+      if (!ownerMap[ownerKey]) {
+        ownerMap[ownerKey] = {
+          ssa: s.ssa,
+          ssas: new Set([s.ssa]),
+          l1: s.l1,
+          l2: s.l2,
+          total: 0,
+          notStarted: 0,
+          inProgress: 0,
+          completed: 0,
+          filledFieldsSum: 0,
+          sites: []
+        };
+      }
+      ownerMap[ownerKey].ssas.add(s.ssa);
       ownerMap[ownerKey].total++;
       ownerMap[ownerKey].filledFieldsSum += s.filledCount;
       ownerMap[ownerKey].sites.push(s);
@@ -1336,26 +1422,59 @@
 
   function renderOwnerTable() {
     if (!window.activeOwnerMap) return;
+    const chosenL1 = document.getElementById("owner-l1-select") ? document.getElementById("owner-l1-select").value : "ALL";
     const q = safeStr(document.getElementById("owner-search").value).toLowerCase();
     const tbody = document.getElementById("owner-tbody");
     tbody.innerHTML = "";
-    Object.values(window.activeOwnerMap).forEach(d => {
+
+    const sortedOwners = Object.values(window.activeOwnerMap).sort((a,b) => b.total - a.total);
+
+    sortedOwners.forEach(d => {
+      if (chosenL1 !== "ALL" && d.l1 !== chosenL1) return;
       if (q && !d.l1.toLowerCase().includes(q)) return;
+
       const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
       const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${d.ssa}</td>
-        <td class="clickable-row" onclick="openDrilldownModal('L1: ${d.l1}', window.activeOwnerMap['${d.ssa}____${d.l1}'].sites)"><strong>${d.l1}</strong> 🔍</td>
+        <td>${Array.from(d.ssas).join(", ")}</td>
+        <td class="clickable-row" onclick="openDrilldownModal('L1: ${d.l1}', window.activeOwnerMap['${d.l1}'].sites)"><strong>${d.l1}</strong> 🔍</td>
         <td>${d.l2}</td><td class="num">${d.total}</td><td class="num">${d.notStarted}</td><td class="num">${d.inProgress}</td><td class="num">${d.completed}</td>
         <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
         <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
         <td style="text-align: center;">
-          <button class="btn btn-green btn-sm" onclick="exportSingleIncharge('${d.ssa}____${d.l1}', 'excel')">Excel</button>
-          <button class="btn btn-red btn-sm" onclick="exportSingleIncharge('${d.ssa}____${d.l1}', 'pdf')">PDF</button>
+          <button class="btn btn-green btn-sm" onclick="exportSingleIncharge('${d.l1}', 'excel')">Excel</button>
+          <button class="btn btn-red btn-sm" onclick="exportSingleIncharge('${d.l1}', 'pdf')">PDF</button>
         </td>`;
       tbody.appendChild(tr);
     });
+  }
+
+  // Share In-Charge Progress WhatsApp
+  function shareOwnerProgressWhatsApp() {
+    if (!window.activeOwnerMap) return;
+    const chosenSsaFilter = document.getElementById("global-ba-filter").value;
+    const chosenL1 = document.getElementById("owner-l1-select") ? document.getElementById("owner-l1-select").value : "ALL";
+    
+    let list = Object.values(window.activeOwnerMap);
+    if (chosenL1 !== "ALL") {
+      list = list.filter(d => d.l1 === chosenL1);
+    }
+    
+    let msg = `*🏢 J&K CM Site Infra & Power Tracker - In-Charge Progress*\n`;
+    msg += `*Filter:* ${chosenSsaFilter} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n\n`;
+    
+    list.sort((a,b) => (b.filledFieldsSum / (b.total * 41)) - (a.filledFieldsSum / (a.total * 41)));
+    
+    list.forEach((d, i) => {
+      const pct = d.total > 0 ? ((d.filledFieldsSum / (d.total * 41)) * 100).toFixed(1) : "0.0";
+      msg += `${i + 1}. *${d.l1}* (${Array.from(d.ssas).join(", ")}): ${d.completed}/${d.total} Complete (${pct}% Fill)\n`;
+    });
+    
+    msg += `\nPlease expedite updating mandatory infrastructure parameters.\n\n`;
+    msg += getClosingSignature(chosenSsaFilter.replace("SSA: ", "").replace("BA: ", ""));
+    
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
   function renderHeatmap(ssaMap, totalSitesCount, mandatoryIndices) {
@@ -1439,7 +1558,7 @@
     const d = window.activeOwnerMap[k];
     if (!d || !d.sites) return;
     if (fmt === 'excel') exportSitesExcel(d.sites, "CNMC_Report_" + d.l1.replace(/[^a-zA-Z0-9]/g, "_"));
-    if (fmt === 'pdf') exportSitesPDF(d.sites, "L1: " + d.l1 + " (" + d.ssa + ")");
+    if (fmt === 'pdf') exportSitesPDF(d.sites, "L1: " + d.l1 + " (" + Array.from(d.ssas).join(", ") + ")");
   }
   function exportModalSitesToExcel() { exportSitesExcel(currentModalSites, "CNMC_Sites_" + currentModalEntityName.replace(/[^a-zA-Z0-9]/g, "_")); }
   function exportModalSitesToPDF() { exportSitesPDF(currentModalSites, currentModalEntityName); }
@@ -1681,7 +1800,6 @@
     runUserDegradedAnalysis();
   }
 
-  // Defensive Common Report Date Populator (Never crashes if dbnAvailableDates is empty)
   function populateDownCommonReportDateControl() {
     const reportSelect = document.getElementById("down-report-date-select");
     if (!reportSelect) return;
@@ -2006,266 +2124,7 @@
     });
   }
 
-  function runDegradedAnalysis() {
-    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
-    const prevDate = document.getElementById("deg-prev-date").value;
-    const nextDate = document.getElementById("deg-next-date").value;
-    const selectedSsa = document.getElementById("deg-ssa-select").value;
-    const selectedCat = document.getElementById("deg-cat-select") ? document.getElementById("deg-cat-select").value : "ALL";
-    const selectedL1 = document.getElementById("deg-l1-select") ? document.getElementById("deg-l1-select").value : "ALL";
-
-    if (!prevDate || !nextDate || prevDate === nextDate) {
-      document.getElementById("degraded-sites-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
-      return;
-    }
-
-    const prevMap = {};
-    let baseHealthyCount = 0;
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === prevDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
-            (selectedCat === "ALL" || r.category === selectedCat) &&
-            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
-          prevMap[r.siteId] = r;
-          if (r.avail >= 98.0) baseHealthyCount++;
-        }
-      }
-    });
-
-    degradedSitesList = [];
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === nextDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
-            (selectedCat === "ALL" || r.category === selectedCat) &&
-            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
-          const prevRec = prevMap[r.siteId];
-          if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
-            const drop = (r.avail - prevRec.avail).toFixed(2);
-            degradedSitesList.push({
-              siteId: r.siteId,
-              btsIp: r.btsIp,
-              siteName: r.siteName,
-              ssa: r.ssa,
-              category: r.category,
-              prevAvail: prevRec.avail,
-              nextAvail: r.avail,
-              dropDelta: drop,
-              bucket: r.bucket,
-              l1: r.l1,
-              media: r.media
-            });
-          }
-        }
-      }
-    });
-
-    degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
-
-    document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
-    document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
-    const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
-    document.getElementById("deg-kpi-rate").innerText = rate + "%";
-
-    const tbody = document.getElementById("degraded-sites-tbody");
-    tbody.innerHTML = "";
-    if (degradedSitesList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">Great! No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
-      return;
-    }
-
-    degradedSitesList.forEach(r => {
-      tbody.innerHTML += `
-        <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIp || "-"}</td>
-          <td>${r.siteName}</td>
-          <td>${r.ssa}</td>
-          <td>${r.category}</td>
-          <td class="num" style="color:#16a34a; font-weight:600;">${r.prevAvail.toFixed(2)}%</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${r.nextAvail.toFixed(2)}%</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${r.dropDelta}%</td>
-          <td>${r.bucket}</td>
-          <td>${r.l1}</td>
-          <td>${r.media}</td>
-        </tr>`;
-    });
-  }
-
-  function shareDegradedSitesWhatsApp() {
-    if (!degradedSitesList || degradedSitesList.length === 0) {
-      alert("No degraded sites to share.");
-      return;
-    }
-    const prevDate = document.getElementById("deg-prev-date").value;
-    const nextDate = document.getElementById("deg-next-date").value;
-    const chosenSsa = document.getElementById("deg-ssa-select").value;
-    const chosenL1 = document.getElementById("deg-l1-select").value;
-
-    let title = `*⚠️ J&K CM Availability Degraded Sites Alert*\n`;
-    title += `*Period:* ${prevDate} ➔ ${nextDate}\n`;
-    title += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
-    title += `*Total Sites Dropped Below 98%:* ${degradedSitesList.length}\n\n`;
-
-    let body = "";
-    degradedSitesList.slice(0, 30).forEach((s, i) => {
-      body += `${i + 1}. *${s.siteName}* (${s.prevAvail.toFixed(1)}% ➔ ${s.nextAvail.toFixed(1)}%, Drop: ${s.dropDelta}%) [L1: ${s.l1}]\n`;
-    });
-    if (degradedSitesList.length > 30) {
-      body += `\n_...and ${degradedSitesList.length - 30} more degraded sites._\n`;
-    }
-
-    body += `\nPlease investigate and restore network availability immediately.\n\n`;
-    body += getClosingSignature(chosenSsa);
-
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(title + body), "_blank");
-  }
-
-  function exportDegradedSitesExcel() {
-    if (!degradedSitesList || degradedSitesList.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(degradedSitesList);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Degraded_Avail_Sites");
-    XLSX.writeFile(wb, "Degraded_Avail_Sites.xlsx");
-  }
-
-  // SUB-MODULE 3: USER DEGRADATION TRACKER
-  function runUserDegradedAnalysis() {
-    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
-    const prevDate = document.getElementById("user-deg-prev-date").value;
-    const nextDate = document.getElementById("user-deg-next-date").value;
-    const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
-    const selectedSsa = document.getElementById("user-deg-ssa-select").value;
-    const selectedCat = document.getElementById("user-deg-cat-select") ? document.getElementById("user-deg-cat-select").value : "ALL";
-    const selectedL1 = document.getElementById("user-deg-l1-select") ? document.getElementById("user-deg-l1-select").value : "ALL";
-
-    if (!prevDate || !nextDate || prevDate === nextDate) {
-      document.getElementById("user-degraded-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day user comparison.</td></tr>`;
-      return;
-    }
-
-    const prevMap = {};
-    let totalCompared = 0;
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === prevDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
-            (selectedCat === "ALL" || r.category === selectedCat) &&
-            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
-          prevMap[r.siteId] = r;
-        }
-      }
-    });
-
-    userDegradedSitesList = [];
-    let totalUsersLost = 0;
-    let sumDropPct = 0;
-
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === nextDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
-            (selectedCat === "ALL" || r.category === selectedCat) &&
-            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
-          const prevRec = prevMap[r.siteId];
-          if (prevRec) {
-            totalCompared++;
-            const baseUsers = prevRec.maxActiveUser;
-            const nextUsers = r.maxActiveUser;
-            if (baseUsers > 0 && nextUsers < baseUsers) {
-              const dropCount = baseUsers - nextUsers;
-              const dropPct = (dropCount / baseUsers) * 100;
-
-              if (dropPct >= minDropPct) {
-                totalUsersLost += dropCount;
-                sumDropPct += dropPct;
-                userDegradedSitesList.push({
-                  siteId: r.siteId,
-                  btsIp: r.btsIp,
-                  siteName: r.siteName,
-                  ssa: r.ssa,
-                  category: r.category,
-                  baseUsers: baseUsers,
-                  baseAvail: prevRec.avail,
-                  nextUsers: nextUsers,
-                  nextAvail: r.avail,
-                  dropCount: dropCount,
-                  dropPct: dropPct,
-                  l1: r.l1,
-                  media: r.media
-                });
-              }
-            }
-          }
-        }
-      }
-    });
-
-    userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
-
-    document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
-    document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
-    document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
-    const avgDrop = userDegradedSitesList.length > 0 ? (sumDropPct / userDegradedSitesList.length).toFixed(1) : "0.0";
-    document.getElementById("user-deg-kpi-drop-pct").innerText = avgDrop + "%";
-
-    const tbody = document.getElementById("user-degraded-tbody");
-    tbody.innerHTML = "";
-    if (userDegradedSitesList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found with Max Active User degradation matching selected threshold (${minDropPct}%).</td></tr>`;
-      return;
-    }
-
-    userDegradedSitesList.forEach(r => {
-      tbody.innerHTML += `
-        <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIp || "-"}</td>
-          <td>${r.siteName}</td>
-          <td>${r.ssa}</td>
-          <td>${r.category}</td>
-          <td class="num"><strong>${r.baseUsers.toLocaleString()}</strong> (${r.baseAvail.toFixed(1)}%)</td>
-          <td class="num"><strong>${r.nextUsers.toLocaleString()}</strong> (${r.nextAvail.toFixed(1)}%)</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
-          <td>${r.l1}</td>
-          <td>${r.media}</td>
-        </tr>`;
-    });
-  }
-
-  function shareUserDegSummaryWhatsApp() {
-    const prevDate = document.getElementById("user-deg-prev-date").value;
-    const nextDate = document.getElementById("user-deg-next-date").value;
-    const threshold = document.getElementById("user-deg-threshold").value;
-    const chosenSsa = document.getElementById("user-deg-ssa-select").value;
-    const chosenL1 = document.getElementById("user-deg-l1-select").value;
-
-    const totalCompared = document.getElementById("user-deg-kpi-total").innerText;
-    const degradedCount = document.getElementById("user-deg-kpi-count").innerText;
-    const usersLost = document.getElementById("user-deg-kpi-lost").innerText;
-    const avgDrop = document.getElementById("user-deg-kpi-drop-pct").innerText;
-
-    let msg = `*👥 J&K CM Max Active User Degradation Summary*\n`;
-    msg += `*Comparison:* ${prevDate} (Base) ➔ ${nextDate} (Compare)\n`;
-    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
-    msg += `*Threshold:* ≥ ${threshold}% User Drop\n\n`;
-    msg += `📊 *Summary Metrics:*\n`;
-    msg += `• Total Compared Sites: ${totalCompared}\n`;
-    msg += `• Sites with User Degradation: *${degradedCount}*\n`;
-    msg += `• Total Active Users Lost: *${usersLost}*\n`;
-    msg += `• Average % User Drop: *${avgDrop}*\n\n`;
-    msg += getClosingSignature(chosenSsa);
-
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
-  }
-
-  function exportUserDegradedSitesExcel() {
-    if (!userDegradedSitesList || userDegradedSitesList.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(userDegradedSitesList);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "User_Degradation");
-    XLSX.writeFile(wb, "Max_Active_User_Degradation.xlsx");
-  }
-
-  // SUB-MODULE 4: ESCALATION DASHBOARD
+  // SUB-MODULE 4: ESCALATION DASHBOARD (MODIFIED WHATSAPP ALERT TEXT)
   function renderEscalationDashboard() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
     const chosenDate = document.getElementById("esc-date-select").value;
@@ -2376,6 +2235,7 @@
     });
   }
 
+  // Exact modified WhatsApp Alert Content as requested
   function shareSingleOfficerWhatsApp(idx) {
     if (!window.currentEscalationFiltered || !window.currentEscalationFiltered[idx]) return;
     const d = window.currentEscalationFiltered[idx];
@@ -2391,11 +2251,12 @@
     }
     msg += `*Total Sites Managed:* ${d.total}\n`;
     msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
-    msg += `*Target Benchmark:* ${d.targetPct}% (${d.targetCountNeeded} sites)\n`;
+    msg += `*Target Benchmark:* ${d.targetPct}% (${d.targetCountNeeded} sites)\n\n`;
     
     if (d.shortfall > 0) {
-      msg += `*⚠️ Lagging Behind Target By:* ${d.shortfall} sites\n\n`;
-      msg += `Kindly prioritize restoration and rectification of degraded sites.\n\n`;
+      msg += `As per the Corporate Office directives, every Site In‑Charge (L1) must ensure >98% availability in at least 80% of sites by the end of Oct. 2026.\n`;
+      msg += `👉 You are falling short by ${d.shortfall} site${d.shortfall > 1 ? 's' : ''}. Immediate restoration and rectification of degraded sites is mandatory to meet compliance.\n`;
+      msg += `Action is to be taken on top priority without delay.\n\n`;
     } else {
       msg += `*✅ Target Achieved:* Outstanding performance!\n\n`;
     }
@@ -2435,7 +2296,9 @@
     XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
   }
 
-  // MODULE 3: DOWN SITES TRACKER LOGIC
+  // =========================================================================
+  // MODULE 3: DOWN SITES TRACKER LOGIC (SAFE PARSING & UPLOAD)
+  // =========================================================================
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2804,10 +2667,12 @@
     });
   }
 
+  // Information Summary Table with Period Filter & SSA Grouping
   function renderInfoSummaryTable() {
     const tbody = document.getElementById("down-info-summary-tbody");
     const groupHeader = document.getElementById("info-table-group-header");
     const groupBy = document.getElementById("info-group-by-select").value;
+    const chosenPeriod = document.getElementById("info-period-filter") ? document.getElementById("info-period-filter").value : "ALL";
     const chosenSsa = document.getElementById("info-ssa-select").value;
     const chosenCat = document.getElementById("info-cat-select").value;
 
@@ -2818,6 +2683,16 @@
     downRawRecords.forEach(r => {
       if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
       if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
+
+      // Period filter inside Information Summary
+      if (chosenPeriod === "GT2H" && r.durationMinutes < 120) return;
+      if (chosenPeriod === "GT8H" && r.durationMinutes < 480) return;
+      if (chosenPeriod === "LT12H" && r.durationMinutes >= 720) return;
+      if (chosenPeriod === "GT12H" && r.durationMinutes < 720) return;
+      if (chosenPeriod === "LT1D" && r.durationMinutes >= 1440) return;
+      if (chosenPeriod === "GT1D" && r.durationMinutes < 1440) return;
+      if (chosenPeriod === "GT3D" && r.durationMinutes < 4320) return;
+      if (chosenPeriod === "GT7D" && r.durationMinutes < 10080) return;
 
       let key = "";
       if (groupBy === "SSA") key = r.ssa || "Unknown SSA";
@@ -3031,11 +2906,12 @@
       </tr>`;
   }
 
+  // Exact modified WhatsApp content for Reason Not Updated Tracker
   function shareNotUpdatedDetailedWhatsApp() {
     const rows = window.currentNotUpdatedRows || [];
     const chosenSsa = document.getElementById("notupdated-ssa-select").value;
 
-    let msg = `*📝 J&K CM Outage Reason Pending Alert*\n`;
+    let msg = `*J&K CNMC fault_type/Remarks not Updated*\n`;
     msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n\n`;
 
     let count = 0;
@@ -3055,7 +2931,7 @@
       return;
     }
 
-    msg += `Kindly update the outage fault types/remarks immediately.\n\n`;
+    msg += `Kindly ensure that the fault type and remarks are updated in CNMC for all sites that remain down for more than 2 hours.\n\n`;
     msg += getClosingSignature(chosenSsa);
 
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
@@ -3072,7 +2948,7 @@
     let totAll = 0, totNotUpdated = 0;
     rows.forEach(r => { totAll += r.total; totNotUpdated += r.notUpdated; });
 
-    let msg = `*📝 J&K CM Reason Not Updated Summary Count*\n`;
+    let msg = `*J&K CNMC fault_type/Remarks not Updated (Summary Count)*\n`;
     msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n`;
     msg += `*Total Down Sites:* ${totAll} | *Reason Pending:* ${totNotUpdated}\n\n`;
 
@@ -3082,7 +2958,7 @@
       }
     });
 
-    msg += `\nPlease ensure pending fault reasons are logged promptly.\n\n`;
+    msg += `\nKindly ensure that the fault type and remarks are updated in CNMC for all sites that remain down for more than 2 hours.\n\n`;
     msg += getClosingSignature(chosenSsa);
 
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
@@ -3326,6 +3202,7 @@
       return;
     }
     const groupBy = document.getElementById("info-group-by-select").value;
+    const chosenPeriod = document.getElementById("info-period-filter") ? document.getElementById("info-period-filter").value : "ALL";
     const chosenSsa = document.getElementById("info-ssa-select").value;
 
     const ssaGroups = {};
@@ -3335,7 +3212,7 @@
       ssaGroups[s].push(r);
     });
 
-    let msg = `*📊 J&K CM Down Sites Information Summary*\n`;
+    let msg = `*📊 J&K CM Down Sites Information Summary (${chosenPeriod})*\n`;
     msg += `*Grouped By:* ${groupBy} | *Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n\n`;
 
     Object.keys(ssaGroups).sort().forEach(s => {
@@ -3361,6 +3238,7 @@
       return;
     }
     const groupBy = document.getElementById("info-group-by-select").value;
+    const chosenPeriod = document.getElementById("info-period-filter") ? document.getElementById("info-period-filter").value : "ALL";
     const chosenSsa = document.getElementById("info-ssa-select").value;
 
     const ssaGroups = {};
@@ -3370,8 +3248,8 @@
       ssaGroups[s].push(r);
     });
 
-    let subject = `Information Summary: Down BTS Sites - J&K CM (${chosenSsa === 'ALL' ? 'Circle' : chosenSsa})`;
-    let body = `J&K CM Down Sites Information Summary (Grouped by ${groupBy}):\n\n`;
+    let subject = `Information Summary: Down BTS Sites - J&K CM (${chosenPeriod}) - ${chosenSsa === 'ALL' ? 'Circle' : chosenSsa}`;
+    let body = `J&K CM Down Sites Information Summary (Grouped by ${groupBy}, Period: ${chosenPeriod}):\n\n`;
 
     Object.keys(ssaGroups).sort().forEach(s => {
       const groupRows = ssaGroups[s];
