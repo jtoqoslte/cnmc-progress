@@ -284,7 +284,7 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD (NO LOCAL FILE UPLOAD BUTTON)           -->
+  <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD                                        -->
   <!-- ========================================================================= -->
   <div id="mod-dbn" style="display: none;">
     <div class="metric-legend-note">
@@ -1018,6 +1018,13 @@
     return `Thanks & Regards,\nOA Team (${ssaValue})`;
   }
 
+  // Helper: Extract 10-digit mobile number from L1 string
+  function extractPhoneNumber(l1String) {
+    if (!l1String) return "";
+    const match = l1String.match(/\b[6-9]\d{9}\b/);
+    return match ? "91" + match[0] : "";
+  }
+
   // =========================================================================
   // MODULE 1: CNMC SITE INFRA LOGIC
   // =========================================================================
@@ -1336,55 +1343,46 @@
   }
 
   // =========================================================================
-  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC (STREAMING DOWNLOAD AUTO-LOAD)
+  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC (AUTO STREAMING LOADER)
   // =========================================================================
-  let dbnRawRecords = [];
-  let dbnFilteredRecords = [];
-  let dbnAvailableDates = [];
-  let selectedCategory = "ALL";
-  let selectedBucket = "ALL";
-
-  let dbnBucketChartInstance = null;
-  let dbnSsaChartInstance = null;
-
-  function getAvailabilityBucket(avail) {
-    if (avail >= 98.0) return ">=98%";
-    if (avail >= 94.0) return "94-98%";
-    if (avail >= 90.0) return "90-94%";
-    return "<90%";
-  }
-
-  // Pure Native Streaming Downloader via PapaParse
   async function fetchAndRenderDbn() {
     const status = document.getElementById("status-bar");
     status.innerText = "Downloading DBN_NDBN master dataset (61k rows)...";
-    
-    const targetUrl = SHEET_DBN_URL + (SHEET_DBN_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
 
-    Papa.parse(targetUrl, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: function(results) {
-        processDbnData(results.data);
-      },
-      error: function(err) {
-        console.warn("Direct stream failed, trying fallback stream proxy...", err);
-        const proxyUrl = "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl);
-        Papa.parse(proxyUrl, {
-          download: true,
+    const urlsToTry = [
+      SHEET_DBN_URL,
+      "https://corsproxy.io/?" + encodeURIComponent(SHEET_DBN_URL)
+    ];
+
+    for (let i = 0; i < urlsToTry.length; i++) {
+      try {
+        status.innerText = i === 0 
+          ? "Downloading DBN_NDBN master dataset (Direct)..." 
+          : "Downloading DBN_NDBN dataset (High-Capacity Proxy)...";
+
+        const response = await fetch(urlsToTry[i], { cache: "no-store" });
+        if (!response.ok) throw new Error("HTTP Status " + response.status);
+        
+        const csvText = await response.text();
+        if (!csvText || csvText.trim().startsWith("<!DOCTYPE html>")) {
+          throw new Error("Received HTML instead of CSV");
+        }
+
+        status.innerText = "Parsing 61k DBN records in browser...";
+        Papa.parse(csvText, {
           header: true,
           skipEmptyLines: true,
           complete: function(results) {
             processDbnData(results.data);
-          },
-          error: function(proxyErr) {
-            console.error("All auto-download routes failed:", proxyErr);
-            status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error downloading DBN dataset. Please check Google Sheet publishing status.</span>`;
           }
         });
+        return;
+      } catch (err) {
+        console.warn(`DBN download attempt ${i + 1} failed:`, err);
       }
-    });
+    }
+
+    status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error downloading DBN dataset. Please verify Google Sheet publish status.</span>`;
   }
 
   function processDbnData(data) {
@@ -1985,6 +1983,116 @@
   // =========================================================================
   // SUB-MODULE 4: ESCALATION DASHBOARD LOGIC (CONTEXT-AWARE RANKING)
   // =========================================================================
+  function renderEscalationDashboard() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const chosenDate = document.getElementById("esc-date-select").value;
+    const chosenSsa = document.getElementById("esc-ssa-select").value;
+    const chosenCat = document.getElementById("esc-cat-select") ? document.getElementById("esc-cat-select").value : "ALL";
+    const targetPct = parseFloat(document.getElementById("esc-target-select").value) || 80.0;
+    const searchVal = (document.getElementById("esc-search-input").value || "").toLowerCase().trim();
+
+    const dateRecords = dbnRawRecords.filter(r => {
+      if (r.reportDate !== chosenDate) return false;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
+      return true;
+    });
+
+    const inchargeMap = {};
+
+    dateRecords.forEach(r => {
+      const officer = r.l1 || "Unassigned";
+      const key = r.ssa + "____" + officer;
+      if (!inchargeMap[key]) {
+        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0 };
+      }
+      inchargeMap[key].total++;
+      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
+      else if (r.bucket === "94-98%") inchargeMap[key].mid94++;
+      else if (r.bucket === "90-94%") inchargeMap[key].low90++;
+      else if (r.bucket === "<90%") inchargeMap[key].lt90++;
+    });
+
+    const parsedData = Object.values(inchargeMap).map(d => {
+      const actualPct = d.total > 0 ? (d.gte98 / d.total) * 100 : 0;
+      const targetCountNeeded = Math.ceil((targetPct / 100) * d.total);
+      const shortfall = Math.max(0, targetCountNeeded - d.gte98);
+      return {
+        ssa: d.ssa,
+        officer: d.officer,
+        total: d.total,
+        gte98: d.gte98,
+        mid94: d.mid94,
+        low90: d.low90,
+        lt90: d.lt90,
+        actualPct: actualPct,
+        targetPct: targetPct,
+        targetCountNeeded: targetCountNeeded,
+        shortfall: shortfall
+      };
+    });
+
+    const topGroup = parsedData.filter(d => d.total >= 15);
+    const bottomGroup = parsedData.filter(d => d.total < 15);
+
+    topGroup.sort((a, b) => b.actualPct - a.actualPct);
+    bottomGroup.sort((a, b) => b.actualPct - a.actualPct);
+
+    topGroup.forEach((d, idx) => { d.rank = idx + 1; });
+    bottomGroup.forEach(d => { d.rank = null; });
+
+    escalationData = [...topGroup, ...bottomGroup];
+
+    const tbody = document.getElementById("escalation-tbody");
+    tbody.innerHTML = "";
+
+    const filtered = escalationData.filter(d => {
+      if (searchVal && !d.officer.toLowerCase().includes(searchVal) && !d.ssa.toLowerCase().includes(searchVal)) return false;
+      return true;
+    });
+
+    window.currentEscalationFiltered = filtered;
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found for selected filters.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach((d, idx) => {
+      const pGte = d.total > 0 ? ((d.gte98 / d.total) * 100).toFixed(1) : 0;
+      const pMid = d.total > 0 ? ((d.mid94 / d.total) * 100).toFixed(1) : 0;
+      const pLow = d.total > 0 ? ((d.low90 / d.total) * 100).toFixed(1) : 0;
+      const pLt  = d.total > 0 ? ((d.lt90  / d.total) * 100).toFixed(1) : 0;
+
+      const rankBadge = d.rank !== null 
+        ? `<span class="badge-rank">#${d.rank}</span>` 
+        : `<span class="badge-rank-na">&lt;15 sites</span>`;
+
+      const statusBadge = d.shortfall > 0 
+        ? `<span class="badge-lag">Lagging (-${d.shortfall})</span>` 
+        : `<span class="badge-ok">Target Met</span>`;
+
+      tbody.innerHTML += `
+        <tr>
+          <td style="text-align: center;">${rankBadge}</td>
+          <td>${d.ssa}</td>
+          <td><strong>${d.officer}</strong></td>
+          <td class="num">${d.total}</td>
+          <td class="num" style="color:#16a34a; font-weight:700;">${d.gte98} (${pGte}%)</td>
+          <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
+          <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90} (${pLt}%)</td>
+          <td class="num"><strong>${d.actualPct.toFixed(1)}%</strong></td>
+          <td class="num">${d.targetCountNeeded} sites</td>
+          <td class="num" style="color:${d.shortfall > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${d.shortfall} sites</td>
+          <td style="text-align:center;">${statusBadge}</td>
+          <td style="text-align:center;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareSingleOfficerWhatsApp(${idx})">💬 Alert</button>
+          </td>
+        </tr>`;
+    });
+  }
+
   function shareSingleOfficerWhatsApp(idx) {
     if (!window.currentEscalationFiltered || !window.currentEscalationFiltered[idx]) return;
     const d = window.currentEscalationFiltered[idx];
@@ -2602,7 +2710,6 @@
   // =========================================================================
   // WHATSAPP & MAIL DISPATCHERS
   // =========================================================================
-
   function buildUnifiedDownMessageText() {
     const chosenSsa = document.getElementById("down-ssa-select").value;
     const chosenL2 = document.getElementById("down-select-l2").value;
@@ -2627,8 +2734,15 @@
       alert("No down sites matching active filters to share.");
       return;
     }
+    const chosenL1 = document.getElementById("down-select-l1").value;
+    const phone = chosenL1 !== "ALL" ? extractPhoneNumber(chosenL1) : "";
     const msg = buildUnifiedDownMessageText();
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+
+    const url = phone 
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+    window.open(url, "_blank");
   }
 
   function shareUnifiedDownMail() {
@@ -2703,8 +2817,15 @@
       alert("No healthy LTE down sites matching active filters to share.");
       return;
     }
+    const chosenL1 = document.getElementById("healthy-select-l1") ? document.getElementById("healthy-select-l1").value : "ALL";
+    const phone = chosenL1 !== "ALL" ? extractPhoneNumber(chosenL1) : "";
     const msg = buildHealthyDownMessageText();
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+
+    const url = phone 
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+    window.open(url, "_blank");
   }
 
   function shareHealthyDownMailToL2() {
