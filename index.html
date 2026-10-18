@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Report & Tracker</title>
+  <!-- Libraries for CSV/Excel Parsing, Export, Charts & Screenshots -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -22,27 +23,46 @@
       --border: #cbd5e1;
     }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    
     body {
-      margin: 0; padding: 20px; background-color: var(--bg); color: var(--text);
-      position: relative; min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg);
+      color: var(--text);
+      position: relative;
+      min-height: 100vh;
     }
     body::before {
-      content: ""; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 480px; height: 480px;
+      content: "";
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 480px;
+      height: 480px;
       background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><circle cx="150" cy="150" r="140" fill="none" stroke="%23003366" stroke-width="14"/><path d="M70 180 Q150 40 230 180 Q150 120 70 180 Z" fill="%23003366"/><path d="M100 210 Q150 110 200 210 Q150 160 100 210 Z" fill="%23d97706"/><circle cx="150" cy="80" r="22" fill="%23003366"/><text x="150" y="270" font-family="Arial,sans-serif" font-weight="900" font-size="34" fill="%23003366" text-anchor="middle" letter-spacing="2">BSNL</text></svg>');
-      background-repeat: no-repeat; background-position: center; background-size: contain; opacity: 0.05; pointer-events: none; z-index: 0;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      opacity: 0.05;
+      pointer-events: none;
+      z-index: 0;
     }
+
     .container { position: relative; z-index: 1; max-width: 1480px; margin: 0 auto; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
     h1 { margin: 0; font-size: 24px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
+
     .module-nav { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; }
     .module-btn { background: #e2e8f0; border: none; padding: 12px 22px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 14px; color: #334155; transition: all 0.2s ease; }
     .module-btn:hover { background: #cbd5e1; }
     .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
+
     .sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .sub-tab-btn { background: #f1f5f9; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; color: #475569; }
     .sub-tab-btn.active { background: #0284c7; color: white; border-color: #0284c7; }
+
     .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { opacity: 0.9; }
@@ -54,19 +74,24 @@
     .btn-file { background: #475569; color: white; }
     .btn-red { background: #dc2626; color: white; }
     .btn-sm { padding: 5px 10px; font-size: 11px; }
+
     .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .toolbar-group { display: flex; align-items: center; gap: 8px; }
     .toolbar select, .toolbar input { padding: 7px 11px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; }
+
     .slicer-group { display: flex; gap: 6px; flex-wrap: wrap; }
     .slicer-btn { border: 1px solid var(--border); background: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .slicer-btn:hover { background: #f1f5f9; }
     .slicer-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
     .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px; }
     .kpi-card { background: var(--card-bg); backdrop-filter: blur(4px); padding: 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .kpi-card .title { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600; }
     .kpi-card .value { font-size: 24px; font-weight: bold; margin-top: 6px; color: var(--primary); }
+
     .section { background: var(--card-bg); backdrop-filter: blur(4px); border-radius: 8px; border: 1px solid var(--border); padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     h2 { font-size: 17px; margin-top: 0; margin-bottom: 14px; color: var(--text); }
+
     table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; }
     th, td { padding: 9px 11px; text-align: left; border-bottom: 1px solid var(--border); }
     th { background: #f1f5f9; font-weight: 600; color: #334155; position: sticky; top: 0; z-index: 1; }
@@ -75,13 +100,16 @@
     .clickable-row:hover { background: #eff6ff !important; }
     .num { text-align: right; }
     .circle-row { font-weight: bold; background: #e2e8f0; }
+
     .progress-track { background: #e2e8f0; border-radius: 4px; height: 14px; width: 80px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
     .progress-fill { height: 100%; }
     .progress-fill.high { background: #22c55e; }
     .progress-fill.mid { background: #f59e0b; }
     .progress-fill.low { background: #ef4444; }
+
     .table-container { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
     .heat-cell { text-align: right; font-variant-numeric: tabular-nums; }
+
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
     .modal-card { background: white; width: 100%; max-width: 1000px; max-height: 90vh; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
     .modal-header { padding: 16px 20px; background: #f1f5f9; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
@@ -89,6 +117,7 @@
     .modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
     .close-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; color: #64748b; }
     .missing-tag { display: inline-block; background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin: 2px; }
+
     .badge-dbn { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-ndbn { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-fault { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
@@ -259,6 +288,7 @@
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-degraded-view', this)">⚠️ 2. Degraded Sites (Avail Drop)</button>
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-user-degraded-view', this)">👥 3. User Degradation Tracker</button>
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 4. Escalation Dashboard</button>
+      <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-history-alarm-view', this)">⏱️ 5. History Alarm</button>
     </div>
 
     <!-- SUB-VIEW 1: AVAILABILITY OVERVIEW -->
@@ -380,6 +410,7 @@
                 <th class="num">Max Active User</th>
                 <th>L1 Officer</th>
                 <th>Media</th>
+                <th class="num">Total Down Duration (Hr)</th>
                 <th class="num">Voice Erl</th>
                 <th class="num">Data (GB)</th>
               </tr>
@@ -595,6 +626,57 @@
               </tr>
             </thead>
             <tbody id="escalation-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 5: HISTORY ALARM MODULE -->
+    <div class="dbn-sub-section" id="dbn-history-alarm-view" style="display: none;">
+      <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h2 style="margin:0; color:var(--primary);">History Alarm Analytics (IP ID Wise Multi-Band Outage Tracker)</h2>
+            <span id="history-alarm-badge" style="font-size:12px; color:#64748b;">Format: Total (B01 + B28 + B41)</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareHistoryAlarmWhatsApp()">💬 Share on WhatsApp</button>
+            <button class="btn btn-green btn-sm" onclick="exportHistoryAlarmExcel()">📥 Export History Alarm Excel</button>
+          </div>
+        </div>
+
+        <div class="toolbar" style="margin-bottom: 16px;">
+          <div class="toolbar-group">
+            <label for="hist-date-select"><strong>Filter Date:</strong></label>
+            <select id="hist-date-select" onchange="renderHistoryAlarmTable()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="hist-ssa-select"><strong>SSA:</strong></label>
+            <select id="hist-ssa-select" onchange="renderHistoryAlarmTable()">
+              <option value="ALL">All SSAs</option>
+            </select>
+          </div>
+          <div class="toolbar-group" style="flex: 1; min-width: 220px;">
+            <input type="text" id="hist-search-input" placeholder="Search IP ID / Site ID / Name..." oninput="renderHistoryAlarmTable()" style="width: 100%;">
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>BTS IP ID</th>
+                <th>Associated Site IDs</th>
+                <th>Site Name</th>
+                <th>SSA</th>
+                <th class="num">Flap Count (&lt;15m) (B01+B28+B41)</th>
+                <th class="num">Major Outage Count (B01+B28+B41)</th>
+                <th class="num">Total Down Count (B01+B28+B41)</th>
+                <th class="num">Total Down Duration (Hr) (B01+B28+B41)</th>
+                <th>L1 In-Charge</th>
+              </tr>
+            </thead>
+            <tbody id="history-alarm-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -1054,10 +1136,12 @@
   const SHEET_INFRA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
   const SHEET_DBN_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=551656182&single=true&output=csv";
   const SHEET_DOWNSITES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=0&single=true&output=csv";
+  const SHEET_HISTORY_ALARM_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7R_bMtkOJZZWN-8c4zu8cFtLGNzWLMsl9es1n7AO43SUQL9_GzH8OdRNqWBPVFg/pub?gid=1485673148&single=true&output=csv";
 
   let currentActiveModule = "mod-infra";
   let dbnDataLoaded = false;
   let downDataLoaded = false;
+  let historyAlarmLoaded = false;
 
   let dbnRawRecords = [];
   let dbnFilteredRecords = [];
@@ -1073,6 +1157,8 @@
   let degradedSitesList = [];
   let userDegradedSitesList = [];
   let escalationData = [];
+  let historyAlarmRawRecords = [];
+  let historyAlarmDates = [];
 
   let downRawRecords = [];
   let downFilteredRecords = [];
@@ -1084,6 +1170,7 @@
   const masterMediaByIp = {};
   const masterCategoryByIp = {};
   const masterAvailByDateAndIp = {};
+  const masterHistoryDownHoursByIp = {};
 
   function getAvailabilityBucket(avail) {
     if (avail >= 98.0) return ">=98%";
@@ -1128,20 +1215,15 @@
     if (!periodStr) return 0;
     const str = String(periodStr).toLowerCase().trim();
     let totalMinutes = 0;
-
     const dayMatch = str.match(/(\d+)\s*(?:days?|d)/);
     if (dayMatch) totalMinutes += parseInt(dayMatch[1], 10) * 1440;
-
     const hrMatch = str.match(/(\d+)\s*(?:hours?|hrs?|h)/);
     if (hrMatch) totalMinutes += parseInt(hrMatch[1], 10) * 60;
-
     const minMatch = str.match(/(\d+)\s*(?:minutes?|mins?|m)/);
     if (minMatch) totalMinutes += parseInt(minMatch[1], 10);
-
     if (totalMinutes === 0 && !isNaN(parseFloat(str))) {
       totalMinutes = parseFloat(str) * 60;
     }
-
     return totalMinutes;
   }
 
@@ -1158,7 +1240,24 @@
     return match ? "91" + match[0] : "";
   }
 
-  // DBN Analysis Declarations
+  function getBandFromText(name, siteId) {
+    const s = (safeStr(name) + " " + safeStr(siteId)).toUpperCase();
+    if (s.includes("B01") || s.includes("B1") || s.includes("JK01")) return "B01";
+    if (s.includes("B28") || s.includes("JK28")) return "B28";
+    if (s.includes("B41") || s.includes("JK41")) return "B41";
+    return "OTHER";
+  }
+
+  function extractIpFromSiteId(siteId) {
+    if (!siteId) return "";
+    const clean = String(siteId).trim();
+    const match = clean.match(/([A-Z]{3}\d{3})/i);
+    return match ? match[1].toUpperCase() : clean;
+  }
+
+  // =========================================================================
+  // DBN ANALYSIS LOGIC
+  // =========================================================================
   function runDegradedAnalysis() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
     const prevDateElem = document.getElementById("deg-prev-date");
@@ -1200,17 +1299,9 @@
           if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
             const drop = (r.avail - prevRec.avail).toFixed(2);
             degradedSitesList.push({
-              siteId: r.siteId,
-              btsIp: r.btsIp,
-              siteName: r.siteName,
-              ssa: r.ssa,
-              category: r.category,
-              prevAvail: prevRec.avail,
-              nextAvail: r.avail,
-              dropDelta: drop,
-              bucket: r.bucket,
-              l1: r.l1,
-              media: r.media
+              siteId: r.siteId, btsIp: r.btsIp, siteName: r.siteName, ssa: r.ssa,
+              category: r.category, prevAvail: prevRec.avail, nextAvail: r.avail,
+              dropDelta: drop, bucket: r.bucket, l1: r.l1, media: r.media
             });
           }
         }
@@ -1218,7 +1309,6 @@
     });
 
     degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
-
     document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
     document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
     const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
@@ -1235,17 +1325,11 @@
     degradedSitesList.forEach(r => {
       tbody.innerHTML += `
         <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIp || "-"}</td>
-          <td>${r.siteName}</td>
-          <td>${r.ssa}</td>
-          <td>${r.category}</td>
+          <td><strong>${r.siteId}</strong></td><td>${r.btsIp || "-"}</td><td>${r.siteName}</td><td>${r.ssa}</td><td>${r.category}</td>
           <td class="num" style="color:#16a34a; font-weight:600;">${r.prevAvail.toFixed(2)}%</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">${r.nextAvail.toFixed(2)}%</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">${r.dropDelta}%</td>
-          <td>${r.bucket}</td>
-          <td>${r.l1}</td>
-          <td>${r.media}</td>
+          <td>${r.bucket}</td><td>${r.l1}</td><td>${r.media}</td>
         </tr>`;
     });
   }
@@ -1303,19 +1387,9 @@
                 totalUsersLost += dropCount;
                 sumDropPct += dropPct;
                 userDegradedSitesList.push({
-                  siteId: r.siteId,
-                  btsIp: r.btsIp,
-                  siteName: r.siteName,
-                  ssa: r.ssa,
-                  category: r.category,
-                  baseUsers: baseUsers,
-                  baseAvail: prevRec.avail,
-                  nextUsers: nextUsers,
-                  nextAvail: r.avail,
-                  dropCount: dropCount,
-                  dropPct: dropPct,
-                  l1: r.l1,
-                  media: r.media
+                  siteId: r.siteId, btsIp: r.btsIp, siteName: r.siteName, ssa: r.ssa, category: r.category,
+                  baseUsers: baseUsers, baseAvail: prevRec.avail, nextUsers: nextUsers, nextAvail: r.avail,
+                  dropCount: dropCount, dropPct: dropPct, l1: r.l1, media: r.media
                 });
               }
             }
@@ -1325,7 +1399,6 @@
     });
 
     userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
-
     document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
     document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
     document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
@@ -1336,29 +1409,26 @@
     if (!tbody) return;
     tbody.innerHTML = "";
     if (userDegradedSitesList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found with Max Active User degradation matching selected threshold (${minDropPct}%).</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found matching user drop threshold (${minDropPct}%).</td></tr>`;
       return;
     }
 
     userDegradedSitesList.forEach(r => {
       tbody.innerHTML += `
         <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIp || "-"}</td>
-          <td>${r.siteName}</td>
-          <td>${r.ssa}</td>
-          <td>${r.category}</td>
+          <td><strong>${r.siteId}</strong></td><td>${r.btsIp || "-"}</td><td>${r.siteName}</td><td>${r.ssa}</td><td>${r.category}</td>
           <td class="num"><strong>${r.baseUsers.toLocaleString()}</strong> (${r.baseAvail.toFixed(1)}%)</td>
           <td class="num"><strong>${r.nextUsers.toLocaleString()}</strong> (${r.nextAvail.toFixed(1)}%)</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
-          <td>${r.l1}</td>
-          <td>${r.media}</td>
+          <td>${r.l1}</td><td>${r.media}</td>
         </tr>`;
     });
   }
 
+  // =========================================================================
   // MODULE 1: CNMC SITE INFRA LOGIC
+  // =========================================================================
   const EXCLUDED_INDICES = new Set([15, 31, 32, 33, 34, 35, 36, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]);
   let rawDataRows = [], globalHeaders = [], cachedSites = [];
   let currentModalSites = [], currentModalEntityName = "";
@@ -1426,13 +1496,11 @@
       const ssa = safeStr(row[2]);
       const phyId = safeStr(row[5]);
       const btsName = safeStr(row[6]);
-      
       let l1 = safeStr(row[l1Idx]);
       let l2 = safeStr(row[l2Idx]);
 
       if (!l1 || l1.endsWith("%") || !isNaN(parseFloat(l1))) l1 = safeStr(row[70]);
       if (!l2) l2 = safeStr(row[71]);
-
       if (!l1 || l1.endsWith("%")) l1 = "Unassigned";
       if (!l2) l2 = "-";
 
@@ -1527,16 +1595,8 @@
       const ownerKey = s.l1;
       if (!ownerMap[ownerKey]) {
         ownerMap[ownerKey] = {
-          ssa: s.ssa,
-          ssas: new Set([s.ssa]),
-          l1: s.l1,
-          l2: s.l2,
-          total: 0,
-          notStarted: 0,
-          inProgress: 0,
-          completed: 0,
-          filledFieldsSum: 0,
-          sites: []
+          ssa: s.ssa, ssas: new Set([s.ssa]), l1: s.l1, l2: s.l2,
+          total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, sites: []
         };
       }
       ownerMap[ownerKey].ssas.add(s.ssa);
@@ -1629,7 +1689,6 @@
     msg += `*Filter:* ${chosenSsaFilter} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n\n`;
     
     list.sort((a,b) => (b.filledFieldsSum / (b.total * 41)) - (a.filledFieldsSum / (a.total * 41)));
-    
     list.forEach((d, i) => {
       const pct = d.total > 0 ? ((d.filledFieldsSum / (d.total * 41)) * 100).toFixed(1) : "0.0";
       msg += `${i + 1}. *${d.l1}* (${Array.from(d.ssas).join(", ")}): ${d.completed}/${d.total} Complete (${pct}% Fill)\n`;
@@ -1637,7 +1696,6 @@
     
     msg += `\nPlease expedite updating mandatory infrastructure parameters.\n\n`;
     msg += getClosingSignature(chosenSsaFilter.replace("SSA: ", "").replace("BA: ", ""));
-    
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
@@ -1760,7 +1818,6 @@
     status.innerText = "Downloading DBN_NDBN master dataset (61k rows)...";
 
     let csvText = null;
-
     try {
       const res = await fetch(SHEET_DBN_URL);
       if (res.ok) csvText = await res.text();
@@ -2086,8 +2143,7 @@
         }]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { position: "bottom" },
           datalabels: {
@@ -2098,8 +2154,7 @@
               if (sum === 0 || value === 0) return "";
               return ((value * 100) / sum).toFixed(1) + "%";
             },
-            color: "#fff",
-            font: { weight: "bold", size: 11 }
+            color: "#fff", font: { weight: "bold", size: 11 }
           }
         }
       }
@@ -2142,16 +2197,13 @@
         ]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         scales: {
           x: { stacked: true },
           y: {
             stacked: true,
             max: ssaChartMode === "pct" ? 100 : undefined,
-            ticks: {
-              callback: v => ssaChartMode === "pct" ? v + "%" : v
-            }
+            ticks: { callback: v => ssaChartMode === "pct" ? v + "%" : v }
           }
         },
         plugins: {
@@ -2161,8 +2213,7 @@
               if (v === 0) return "";
               return ssaChartMode === "pct" ? (v >= 5 ? v + "%" : "") : (v >= 3 ? v : "");
             },
-            color: "#fff",
-            font: { weight: "bold", size: 10 }
+            color: "#fff", font: { weight: "bold", size: 10 }
           }
         }
       }
@@ -2172,7 +2223,6 @@
   function renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail) {
     const tbody = document.getElementById("dbn-summary-tbody");
     tbody.innerHTML = "";
-
     window.currentSsaSummaryCache = { ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail };
 
     Object.keys(ssaAgg).sort().forEach(s => {
@@ -2258,13 +2308,23 @@
     countBadge.innerText = `Showing ${Math.min(records.length, displayLimit)} of ${records.length.toLocaleString()} matching sites`;
 
     if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
       return;
     }
 
     records.slice(0, displayLimit).forEach(r => {
       const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
       const availColor = r.avail >= 98 ? "#16a34a" : (r.avail >= 94 ? "#d97706" : (r.avail >= 90 ? "#ea580c" : "#dc2626"));
+
+      const ipKey = normalizeIpKey(r.btsIp);
+      const siteKey = normalizeIpKey(r.siteId);
+      const extractedKey = normalizeIpKey(extractIpFromSiteId(r.siteId));
+
+      const downHrs = masterHistoryDownHoursByIp[ipKey] !== undefined 
+        ? masterHistoryDownHoursByIp[ipKey].toFixed(2) 
+        : (masterHistoryDownHoursByIp[siteKey] !== undefined 
+            ? masterHistoryDownHoursByIp[siteKey].toFixed(2) 
+            : (masterHistoryDownHoursByIp[extractedKey] !== undefined ? masterHistoryDownHoursByIp[extractedKey].toFixed(2) : "-"));
 
       tbody.innerHTML += `
         <tr>
@@ -2278,13 +2338,83 @@
           <td class="num"><strong>${r.maxActiveUser}</strong></td>
           <td>${r.l1}</td>
           <td>${r.media}</td>
+          <td class="num"><strong>${downHrs}</strong></td>
           <td class="num">${r.voiceErl.toFixed(2)}</td>
           <td class="num">${r.dataGb.toFixed(2)}</td>
         </tr>`;
     });
   }
 
-  // SUB-MODULE 4: ESCALATION DASHBOARD
+  function shareDegradedSitesWhatsApp() {
+    if (!degradedSitesList || degradedSitesList.length === 0) {
+      alert("No degraded sites to share.");
+      return;
+    }
+    const prevDate = document.getElementById("deg-prev-date").value;
+    const nextDate = document.getElementById("deg-next-date").value;
+    const chosenSsa = document.getElementById("deg-ssa-select").value;
+    const chosenL1 = document.getElementById("deg-l1-select").value;
+
+    let title = `*⚠️ J&K CM Availability Degraded Sites Alert*\n`;
+    title += `*Period:* ${prevDate} ➔ ${nextDate}\n`;
+    title += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
+    title += `*Total Sites Dropped Below 98%:* ${degradedSitesList.length}\n\n`;
+
+    let body = "";
+    degradedSitesList.slice(0, 30).forEach((s, i) => {
+      body += `${i + 1}. *${s.siteName}* (${s.prevAvail.toFixed(1)}% ➔ ${s.nextAvail.toFixed(1)}%, Drop: ${s.dropDelta}%) [L1: ${s.l1}]\n`;
+    });
+    if (degradedSitesList.length > 30) {
+      body += `\n_...and ${degradedSitesList.length - 30} more degraded sites._\n`;
+    }
+
+    body += `\nPlease investigate and restore network availability immediately.\n\n`;
+    body += getClosingSignature(chosenSsa);
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(title + body), "_blank");
+  }
+
+  function exportDegradedSitesExcel() {
+    if (!degradedSitesList || degradedSitesList.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(degradedSitesList);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Degraded_Avail_Sites");
+    XLSX.writeFile(wb, "Degraded_Avail_Sites.xlsx");
+  }
+
+  function shareUserDegSummaryWhatsApp() {
+    const prevDate = document.getElementById("user-deg-prev-date").value;
+    const nextDate = document.getElementById("user-deg-next-date").value;
+    const threshold = document.getElementById("user-deg-threshold").value;
+    const chosenSsa = document.getElementById("user-deg-ssa-select").value;
+    const chosenL1 = document.getElementById("user-deg-l1-select").value;
+
+    const totalCompared = document.getElementById("user-deg-kpi-total").innerText;
+    const degradedCount = document.getElementById("user-deg-kpi-count").innerText;
+    const usersLost = document.getElementById("user-deg-kpi-lost").innerText;
+    const avgDrop = document.getElementById("user-deg-kpi-drop-pct").innerText;
+
+    let msg = `*👥 J&K CM Max Active User Degradation Summary*\n`;
+    msg += `*Comparison:* ${prevDate} (Base) ➔ ${nextDate} (Compare)\n`;
+    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
+    msg += `*Threshold:* ≥ ${threshold}% User Drop\n\n`;
+    msg += `📊 *Summary Metrics:*\n`;
+    msg += `• Total Compared Sites: ${totalCompared}\n`;
+    msg += `• Sites with User Degradation: *${degradedCount}*\n`;
+    msg += `• Total Active Users Lost: *${usersLost}*\n`;
+    msg += `• Average % User Drop: *${avgDrop}*\n\n`;
+    msg += getClosingSignature(chosenSsa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+
+  function exportUserDegradedSitesExcel() {
+    if (!userDegradedSitesList || userDegradedSitesList.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(userDegradedSitesList);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "User_Degradation");
+    XLSX.writeFile(wb, "Max_Active_User_Degradation.xlsx");
+  }
+
   function renderEscalationDashboard() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
     const chosenDate = document.getElementById("esc-date-select").value;
@@ -2301,7 +2431,6 @@
     });
 
     const inchargeMap = {};
-
     dateRecords.forEach(r => {
       const officer = r.l1 || "Unassigned";
       const key = r.ssa + "____" + officer;
@@ -2320,31 +2449,20 @@
       const targetCountNeeded = Math.ceil((targetPct / 100) * d.total);
       const shortfall = Math.max(0, targetCountNeeded - d.gte98);
       return {
-        ssa: d.ssa,
-        officer: d.officer,
-        total: d.total,
-        gte98: d.gte98,
-        mid94: d.mid94,
-        low90: d.low90,
-        lt90: d.lt90,
-        actualPct: actualPct,
-        targetPct: targetPct,
-        targetCountNeeded: targetCountNeeded,
-        shortfall: shortfall
+        ssa: d.ssa, officer: d.officer, total: d.total, gte98: d.gte98,
+        mid94: d.mid94, low90: d.low90, lt90: d.lt90, actualPct: actualPct,
+        targetPct: targetPct, targetCountNeeded: targetCountNeeded, shortfall: shortfall
       };
     });
 
     const topGroup = parsedData.filter(d => d.total >= 15);
     const bottomGroup = parsedData.filter(d => d.total < 15);
-
     topGroup.sort((a, b) => b.actualPct - a.actualPct);
     bottomGroup.sort((a, b) => b.actualPct - a.actualPct);
-
     topGroup.forEach((d, idx) => { d.rank = idx + 1; });
     bottomGroup.forEach(d => { d.rank = null; });
 
     escalationData = [...topGroup, ...bottomGroup];
-
     const tbody = document.getElementById("escalation-tbody");
     tbody.innerHTML = "";
 
@@ -2354,9 +2472,8 @@
     });
 
     window.currentEscalationFiltered = filtered;
-
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found for selected filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found.</td></tr>`;
       return;
     }
 
@@ -2377,9 +2494,7 @@
       tbody.innerHTML += `
         <tr>
           <td style="text-align: center;">${rankBadge}</td>
-          <td>${d.ssa}</td>
-          <td><strong>${d.officer}</strong></td>
-          <td class="num">${d.total}</td>
+          <td>${d.ssa}</td><td><strong>${d.officer}</strong></td><td class="num">${d.total}</td>
           <td class="num" style="color:#16a34a; font-weight:700;">${d.gte98} (${pGte}%)</td>
           <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
           <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
@@ -2400,14 +2515,11 @@
     const d = window.currentEscalationFiltered[idx];
     const selectedDate = document.getElementById("esc-date-select").value;
     const chosenSsa = document.getElementById("esc-ssa-select").value;
-
     const rankType = (chosenSsa && chosenSsa !== "ALL") ? "SSA Rank" : "Circle Rank";
 
     let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
     msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
-    if (d.rank) {
-      msg += `*Performance Rank:* #${d.rank} (${rankType})\n`;
-    }
+    if (d.rank) msg += `*Performance Rank:* #${d.rank} (${rankType})\n`;
     msg += `*Total Sites Managed:* ${d.total}\n`;
     msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
     msg += `*Target Benchmark:* ${d.targetPct}% (${d.targetCountNeeded} sites)\n\n`;
@@ -2421,9 +2533,7 @@
     }
     
     msg += getClosingSignature(chosenSsa);
-
-    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
-    window.open(whatsappUrl, "_blank");
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
   function shareBulkEscalationWhatsApp() {
@@ -2442,9 +2552,7 @@
     });
 
     msg += `\n${getClosingSignature(chosenSsa)}`;
-
-    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
-    window.open(whatsappUrl, "_blank");
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
   function exportEscalationExcel() {
@@ -2456,7 +2564,233 @@
   }
 
   // =========================================================================
-  // MODULE 3: DOWN SITES TRACKER LOGIC (SAFE PARSING & UPLOAD)
+  // SUB-MODULE 5: HISTORY ALARM LOGIC
+  // =========================================================================
+  async function fetchAndRenderHistoryAlarm() {
+    let csvText = null;
+    try {
+      const res = await fetch(SHEET_HISTORY_ALARM_URL);
+      if (res.ok) csvText = await res.text();
+    } catch (e) {
+      console.warn("Direct fetch for history alarm failed, trying proxy...", e);
+    }
+
+    if (!csvText || csvText.trim().startsWith("<!DOCTYPE html>")) {
+      const pUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_HISTORY_ALARM_URL);
+      try {
+        const pRes = await fetch(pUrl);
+        if (pRes.ok) csvText = await pRes.text();
+      } catch (err) {
+        console.warn("Proxy history alarm failed:", err);
+      }
+    }
+
+    if (!csvText) return;
+
+    Papa.parse(csvText, {
+      header: true, skipEmptyLines: true, transformHeader: h => h.trim(),
+      complete: function(results) {
+        processHistoryAlarmData(results.data);
+      }
+    });
+  }
+
+  function processHistoryAlarmData(data) {
+    if (!data || data.length === 0) return;
+    const dateSet = new Set();
+    historyAlarmRawRecords = data.map((r, rowIndex) => {
+      const downDate = getRowField(r, ["Down_Date", "Down Date", "Date", "down_date"]) || (r[0] ? String(r[0]).trim() : "");
+      const ssa = getRowField(r, ["ssa_id", "SSA", "ssa", "Circle SSA"]) || (r[1] ? String(r[1]).trim() : "");
+      const siteId = getRowField(r, ["bts_site_id", "btsSiteId", "Site ID", "PHY_Site_ID", "bts_siteid"]) || (r[2] ? String(r[2]).trim() : "");
+      const btsName = getRowField(r, ["bts_name", "BTS Name", "Site Name"]) || (r[3] ? String(r[3]).trim() : "");
+      
+      let btsIp = getRowField(r, ["BTS IP ID", "btsIpId", "BTS_IP_ID", "bts_ip_id", "IP ID", "BTS IP"]) || (r[4] ? String(r[4]).trim() : "");
+      if (!btsIp && siteId) {
+        btsIp = extractIpFromSiteId(siteId);
+      }
+
+      const downTimes = parseInt(getRowField(r, ["Total_Down_Times", "Down Times", "Total Down Times", "total_down_times"]) || r[6] || 0) || 0;
+      const downMinutes = parseInt(getRowField(r, ["Total_Down_Minutes", "Down Minutes", "total_down_minutes"]) || r[7] || 0) || 0;
+      const flapCount = parseInt(getRowField(r, ["Flap Count", "FlapCount", "flap_count", "Flap_Count"]) || r[8] || 0) || 0;
+      const majorCount = parseInt(getRowField(r, ["Major_Outage_Count", "Major Outage Count", "major_outage_count"]) || r[9] || 0) || 0;
+      
+      let downHours = parseFloat(getRowField(r, ["Total_Down_Hours", "Down Hours", "Total Down Hours", "total_down_hours"]) || r[10] || 0);
+      if (isNaN(downHours) || downHours === 0) {
+        downHours = downMinutes > 0 ? (downMinutes / 60) : 0;
+      }
+
+      if (downDate) dateSet.add(downDate);
+      const band = getBandFromText(btsName, siteId);
+      const ipKey = normalizeIpKey(btsIp);
+      const siteKey = normalizeIpKey(siteId);
+      const extractedKey = normalizeIpKey(extractIpFromSiteId(siteId));
+
+      [ipKey, siteKey, extractedKey].forEach(k => {
+        if (k) {
+          masterHistoryDownHoursByIp[k] = (masterHistoryDownHoursByIp[k] || 0) + downHours;
+        }
+      });
+
+      return { downDate, ssa, siteId, btsName, btsIp, band, downTimes, downMinutes, flapCount, majorCount, downHours };
+    }).filter(r => r.siteId !== "" || r.btsIp !== "");
+
+    historyAlarmDates = Array.from(dateSet).sort().reverse();
+    populateHistoryAlarmControls();
+    historyAlarmLoaded = true;
+    renderHistoryAlarmTable();
+
+    if (dbnFilteredRecords && dbnFilteredRecords.length > 0) {
+      renderDbnDetailTable(dbnFilteredRecords);
+    }
+  }
+
+  function populateHistoryAlarmControls() {
+    const dSelect = document.getElementById("hist-date-select");
+    const sSelect = document.getElementById("hist-ssa-select");
+    if (!dSelect || !sSelect) return;
+
+    dSelect.innerHTML = `<option value="ALL">All Dates</option>`;
+    historyAlarmDates.forEach(d => dSelect.innerHTML += `<option value="${d}">${d}</option>`);
+
+    const ssaSet = new Set();
+    historyAlarmRawRecords.forEach(r => { if (r.ssa) ssaSet.add(r.ssa); });
+    sSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
+    Array.from(ssaSet).sort().forEach(s => sSelect.innerHTML += `<option value="${s}">${s}</option>`);
+  }
+
+  function renderHistoryAlarmTable() {
+    const tbody = document.getElementById("history-alarm-tbody");
+    if (!tbody) return;
+
+    const chosenDate = document.getElementById("hist-date-select") ? document.getElementById("hist-date-select").value : "ALL";
+    const chosenSsa = document.getElementById("hist-ssa-select") ? document.getElementById("hist-ssa-select").value : "ALL";
+    const searchVal = safeStr(document.getElementById("hist-search-input") ? document.getElementById("hist-search-input").value : "").toLowerCase();
+
+    const filtered = historyAlarmRawRecords.filter(r => {
+      if (chosenDate !== "ALL" && r.downDate !== chosenDate) return false;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (searchVal) {
+        const matches = r.btsIp.toLowerCase().includes(searchVal) ||
+                        r.siteId.toLowerCase().includes(searchVal) ||
+                        r.btsName.toLowerCase().includes(searchVal);
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    const ipMap = {};
+    filtered.forEach(r => {
+      const ip = r.btsIp || extractIpFromSiteId(r.siteId) || "UNKNOWN";
+      if (!ipMap[ip]) {
+        ipMap[ip] = {
+          btsIp: ip, siteIds: new Set(), siteNames: new Set(), ssa: r.ssa,
+          flap: { B01: 0, B28: 0, B41: 0, OTHER: 0, total: 0 },
+          major: { B01: 0, B28: 0, B41: 0, OTHER: 0, total: 0 },
+          downCount: { B01: 0, B28: 0, B41: 0, OTHER: 0, total: 0 },
+          downHours: { B01: 0, B28: 0, B41: 0, OTHER: 0, total: 0 }
+        };
+      }
+      if (r.siteId) ipMap[ip].siteIds.add(r.siteId);
+      if (r.btsName) {
+        const cleanName = r.btsName.replace(/_(B01|B28|B41|B1|4G|LTE)/gi, "").trim();
+        if (cleanName) ipMap[ip].siteNames.add(cleanName);
+      }
+      if (!ipMap[ip].ssa && r.ssa) ipMap[ip].ssa = r.ssa;
+
+      const b = (r.band === "B01" || r.band === "B28" || r.band === "B41") ? r.band : "OTHER";
+      ipMap[ip].flap[b] += r.flapCount; ipMap[ip].flap.total += r.flapCount;
+      ipMap[ip].major[b] += r.majorCount; ipMap[ip].major.total += r.majorCount;
+      ipMap[ip].downCount[b] += r.downTimes; ipMap[ip].downCount.total += r.downTimes;
+      ipMap[ip].downHours[b] += r.downHours; ipMap[ip].downHours.total += r.downHours;
+    });
+
+    const rows = Object.values(ipMap).sort((a,b) => b.downHours.total - a.downHours.total);
+    window.currentHistoryAlarmRows = rows;
+    tbody.innerHTML = "";
+
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#64748b;">No history alarm records matching selected criteria.</td></tr>`;
+      return;
+    }
+
+    rows.forEach(r => {
+      const ipKey = normalizeIpKey(r.btsIp);
+      const l1 = masterInchargeByIp[ipKey] || "-";
+      const siteNamesStr = Array.from(r.siteNames).join(", ") || "-";
+      const siteIdsStr = Array.from(r.siteIds).join("<br>") || "-";
+
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.btsIp}</strong></td>
+          <td style="font-size:11px; color:#475569;">${siteIdsStr}</td>
+          <td>${siteNamesStr}</td>
+          <td>${r.ssa || "-"}</td>
+          <td class="num"><strong>${r.flap.total}</strong> <span style="color:#64748b; font-size:11px;">(${r.flap.B01}+${r.flap.B28}+${r.flap.B41})</span></td>
+          <td class="num"><strong>${r.major.total}</strong> <span style="color:#64748b; font-size:11px;">(${r.major.B01}+${r.major.B28}+${r.major.B41})</span></td>
+          <td class="num"><strong>${r.downCount.total}</strong> <span style="color:#64748b; font-size:11px;">(${r.downCount.B01}+${r.downCount.B28}+${r.downCount.B41})</span></td>
+          <td class="num" style="color:#dc2626;"><strong>${r.downHours.total.toFixed(2)}</strong> <span style="color:#64748b; font-size:11px;">(${r.downHours.B01.toFixed(1)}+${r.downHours.B28.toFixed(1)}+${r.downHours.B41.toFixed(1)})</span></td>
+          <td>${l1}</td>
+        </tr>`;
+    });
+  }
+
+  function shareHistoryAlarmWhatsApp() {
+    const rows = window.currentHistoryAlarmRows || [];
+    if (rows.length === 0) {
+      alert("No history alarm records to share.");
+      return;
+    }
+    const chosenDate = document.getElementById("hist-date-select").value;
+    const chosenSsa = document.getElementById("hist-ssa-select").value;
+
+    let msg = `*⏱️ J&K CM History Alarm Analytics (${chosenDate})*\n`;
+    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n`;
+    msg += `_Format: Total (B01 + B28 + B41)_\n\n`;
+
+    rows.slice(0, 25).forEach((r, i) => {
+      const siteNamesStr = Array.from(r.siteNames)[0] || r.btsIp;
+      msg += `${i + 1}. *${r.btsIp}* [${siteNamesStr}] (${r.ssa})\n`;
+      msg += `   • Down Hours: *${r.downHours.total.toFixed(1)}h* (${r.downHours.B01.toFixed(1)}+${r.downHours.B28.toFixed(1)}+${r.downHours.B41.toFixed(1)})\n`;
+      msg += `   • Flaps: ${r.flap.total} (${r.flap.B01}+${r.flap.B28}+${r.flap.B41}) | Majors: ${r.major.total} (${r.major.B01}+${r.major.B28}+${r.major.B41})\n`;
+    });
+
+    if (rows.length > 25) msg += `\n_...and ${rows.length - 25} more IP nodes._\n`;
+    msg += `\n${getClosingSignature(chosenSsa)}`;
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+
+  function exportHistoryAlarmExcel() {
+    const rows = window.currentHistoryAlarmRows || [];
+    if (!rows || rows.length === 0) return;
+
+    const data = rows.map((r, i) => {
+      const ipKey = normalizeIpKey(r.btsIp);
+      return {
+        "S.No": i + 1,
+        "BTS IP ID": r.btsIp,
+        "Associated Site IDs": Array.from(r.siteIds).join(", "),
+        "Site Name": Array.from(r.siteNames).join(", "),
+        "SSA": r.ssa,
+        "Flap Count (<15m) Total": r.flap.total,
+        "Flap (B01+B28+B41)": `${r.flap.B01}+${r.flap.B28}+${r.flap.B41}`,
+        "Major Outage Total": r.major.total,
+        "Major (B01+B28+B41)": `${r.major.B01}+${r.major.B28}+${r.major.B41}`,
+        "Total Down Count": r.downCount.total,
+        "Down Count (B01+B28+B41)": `${r.downCount.B01}+${r.downCount.B28}+${r.downCount.B41}`,
+        "Total Down Hours": parseFloat(r.downHours.total.toFixed(2)),
+        "Down Hours (B01+B28+B41)": `${r.downHours.B01.toFixed(1)}+${r.downHours.B28.toFixed(1)}+${r.downHours.B41.toFixed(1)}`,
+        "Site In-Charge (L1)": masterInchargeByIp[ipKey] || "-"
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "History_Alarm");
+    XLSX.writeFile(wb, "History_Alarm_IP_Wise.xlsx");
+  }
+
+  // =========================================================================
+  // MODULE 3: DOWN SITES TRACKER LOGIC
   // =========================================================================
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
@@ -2471,9 +2805,7 @@
     if (fileName.endsWith(".csv")) {
       reader.onload = function(e) {
         Papa.parse(e.target.result, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: h => h.trim(),
+          header: true, skipEmptyLines: true, transformHeader: h => h.trim(),
           complete: function(results) {
             processRawDownRecords(results.data);
             status.innerText = `Loaded local CSV: ${file.name} • ${new Date().toLocaleTimeString()}`;
@@ -2498,7 +2830,6 @@
       };
       reader.readAsArrayBuffer(file);
     }
-
     event.target.value = "";
   }
 
@@ -2512,9 +2843,7 @@
       if (!res.ok) throw new Error("Status: " + res.status);
       let csvText = await res.text();
       Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: h => h.trim(),
+        header: true, skipEmptyLines: true, transformHeader: h => h.trim(),
         complete: function(results) {
           processRawDownRecords(results.data);
           status.innerText = `Down Sites Connected • ${downRawRecords.length.toLocaleString()} records • ${new Date().toLocaleTimeString()}`;
@@ -2526,9 +2855,7 @@
         let proxyRes = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl));
         let proxyCsv = await proxyRes.text();
         Papa.parse(proxyCsv, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: h => h.trim(),
+          header: true, skipEmptyLines: true, transformHeader: h => h.trim(),
           complete: function(results) {
             processRawDownRecords(results.data);
             status.innerText = `Down Sites Connected (Proxy) • ${downRawRecords.length.toLocaleString()} records • ${new Date().toLocaleTimeString()}`;
@@ -2561,7 +2888,6 @@
       
       let rawFault = getRowField(r, ["fault_type", "Fault Type", "faultType", "Reason"]);
       const faultType = rawFault !== "" ? rawFault : "Reason not updated";
-      
       const remark = getRowField(r, ["remark", "Remark", "remarks", "Remarks"]) || "-";
 
       const ipKey = normalizeIpKey(btsIpId);
@@ -2572,7 +2898,6 @@
       const media = masterMediaByIp[ipKey] || masterMediaByIp[siteKey] || "-";
       const category = (getRowField(r, ["CATEGORY", "category"]) || masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey] || "NDBN").toUpperCase();
       const availVal = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
-
       const durationMinutes = parseDownPeriodToMinutes(downPeriod);
 
       return { ba, ssa, sdca, siteId, btsName, btsIpId, category, deviceType, vendor, downDt, downPeriod, durationMinutes, faultType, remark, incharge, l2, media, availVal };
@@ -2594,7 +2919,6 @@
     const notUpdatedSsaSelect = document.getElementById("notupdated-ssa-select");
 
     const baSet = new Set(), ssaSet = new Set(), devSet = new Set(), faultSet = new Set();
-
     downRawRecords.forEach(r => {
       if (r.ba) baSet.add(r.ba);
       if (r.ssa) ssaSet.add(r.ssa);
@@ -2640,7 +2964,6 @@
 
     const currentL1 = l1Select.value;
     const currentL2 = l2Select.value;
-
     const l1Set = new Set(), l2Set = new Set();
 
     downRawRecords.forEach(r => {
@@ -2672,7 +2995,6 @@
 
     const currentL1 = l1Select.value;
     const currentL2 = l2Select.value;
-
     const l1Set = new Set(), l2Set = new Set();
 
     downRawRecords.forEach(r => {
@@ -2724,7 +3046,6 @@
         dynamicAvail = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
       }
       r.currentSelectedAvail = dynamicAvail;
-
       return r;
     }).filter(r => {
       if (chosenBa !== "ALL" && r.ba !== chosenBa) return false;
@@ -2755,7 +3076,6 @@
     });
 
     downUnifiedDisplayRecords = [...downFilteredRecords].sort((a, b) => b.durationMinutes - a.durationMinutes);
-
     renderDownSitesDashboard();
   }
 
@@ -2766,10 +3086,8 @@
     downFilteredRecords.forEach(r => {
       if (r.deviceType.includes("LTE")) lteCount++;
       else if (r.deviceType.includes("GSM")) gsmCount++;
-
       if (r.durationMinutes >= 1440) gt1dCount++;
       else lt1dCount++;
-
       if (r.faultType === "Reason not updated") notUpdatedCount++;
     });
 
@@ -2865,13 +3183,10 @@
       }
 
       agg[fullKey].total++;
-
       const dev = r.deviceType.toUpperCase();
-      if (dev.includes("GSM") || dev.includes("2G")) {
-        agg[fullKey].gsm++;
-      } else if (dev.includes("UMTS") || dev.includes("3G")) {
-        agg[fullKey].umts++;
-      } else if (dev.includes("LTE") || dev.includes("4G")) {
+      if (dev.includes("GSM") || dev.includes("2G")) agg[fullKey].gsm++;
+      else if (dev.includes("UMTS") || dev.includes("3G")) agg[fullKey].umts++;
+      else if (dev.includes("LTE") || dev.includes("4G")) {
         agg[fullKey].lteTotal++;
         if (r.category === "DBN") agg[fullKey].lteDbn++;
         else agg[fullKey].lteNdbn++;
@@ -2893,17 +3208,12 @@
     let totGsm = 0, totUmts = 0, totDbn = 0, totNdbn = 0, totLte = 0, grandTotal = 0;
 
     rows.forEach(r => {
-      totGsm += r.gsm;
-      totUmts += r.umts;
-      totDbn += r.lteDbn;
-      totNdbn += r.lteNdbn;
-      totLte += r.lteTotal;
-      grandTotal += r.total;
+      totGsm += r.gsm; totUmts += r.umts; totDbn += r.lteDbn; totNdbn += r.lteNdbn;
+      totLte += r.lteTotal; grandTotal += r.total;
 
       tbody.innerHTML += `
         <tr>
-          <td><strong>${r.entity}</strong></td>
-          <td>${r.ssa}</td>
+          <td><strong>${r.entity}</strong></td><td>${r.ssa}</td>
           <td class="num">${r.gsm > 0 ? r.gsm : '-'}</td>
           <td class="num">${r.umts > 0 ? r.umts : '-'}</td>
           <td class="num" style="color:#1e40af; font-weight:600;">${r.lteDbn > 0 ? r.lteDbn : '-'}</td>
@@ -2915,14 +3225,9 @@
 
     tbody.innerHTML += `
       <tr class="circle-row">
-        <td>TOTAL DOWN SITES</td>
-        <td>SUMMARY</td>
-        <td class="num">${totGsm}</td>
-        <td class="num">${totUmts}</td>
-        <td class="num">${totDbn}</td>
-        <td class="num">${totNdbn}</td>
-        <td class="num">${totLte}</td>
-        <td class="num">${grandTotal}</td>
+        <td>TOTAL DOWN SITES</td><td>SUMMARY</td>
+        <td class="num">${totGsm}</td><td class="num">${totUmts}</td><td class="num">${totDbn}</td>
+        <td class="num">${totNdbn}</td><td class="num">${totLte}</td><td class="num">${grandTotal}</td>
       </tr>`;
   }
 
@@ -2938,7 +3243,6 @@
 
     const lteDownSites = downFilteredRecords.filter(r => r.deviceType.includes("LTE"));
     const candidateSites = lteDownSites.filter(r => r.currentSelectedAvail !== null && r.currentSelectedAvail >= 98.0);
-
     document.getElementById("down-kpi-healthy").innerText = candidateSites.length.toLocaleString();
 
     window.activeHealthyDownFiltered = candidateSites.filter(r => {
@@ -2957,12 +3261,11 @@
     });
 
     window.activeHealthyDownFiltered.sort((a, b) => b.durationMinutes - a.durationMinutes);
-
     tbody.innerHTML = "";
     countBadge.innerText = `Showing ${window.activeHealthyDownFiltered.length.toLocaleString()} healthy LTE sites currently down`;
 
     if (window.activeHealthyDownFiltered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No high-availability LTE sites currently down matching active parameters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No high-availability LTE sites currently down.</td></tr>`;
       return;
     }
 
@@ -2970,20 +3273,10 @@
       const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
       tbody.innerHTML += `
         <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIpId || "-"}</td>
-          <td>${r.btsName}</td>
-          <td>${r.ba}</td>
-          <td>${r.ssa}</td>
-          <td>${catBadge}</td>
-          <td><span class="badge-tech">${r.deviceType}</span></td>
-          <td><span class="badge-media">${r.media}</span></td>
-          <td>${r.downDt}</td>
-          <td><strong style="color:#dc2626;">${r.downPeriod}</strong></td>
-          <td><span class="badge-fault">${r.faultType}</span></td>
-          <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td>
-          <td><strong>${r.incharge}</strong></td>
-          <td><strong>${r.l2}</strong></td>
+          <td><strong>${r.siteId}</strong></td><td>${r.btsIpId || "-"}</td><td>${r.btsName}</td><td>${r.ba}</td><td>${r.ssa}</td>
+          <td>${catBadge}</td><td><span class="badge-tech">${r.deviceType}</span></td><td><span class="badge-media">${r.media}</span></td>
+          <td>${r.downDt}</td><td><strong style="color:#dc2626;">${r.downPeriod}</strong></td><td><span class="badge-fault">${r.faultType}</span></td>
+          <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td><td><strong>${r.incharge}</strong></td><td><strong>${r.l2}</strong></td>
           <td class="num"><span style="color:#16a34a; font-weight:bold;">${r.currentSelectedAvail.toFixed(1)}%</span></td>
         </tr>`;
     });
@@ -2996,7 +3289,6 @@
     const chosenSsa = document.getElementById("notupdated-ssa-select").value;
 
     groupHeader.innerText = groupBy === "SSA" ? "SSA Name" : (groupBy === "L1" ? "Site In-Charge (L1)" : "Cluster Lead (L2)");
-
     const agg = {};
 
     downFilteredRecords.forEach(r => {
@@ -3033,18 +3325,13 @@
     }
 
     let totAll = 0, totUpdated = 0, totNotUpdated = 0;
-
     rows.forEach(r => {
-      totAll += r.total;
-      totUpdated += r.updated;
-      totNotUpdated += r.notUpdated;
+      totAll += r.total; totUpdated += r.updated; totNotUpdated += r.notUpdated;
       const pctNotUpdated = r.total > 0 ? ((r.notUpdated / r.total) * 100).toFixed(1) : "0.0";
 
       tbody.innerHTML += `
         <tr>
-          <td><strong>${r.entity}</strong></td>
-          <td>${r.ssa}</td>
-          <td class="num"><strong>${r.total}</strong></td>
+          <td><strong>${r.entity}</strong></td><td>${r.ssa}</td><td class="num"><strong>${r.total}</strong></td>
           <td class="num" style="color:#16a34a; font-weight:600;">${r.updated}</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">${r.notUpdated}</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">${pctNotUpdated}%</td>
@@ -3054,12 +3341,9 @@
     const overallPctNotUpdated = totAll > 0 ? ((totNotUpdated / totAll) * 100).toFixed(1) : "0.0";
     tbody.innerHTML += `
       <tr class="circle-row">
-        <td>TOTAL DOWN SITES</td>
-        <td>SUMMARY</td>
-        <td class="num">${totAll}</td>
-        <td class="num" style="color:#16a34a;">${totUpdated}</td>
-        <td class="num" style="color:#dc2626;">${totNotUpdated}</td>
-        <td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
+        <td>TOTAL DOWN SITES</td><td>SUMMARY</td>
+        <td class="num">${totAll}</td><td class="num" style="color:#16a34a;">${totUpdated}</td>
+        <td class="num" style="color:#dc2626;">${totNotUpdated}</td><td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
       </tr>`;
   }
 
@@ -3089,7 +3373,6 @@
 
     msg += `Kindly ensure that the fault type and remarks are updated in CNMC for all sites that remain down for more than 2 hours.\n\n`;
     msg += getClosingSignature(chosenSsa);
-
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
@@ -3109,14 +3392,11 @@
     msg += `*Total Down Sites:* ${totAll} | *Reason Pending:* ${totNotUpdated}\n\n`;
 
     rows.forEach(r => {
-      if (r.notUpdated > 0) {
-        msg += `• *${r.entity}* (${r.ssa}): ${r.notUpdated} of ${r.total} Pending\n`;
-      }
+      if (r.notUpdated > 0) msg += `• *${r.entity}* (${r.ssa}): ${r.notUpdated} of ${r.total} Pending\n`;
     });
 
     msg += `\nKindly ensure that the fault type and remarks are updated in CNMC for all sites that remain down for more than 2 hours.\n\n`;
     msg += getClosingSignature(chosenSsa);
-
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
@@ -3125,12 +3405,8 @@
     if (!rows || rows.length === 0) return;
 
     const data = rows.map((r, i) => ({
-      "S.No": i + 1,
-      "Entity": r.entity,
-      "SSA": r.ssa,
-      "Total Down Sites": r.total,
-      "Reason Updated": r.updated,
-      "Reason Not Updated": r.notUpdated,
+      "S.No": i + 1, "Entity": r.entity, "SSA": r.ssa, "Total Down Sites": r.total,
+      "Reason Updated": r.updated, "Reason Not Updated": r.notUpdated,
       "% Not Updated": r.total > 0 ? ((r.notUpdated / r.total) * 100).toFixed(1) + "%" : "0.0%"
     }));
 
@@ -3188,8 +3464,7 @@
       let trHtml = `<tr><td><span class="badge-fault">${fault}</span></td>`;
       ssaList.forEach(s => {
         const count = matrix[fault][s] || 0;
-        rowTotal += count;
-        ssaColTotals[s] += count;
+        rowTotal += count; ssaColTotals[s] += count;
         trHtml += `<td class="num">${count > 0 ? '<strong>' + count + '</strong>' : '-'}</td>`;
       });
       const pct = total > 0 ? ((rowTotal / total) * 100).toFixed(1) : 0;
@@ -3275,7 +3550,6 @@
     });
 
     let msg = `Dear Sir/Mam,\nFollowing BTS sites are currently DOWN (${chosenPeriod}):\n\n`;
-
     Object.keys(l1Map).sort().forEach(l1 => {
       const sites = l1Map[l1];
       msg += `👤 *${l1}* (${sites.length} Sites):\n`;
@@ -3287,7 +3561,6 @@
 
     msg += `Please restore these sites on priority.\n\n`;
     msg += getClosingSignature(chosenSsa);
-
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
@@ -3315,7 +3588,6 @@
 
     msg += `\nPlease expedite field rectification.\n\n`;
     msg += getClosingSignature(chosenSsa);
-
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
@@ -3347,7 +3619,6 @@
 
     body += `Please restore these sites on priority.\n\n`;
     body += getClosingSignature(chosenSsa);
-
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
@@ -3485,23 +3756,10 @@
     if (!list || list.length === 0) return;
 
     const rows = list.map((r, i) => ({
-      "S.No": i + 1,
-      "Site ID": r.siteId,
-      "BTS IP ID": r.btsIpId,
-      "BTS Name": r.btsName,
-      "BA": r.ba,
-      "SSA": r.ssa,
-      "SDCA": r.sdca,
-      "Category": r.category,
-      "Device Type": r.deviceType,
-      "Media": r.media,
-      "Vendor": r.vendor,
-      "Down Date": r.downDt,
-      "Down Period": r.downPeriod,
-      "Fault Type": r.faultType,
-      "Remark": r.remark,
-      "Site Incharge (L1)": r.incharge,
-      "L2 Incharge": r.l2,
+      "S.No": i + 1, "Site ID": r.siteId, "BTS IP ID": r.btsIpId, "BTS Name": r.btsName,
+      "BA": r.ba, "SSA": r.ssa, "SDCA": r.sdca, "Category": r.category, "Device Type": r.deviceType,
+      "Media": r.media, "Vendor": r.vendor, "Down Date": r.downDt, "Down Period": r.downPeriod,
+      "Fault Type": r.faultType, "Remark": r.remark, "Site Incharge (L1)": r.incharge, "L2 Incharge": r.l2,
       "30-Day Avail %": r.currentSelectedAvail !== null ? r.currentSelectedAvail.toFixed(2) + "%" : "N/A"
     }));
 
@@ -3516,15 +3774,8 @@
     if (!rows || rows.length === 0) return;
 
     const data = rows.map((r, i) => ({
-      "S.No": i + 1,
-      "Entity": r.entity,
-      "SSA": r.ssa,
-      "GSM Down": r.gsm,
-      "UMTS Down": r.umts,
-      "LTE DBN Down": r.lteDbn,
-      "LTE NDBN Down": r.lteNdbn,
-      "Total LTE Down": r.lteTotal,
-      "Total Outage Sites": r.total
+      "S.No": i + 1, "Entity": r.entity, "SSA": r.ssa, "GSM Down": r.gsm, "UMTS Down": r.umts,
+      "LTE DBN Down": r.lteDbn, "LTE NDBN Down": r.lteNdbn, "Total LTE Down": r.lteTotal, "Total Outage Sites": r.total
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -3559,8 +3810,7 @@
       let sum = 0;
       ssaList.forEach(s => {
         const count = matrix[f][s] || 0;
-        row[s] = count;
-        sum += count;
+        row[s] = count; sum += count;
       });
       row["Total"] = sum;
       return row;
@@ -3576,8 +3826,7 @@
     const ssaAgg = {};
     dbnFilteredRecords.forEach(r => {
       if (!ssaAgg[r.ssa]) ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
-      ssaAgg[r.ssa].total++;
-      ssaAgg[r.ssa].availSum += r.avail;
+      ssaAgg[r.ssa].total++; ssaAgg[r.ssa].availSum += r.avail;
       if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
       else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
       if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
@@ -3589,18 +3838,11 @@
     const rows = Object.keys(ssaAgg).sort().map(s => {
       const a = ssaAgg[s];
       return {
-        "SSA": s,
-        "Total Sites": a.total,
-        "DBN Count": a.dbn,
-        "NDBN Count": a.ndbn,
-        ">=98% Count": a.gte98,
-        ">=98% Share %": ((a.gte98 / a.total) * 100).toFixed(1) + "%",
-        "94-98% Count": a.mid94,
-        "94-98% Share %": ((a.mid94 / a.total) * 100).toFixed(1) + "%",
-        "90-94% Count": a.low90,
-        "90-94% Share %": ((a.low90 / a.total) * 100).toFixed(1) + "%",
-        "<90% Count": a.lt90,
-        "<90% Share %": ((a.lt90 / a.total) * 100).toFixed(1) + "%",
+        "SSA": s, "Total Sites": a.total, "DBN Count": a.dbn, "NDBN Count": a.ndbn,
+        ">=98% Count": a.gte98, ">=98% Share %": ((a.gte98 / a.total) * 100).toFixed(1) + "%",
+        "94-98% Count": a.mid94, "94-98% Share %": ((a.mid94 / a.total) * 100).toFixed(1) + "%",
+        "90-94% Count": a.low90, "90-94% Share %": ((a.low90 / a.total) * 100).toFixed(1) + "%",
+        "<90% Count": a.lt90, "<90% Share %": ((a.lt90 / a.total) * 100).toFixed(1) + "%",
         "Average Avail %": (a.availSum / a.total).toFixed(2) + "%"
       };
     });
@@ -3612,23 +3854,25 @@
   }
 
   function exportDbnSitesExcel() {
-    const rows = dbnFilteredRecords.map((r, i) => ({
-      "S.No": i + 1,
-      "Date": r.reportDate,
-      "SSA": r.ssa,
-      "BA": r.ba,
-      "Site ID": r.siteId,
-      "Site IP ID": r.btsIp,
-      "Site Name": r.siteName,
-      "Category": r.category,
-      "Availability %": r.avail,
-      "Bucket": r.bucket,
-      "Max Active User": r.maxActiveUser,
-      "L1 Officer": r.l1,
-      "Media": r.media,
-      "Voice (Erl)": r.voiceErl,
-      "Data (GB)": r.dataGb
-    }));
+    const rows = dbnFilteredRecords.map((r, i) => {
+      const ipKey = normalizeIpKey(r.btsIp);
+      const siteKey = normalizeIpKey(r.siteId);
+      const extractedKey = normalizeIpKey(extractIpFromSiteId(r.siteId));
+
+      const downHrs = masterHistoryDownHoursByIp[ipKey] !== undefined 
+        ? masterHistoryDownHoursByIp[ipKey].toFixed(2) 
+        : (masterHistoryDownHoursByIp[siteKey] !== undefined 
+            ? masterHistoryDownHoursByIp[siteKey].toFixed(2) 
+            : (masterHistoryDownHoursByIp[extractedKey] !== undefined ? masterHistoryDownHoursByIp[extractedKey].toFixed(2) : "-"));
+
+      return {
+        "S.No": i + 1, "Date": r.reportDate, "SSA": r.ssa, "BA": r.ba,
+        "Site ID": r.siteId, "Site IP ID": r.btsIp, "Site Name": r.siteName,
+        "Category": r.category, "Availability %": r.avail, "Bucket": r.bucket,
+        "Max Active User": r.maxActiveUser, "L1 Officer": r.l1, "Media": r.media,
+        "Total Down Duration (Hr)": downHrs, "Voice (Erl)": r.voiceErl, "Data (GB)": r.dataGb
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -3636,6 +3880,7 @@
     XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
   }
 
+  // NAVIGATION & INITIALIZATION
   function switchModule(modId, btn) {
     document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("mod-infra").style.display = "none";
@@ -3662,6 +3907,10 @@
     document.querySelectorAll(".dbn-sub-section").forEach(s => s.style.display = "none");
     document.getElementById(viewId).style.display = "block";
     if (btn) btn.classList.add("active");
+
+    if (viewId === "dbn-history-alarm-view" && !historyAlarmLoaded) {
+      fetchAndRenderHistoryAlarm();
+    }
   }
 
   function switchDownSubTab(viewId, btn) {
@@ -3673,7 +3922,10 @@
 
   function refreshCurrentModule() {
     if (currentActiveModule === "mod-infra") fetchAndRenderInfra();
-    else if (currentActiveModule === "mod-dbn") fetchAndRenderDbn();
+    else if (currentActiveModule === "mod-dbn") {
+      fetchAndRenderDbn();
+      fetchAndRenderHistoryAlarm();
+    }
     else if (currentActiveModule === "mod-down") fetchAndRenderDownSites();
   }
 
@@ -3742,6 +3994,7 @@
     applyAdminAccessState();
     fetchAndRenderInfra();
     setTimeout(() => { if (!dbnDataLoaded) fetchAndRenderDbn(); }, 600);
+    setTimeout(() => { if (!historyAlarmLoaded) fetchAndRenderHistoryAlarm(); }, 1200);
   };
 </script>
 </body>
