@@ -142,8 +142,10 @@
       display: inline-block;
     }
 
-    /* Admin Access Styles */
-    body:not(.is-admin) .admin-only {
+    /* Admin Access Security Rules */
+    body:not(.is-admin) .admin-only,
+    body:not(.is-admin) .btn-whatsapp,
+    body:not(.is-admin) .btn-mail {
       display: none !important;
     }
   </style>
@@ -1150,6 +1152,15 @@
       if (err) err.style.display = "block";
     }
   }
+
+  // =========================================================================
+  // CORE APPLICATION INITIALIZATION
+  // =========================================================================
+  window.onload = function() {
+    applyAdminAccessState();
+    fetchAndRenderInfra();
+    setTimeout(() => { if (!dbnDataLoaded) fetchAndRenderDbn(); }, 600);
+  };
 </script>
 </body>
 </html>
