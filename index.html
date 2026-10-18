@@ -338,7 +338,6 @@
         <div class="kpi-card"><div class="title">Critical Sites (&lt;90%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
       </div>
 
-      <!-- Analytics Row: Doughnut + Stacked Bar Chart with Count/% Toggle and Screenshot -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
         <div class="section" style="margin-bottom: 0; padding: 14px;">
           <h2 style="font-size: 15px;">4-Bucket Availability Distribution</h2>
@@ -420,7 +419,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 2: AVAILABILITY DEGRADED SITES (WITH L1 DROPDOWN & WHATSAPP) -->
+    <!-- SUB-VIEW 2: AVAILABILITY DEGRADED SITES -->
     <div class="dbn-sub-section" id="dbn-degraded-view" style="display: none;">
       <div class="section">
         <h2>Day-over-Day Degraded Sites Inspector (>98% on Day 1 → Dropped <98% on Day 2)</h2>
@@ -488,7 +487,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: USER DEGRADATION TRACKER (WITH L1 DROPDOWN, AVAIL IN BRACKETS & SUMMARY WHATSAPP) -->
+    <!-- SUB-VIEW 3: USER DEGRADATION TRACKER -->
     <div class="dbn-sub-section" id="dbn-user-degraded-view" style="display: none;">
       <div class="section">
         <h2>Max Active User Degradation Tracker (Day-over-Day Drift)</h2>
@@ -676,7 +675,6 @@
         </select>
       </div>
 
-      <!-- Expanded Period Options -->
       <div class="toolbar-group">
         <label for="down-period-filter"><strong>Period:</strong></label>
         <select id="down-period-filter" onchange="applyDownSitesFilters()" style="font-weight:600; color:var(--primary);">
@@ -1051,9 +1049,28 @@
   let dbnDataLoaded = false;
   let downDataLoaded = false;
 
+  // Global DBN Data Stores (Restored & Guaranteed)
+  let dbnRawRecords = [];
+  let dbnFilteredRecords = [];
+  let dbnAvailableDates = [];
+  let selectedCategory = "ALL";
+  let selectedBucket = "ALL";
+
+  let dbnBucketChartInstance = null;
+  let dbnSsaChartInstance = null;
   let ssaChartMode = "pct";
   let cachedSsaAgg = null;
 
+  let degradedSitesList = [];
+  let userDegradedSitesList = [];
+  let escalationData = [];
+
+  // Global Down Sites Data Stores
+  let downRawRecords = [];
+  let downFilteredRecords = [];
+  let downUnifiedDisplayRecords = [];
+
+  // Cross-Matching Master Lookups
   const masterInchargeByIp = {};
   const masterL2ByIp = {};
   const masterAvailByIp = {};
@@ -1061,7 +1078,15 @@
   const masterCategoryByIp = {};
   const masterAvailByDateAndIp = {};
 
-  // Safe String Extractor: Never crashes if value is a Number, null, or undefined
+  // Restored: Availability Bucket Resolver Function
+  function getAvailabilityBucket(avail) {
+    if (avail >= 98.0) return ">=98%";
+    if (avail >= 94.0) return "94-98%";
+    if (avail >= 90.0) return "90-94%";
+    return "<90%";
+  }
+
+  // Safe String Extractor: Never crashes on numbers, null, or undefined
   function safeStr(val) {
     if (val === undefined || val === null) return "";
     return String(val).trim();
@@ -1453,7 +1478,6 @@
 
     let csvText = null;
 
-    // 1. Try Direct Fetch without preflight triggering options
     try {
       const res = await fetch(SHEET_DBN_URL);
       if (res.ok) {
@@ -1463,7 +1487,6 @@
       console.warn("Direct DBN fetch failed, trying proxy gateway...", e);
     }
 
-    // 2. Try High-capacity streaming proxies if direct request was CORS blocked
     if (!csvText || csvText.trim().startsWith("<!DOCTYPE html>")) {
       const proxies = [
         "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_DBN_URL),
@@ -1658,14 +1681,17 @@
     runUserDegradedAnalysis();
   }
 
+  // Defensive Common Report Date Populator (Never crashes if dbnAvailableDates is empty)
   function populateDownCommonReportDateControl() {
     const reportSelect = document.getElementById("down-report-date-select");
     if (!reportSelect) return;
     const currentVal = reportSelect.value;
     reportSelect.innerHTML = "";
-    dbnAvailableDates.forEach(d => { reportSelect.innerHTML += `<option value="${d}">${d}</option>`; });
-    if (dbnAvailableDates.length > 0) {
+    if (Array.isArray(dbnAvailableDates) && dbnAvailableDates.length > 0) {
+      dbnAvailableDates.forEach(d => { reportSelect.innerHTML += `<option value="${d}">${d}</option>`; });
       reportSelect.value = (currentVal && dbnAvailableDates.includes(currentVal)) ? currentVal : dbnAvailableDates[0];
+    } else {
+      reportSelect.innerHTML = `<option value="">Latest Master Avail</option>`;
     }
   }
 
@@ -2103,8 +2129,6 @@
   }
 
   // SUB-MODULE 3: USER DEGRADATION TRACKER
-  let userDegradedSitesList = [];
-
   function runUserDegradedAnalysis() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
     const prevDate = document.getElementById("user-deg-prev-date").value;
@@ -2411,14 +2435,7 @@
     XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
   }
 
-  // =========================================================================
-  // MODULE 3: DOWN SITES TRACKER LOGIC (SAFE PARSING & UPLOAD)
-  // =========================================================================
-  let downRawRecords = [];
-  let downFilteredRecords = [];
-  let downUnifiedDisplayRecords = [];
-
-  // Bulletproof Local File Upload Handler for CSV & Excel
+  // MODULE 3: DOWN SITES TRACKER LOGIC
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2460,7 +2477,7 @@
       reader.readAsArrayBuffer(file);
     }
 
-    event.target.value = ""; // Clear file input so same file can be re-selected
+    event.target.value = "";
   }
 
   async function fetchAndRenderDownSites() {
@@ -2501,7 +2518,6 @@
     }
   }
 
-  // Safe Record Mapper (Never crashes on Numbers, Nulls, or Whitespace differences)
   function processRawDownRecords(data) {
     const status = document.getElementById("status-bar");
     if (!data || data.length === 0) {
