@@ -220,7 +220,7 @@
       </div>
     </div>
 
-    <!-- SUB-SECTION 2: CORRECTED L1 IN-CHARGE SUMMARY -->
+    <!-- SUB-SECTION 2: L1 IN-CHARGE SUMMARY -->
     <div class="section sub-section" id="owner-view" style="display:none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
         <h2 style="margin: 0;">Site In-Charge (L1) Infrastructure Progress</h2>
@@ -296,7 +296,7 @@
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 4. Escalation Dashboard</button>
     </div>
 
-    <!-- SUB-VIEW 1: AVAILABILITY OVERVIEW (STACKED BAR GRAPH, COUNT/% TOGGLE & SCREENSHOT) -->
+    <!-- SUB-VIEW 1: AVAILABILITY OVERVIEW -->
     <div class="dbn-sub-section" id="dbn-main-view">
       <div class="toolbar">
         <div class="toolbar-group">
@@ -781,7 +781,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 2: INFORMATION SUMMARY (WITH PERIOD FILTER & SSA GROUPING) -->
+    <!-- SUB-VIEW 2: INFORMATION SUMMARY -->
     <div class="down-sub-section" id="down-info-summary-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -1071,7 +1071,7 @@
   let dbnDataLoaded = false;
   let downDataLoaded = false;
 
-  // Global DBN Data Stores
+  // Global DBN Data Stores (Guaranteed Global Scope)
   let dbnRawRecords = [];
   let dbnFilteredRecords = [];
   let dbnAvailableDates = [];
@@ -1108,7 +1108,7 @@
     return "<90%";
   }
 
-  // Safe String Extractor: Never crashes on numbers, null, or undefined
+  // Safe String Extractor
   function safeStr(val) {
     if (val === undefined || val === null) return "";
     return String(val).trim();
@@ -1121,7 +1121,7 @@
     return numOnly || str;
   }
 
-  // Robust Field Resolver (Case-insensitive, space-ignorant, underscore-ignorant)
+  // Robust Field Resolver
   function getRowField(row, possibleKeys) {
     for (let k of possibleKeys) {
       if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") {
@@ -1175,6 +1175,213 @@
     const match = String(l1String).match(/\b[6-9]\d{9}\b/);
     return match ? "91" + match[0] : "";
   }
+
+  // =========================================================================
+  // DBN ANALYSIS FUNCTIONS (DECLARED BEFORE CALLERS TO PREVENT HOISTING BUGS)
+  // =========================================================================
+
+  function runDegradedAnalysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const prevDateElem = document.getElementById("deg-prev-date");
+    const nextDateElem = document.getElementById("deg-next-date");
+    if (!prevDateElem || !nextDateElem) return;
+
+    const prevDate = prevDateElem.value;
+    const nextDate = nextDateElem.value;
+    const selectedSsa = document.getElementById("deg-ssa-select").value;
+    const selectedCat = document.getElementById("deg-cat-select") ? document.getElementById("deg-cat-select").value : "ALL";
+    const selectedL1 = document.getElementById("deg-l1-select") ? document.getElementById("deg-l1-select").value : "ALL";
+
+    if (!prevDate || !nextDate || prevDate === nextDate) {
+      const tbody = document.getElementById("degraded-sites-tbody");
+      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
+      return;
+    }
+
+    const prevMap = {};
+    let baseHealthyCount = 0;
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          prevMap[r.siteId] = r;
+          if (r.avail >= 98.0) baseHealthyCount++;
+        }
+      }
+    });
+
+    degradedSitesList = [];
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === nextDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          const prevRec = prevMap[r.siteId];
+          if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
+            const drop = (r.avail - prevRec.avail).toFixed(2);
+            degradedSitesList.push({
+              siteId: r.siteId,
+              btsIp: r.btsIp,
+              siteName: r.siteName,
+              ssa: r.ssa,
+              category: r.category,
+              prevAvail: prevRec.avail,
+              nextAvail: r.avail,
+              dropDelta: drop,
+              bucket: r.bucket,
+              l1: r.l1,
+              media: r.media
+            });
+          }
+        }
+      }
+    });
+
+    degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
+
+    document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
+    document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
+    const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
+    document.getElementById("deg-kpi-rate").innerText = rate + "%";
+
+    const tbody = document.getElementById("degraded-sites-tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (degradedSitesList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">Great! No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
+      return;
+    }
+
+    degradedSitesList.forEach(r => {
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${r.category}</td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${r.prevAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.nextAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.dropDelta}%</td>
+          <td>${r.bucket}</td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+        </tr>`;
+    });
+  }
+
+  function runUserDegradedAnalysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const prevDateElem = document.getElementById("user-deg-prev-date");
+    const nextDateElem = document.getElementById("user-deg-next-date");
+    if (!prevDateElem || !nextDateElem) return;
+
+    const prevDate = prevDateElem.value;
+    const nextDate = nextDateElem.value;
+    const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
+    const selectedSsa = document.getElementById("user-deg-ssa-select").value;
+    const selectedCat = document.getElementById("user-deg-cat-select") ? document.getElementById("user-deg-cat-select").value : "ALL";
+    const selectedL1 = document.getElementById("user-deg-l1-select") ? document.getElementById("user-deg-l1-select").value : "ALL";
+
+    if (!prevDate || !nextDate || prevDate === nextDate) {
+      const tbody = document.getElementById("user-degraded-tbody");
+      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day user comparison.</td></tr>`;
+      return;
+    }
+
+    const prevMap = {};
+    let totalCompared = 0;
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          prevMap[r.siteId] = r;
+        }
+      }
+    });
+
+    userDegradedSitesList = [];
+    let totalUsersLost = 0;
+    let sumDropPct = 0;
+
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === nextDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          const prevRec = prevMap[r.siteId];
+          if (prevRec) {
+            totalCompared++;
+            const baseUsers = prevRec.maxActiveUser;
+            const nextUsers = r.maxActiveUser;
+            if (baseUsers > 0 && nextUsers < baseUsers) {
+              const dropCount = baseUsers - nextUsers;
+              const dropPct = (dropCount / baseUsers) * 100;
+
+              if (dropPct >= minDropPct) {
+                totalUsersLost += dropCount;
+                sumDropPct += dropPct;
+                userDegradedSitesList.push({
+                  siteId: r.siteId,
+                  btsIp: r.btsIp,
+                  siteName: r.siteName,
+                  ssa: r.ssa,
+                  category: r.category,
+                  baseUsers: baseUsers,
+                  baseAvail: prevRec.avail,
+                  nextUsers: nextUsers,
+                  nextAvail: r.avail,
+                  dropCount: dropCount,
+                  dropPct: dropPct,
+                  l1: r.l1,
+                  media: r.media
+                });
+              }
+            }
+          }
+        }
+      }
+    });
+
+    userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
+
+    document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
+    document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
+    document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
+    const avgDrop = userDegradedSitesList.length > 0 ? (sumDropPct / userDegradedSitesList.length).toFixed(1) : "0.0";
+    document.getElementById("user-deg-kpi-drop-pct").innerText = avgDrop + "%";
+
+    const tbody = document.getElementById("user-degraded-tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (userDegradedSitesList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found with Max Active User degradation matching selected threshold (${minDropPct}%).</td></tr>`;
+      return;
+    }
+
+    userDegradedSitesList.forEach(r => {
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${r.category}</td>
+          <td class="num"><strong>${r.baseUsers.toLocaleString()}</strong> (${r.baseAvail.toFixed(1)}%)</td>
+          <td class="num"><strong>${r.nextUsers.toLocaleString()}</strong> (${r.nextAvail.toFixed(1)}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+        </tr>`;
+    });
+  }
+
+  // Bind to window to guarantee zero ReferenceErrors
+  window.runDegradedAnalysis = runDegradedAnalysis;
+  window.runUserDegradedAnalysis = runUserDegradedAnalysis;
 
   // =========================================================================
   // MODULE 1: CNMC SITE INFRA LOGIC (CORRECTED L1 & L2 MAPPING)
@@ -1232,7 +1439,6 @@
     rawDataRows = rows.slice(1);
     const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
 
-    // Dynamic resolution of L1 and L2 column indices
     let l1Idx = -1, l2Idx = -1;
     for (let i = 0; i < globalHeaders.length; i++) {
       const h = safeStr(globalHeaders[i]).toLowerCase();
@@ -1243,7 +1449,6 @@
         l2Idx = i;
       }
     }
-    // Fallback: In this sheet, column 70 contains L1 officer and column 71 contains L2 officer
     if (l1Idx === -1) l1Idx = 70;
     if (l2Idx === -1) l2Idx = 71;
 
@@ -1256,7 +1461,6 @@
       let l1 = safeStr(row[l1Idx]);
       let l2 = safeStr(row[l2Idx]);
 
-      // Guard: if l1 was accidentally assigned a % value, read from col 70
       if (!l1 || l1.endsWith("%") || !isNaN(parseFloat(l1))) {
         l1 = safeStr(row[70]);
       }
@@ -1311,7 +1515,6 @@
     renderDashboardWithSites(filtered);
   }
 
-  // Populate L1 dropdown in Module 1 filtered by active BA/SSA
   function populateOwnerL1Dropdown(sites) {
     const select = document.getElementById("owner-l1-select");
     if (!select) return;
@@ -1356,7 +1559,6 @@
         if (s.rawRow[idx] && s.rawRow[idx].toString().trim() !== "") ssaMap[s.ssa].fieldCounts[idx]++;
       });
 
-      // Group strictly by unique L1 In-Charge name
       const ownerKey = s.l1;
       if (!ownerMap[ownerKey]) {
         ownerMap[ownerKey] = {
@@ -1450,7 +1652,6 @@
     });
   }
 
-  // Share In-Charge Progress WhatsApp
   function shareOwnerProgressWhatsApp() {
     if (!window.activeOwnerMap) return;
     const chosenSsaFilter = document.getElementById("global-ba-filter").value;
@@ -1699,8 +1900,8 @@
       dbnDataLoaded = true;
 
       applyDbnFilters();
-      runDegradedAnalysis();
-      runUserDegradedAnalysis();
+      if (typeof runDegradedAnalysis === 'function') runDegradedAnalysis();
+      if (typeof runUserDegradedAnalysis === 'function') runUserDegradedAnalysis();
       renderEscalationDashboard();
 
       if (downDataLoaded) applyDownSitesFilters();
@@ -1779,7 +1980,7 @@
     l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
     Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
     if (currentVal && Array.from(l1Select.options).some(o => o.value === currentVal)) l1Select.value = currentVal;
-    runDegradedAnalysis();
+    if (typeof runDegradedAnalysis === 'function') runDegradedAnalysis();
   }
 
   function handleUserDegSsaChange() {
@@ -1797,9 +1998,10 @@
     l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
     Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
     if (currentVal && Array.from(l1Select.options).some(o => o.value === currentVal)) l1Select.value = currentVal;
-    runUserDegradedAnalysis();
+    if (typeof runUserDegradedAnalysis === 'function') runUserDegradedAnalysis();
   }
 
+  // Defensive Common Report Date Populator (Never crashes if dbnAvailableDates is empty)
   function populateDownCommonReportDateControl() {
     const reportSelect = document.getElementById("down-report-date-select");
     if (!reportSelect) return;
@@ -2235,7 +2437,6 @@
     });
   }
 
-  // Exact modified WhatsApp Alert Content as requested
   function shareSingleOfficerWhatsApp(idx) {
     if (!window.currentEscalationFiltered || !window.currentEscalationFiltered[idx]) return;
     const d = window.currentEscalationFiltered[idx];
@@ -2906,7 +3107,6 @@
       </tr>`;
   }
 
-  // Exact modified WhatsApp content for Reason Not Updated Tracker
   function shareNotUpdatedDetailedWhatsApp() {
     const rows = window.currentNotUpdatedRows || [];
     const chosenSsa = document.getElementById("notupdated-ssa-select").value;
