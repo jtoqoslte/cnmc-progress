@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Report & Tracker</title>
-  <!-- Libraries for CSV Parsing, Excel Import/Export, PDF Export, Chart.js & Chart DataLabels -->
+  <!-- Libraries for CSV Parsing, Excel Import/Export, PDF Export, Chart.js, Datalabels & HTML2Canvas -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
     :root {
@@ -72,6 +73,8 @@
     .btn-whatsapp:hover { background: #1ebe5d; }
     .btn-mail { background: #0284c7; color: white; }
     .btn-mail:hover { background: #0369a1; }
+    .btn-camera { background: #6366f1; color: white; }
+    .btn-camera:hover { background: #4f46e5; }
     .btn-file { background: #475569; color: white; }
     .btn-file:hover { background: #334155; }
     .btn-red { background: #dc2626; color: white; }
@@ -298,7 +301,7 @@
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 4. Escalation Dashboard</button>
     </div>
 
-    <!-- SUB-VIEW 1: CORE AVAILABILITY OVERVIEW -->
+    <!-- SUB-VIEW 1: CORE AVAILABILITY OVERVIEW (WITH STACKED BAR CHART & SCREENSHOT) -->
     <div class="dbn-sub-section" id="dbn-main-view">
       <div class="toolbar">
         <div class="toolbar-group">
@@ -346,16 +349,23 @@
         <div class="kpi-card"><div class="title">Critical Sites (&lt;90%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
       </div>
 
+      <!-- Chart Analytics Row with Stacked Bar Graph, Count/% Toggle & Screenshot -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
         <div class="section" style="margin-bottom: 0; padding: 14px;">
           <h2 style="font-size: 15px;">4-Bucket Availability Distribution</h2>
-          <div style="position: relative; height: 260px;">
+          <div style="position: relative; height: 280px;">
             <canvas id="dbnBucketChart"></canvas>
           </div>
         </div>
-        <div class="section" style="margin-bottom: 0; padding: 14px;">
-          <h2 style="font-size: 15px;">SSA-Wise ≥98% Availability Sites (%)</h2>
-          <div style="position: relative; height: 260px;">
+        <div class="section" id="dbn-ssa-chart-card" style="margin-bottom: 0; padding: 14px; position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <h2 style="font-size: 15px; margin: 0;">SSA-Wise Availability Stacked Distribution</h2>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-primary btn-sm" id="btn-toggle-ssa-chart" onclick="toggleSsaChartMode()">Switch to Count</button>
+              <button class="btn btn-camera btn-sm" onclick="captureSsaChartScreenshot()">📷 Screenshot</button>
+            </div>
+          </div>
+          <div style="position: relative; height: 280px;">
             <canvas id="dbnSsaChart"></canvas>
           </div>
         </div>
@@ -421,7 +431,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 2: AVAILABILITY DEGRADED SITES -->
+    <!-- SUB-VIEW 2: AVAILABILITY DEGRADED SITES (WITH L1 DROPDOWN & WHATSAPP) -->
     <div class="dbn-sub-section" id="dbn-degraded-view" style="display: none;">
       <div class="section">
         <h2>Day-over-Day Degraded Sites Inspector (>98% on Day 1 → Dropped <98% on Day 2)</h2>
@@ -436,7 +446,7 @@
           </div>
           <div class="toolbar-group">
             <label for="deg-ssa-select"><strong>SSA:</strong></label>
-            <select id="deg-ssa-select" onchange="runDegradedAnalysis()">
+            <select id="deg-ssa-select" onchange="handleDegradedSsaChange()">
               <option value="ALL">All SSAs</option>
             </select>
           </div>
@@ -448,7 +458,16 @@
               <option value="NDBN">NDBN</option>
             </select>
           </div>
-          <button class="btn btn-green btn-sm" onclick="exportDegradedSitesExcel()">📥 Export Degraded Sites Excel</button>
+          <div class="toolbar-group">
+            <label for="deg-l1-select"><strong>L1 Officer:</strong></label>
+            <select id="deg-l1-select" onchange="runDegradedAnalysis()" style="max-width: 160px;">
+              <option value="ALL">All L1 Officers</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareDegradedSitesWhatsApp()">💬 WhatsApp Alert</button>
+            <button class="btn btn-green btn-sm" onclick="exportDegradedSitesExcel()">📥 Export Excel</button>
+          </div>
         </div>
 
         <div class="kpi-container" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
@@ -480,7 +499,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: USER DEGRADATION TRACKER -->
+    <!-- SUB-VIEW 3: USER DEGRADATION TRACKER (WITH L1 DROPDOWN, AVAIL IN BRACKETS & SUMMARY WHATSAPP) -->
     <div class="dbn-sub-section" id="dbn-user-degraded-view" style="display: none;">
       <div class="section">
         <h2>Max Active User Degradation Tracker (Day-over-Day Drift)</h2>
@@ -505,7 +524,7 @@
           </div>
           <div class="toolbar-group">
             <label for="user-deg-ssa-select"><strong>SSA:</strong></label>
-            <select id="user-deg-ssa-select" onchange="runUserDegradedAnalysis()">
+            <select id="user-deg-ssa-select" onchange="handleUserDegSsaChange()">
               <option value="ALL">All SSAs</option>
             </select>
           </div>
@@ -517,10 +536,16 @@
               <option value="NDBN">NDBN</option>
             </select>
           </div>
-          <div class="toolbar-group" style="flex: 1; min-width: 200px;">
-            <input type="text" id="user-deg-incharge-search" placeholder="Search In-charge Officer..." oninput="runUserDegradedAnalysis()" style="width: 100%;">
+          <div class="toolbar-group">
+            <label for="user-deg-l1-select"><strong>L1 Officer:</strong></label>
+            <select id="user-deg-l1-select" onchange="runUserDegradedAnalysis()" style="max-width: 160px;">
+              <option value="ALL">All L1 Officers</option>
+            </select>
           </div>
-          <button class="btn btn-green btn-sm" onclick="exportUserDegradedSitesExcel()">📥 Export User Degradation Excel</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareUserDegSummaryWhatsApp()">💬 Summary WhatsApp</button>
+            <button class="btn btn-green btn-sm" onclick="exportUserDegradedSitesExcel()">📥 Export Excel</button>
+          </div>
         </div>
 
         <div class="kpi-container" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
@@ -539,8 +564,8 @@
                 <th>Site Name</th>
                 <th>SSA</th>
                 <th>Category</th>
-                <th class="num">Base Active User</th>
-                <th class="num">Compare Active User</th>
+                <th class="num">Base Active User (Avail %)</th>
+                <th class="num">Compare Active User (Avail %)</th>
                 <th class="num">User Drop</th>
                 <th class="num">User Drop %</th>
                 <th>L1 In-charge</th>
@@ -621,7 +646,13 @@
   <!-- MODULE 3: DOWN SITES TRACKER                                              -->
   <!-- ========================================================================= -->
   <div id="mod-down" style="display: none;">
+    <!-- Universal Down Sites Toolbar with Common Master Report Date -->
     <div class="toolbar">
+      <div class="toolbar-group">
+        <label for="down-report-date-select"><strong>Avail. Report Date:</strong></label>
+        <select id="down-report-date-select" onchange="applyDownSitesFilters()" style="font-weight: 600; color: var(--primary);"></select>
+      </div>
+
       <div class="toolbar-group">
         <label for="down-ba-select"><strong>BA:</strong></label>
         <select id="down-ba-select" onchange="handleDownSsaChange()">
@@ -659,11 +690,15 @@
         </select>
       </div>
 
+      <!-- Expanded Period Filter Options -->
       <div class="toolbar-group">
         <label for="down-period-filter"><strong>Period:</strong></label>
         <select id="down-period-filter" onchange="applyDownSitesFilters()" style="font-weight:600; color:var(--primary);">
           <option value="ALL">All Durations</option>
+          <option value="GT2H">&gt; 2 Hr. Down</option>
+          <option value="GT8H">&gt; 8 Hr. Down</option>
           <option value="LT12H">&lt; 12 Hr. Down</option>
+          <option value="GT12H">&gt; 12 Hr. Down</option>
           <option value="LT1D">&lt; 1 Day Down</option>
           <option value="GT1D">&gt; 1 Day Down</option>
           <option value="GT3D">&gt; 3 Day Down</option>
@@ -671,6 +706,7 @@
         </select>
       </div>
 
+      <!-- Cascading L1 & L2 Dropdowns (Narrowed by SSA) -->
       <div class="toolbar-group">
         <label for="down-select-l1"><strong>L1:</strong></label>
         <select id="down-select-l1" onchange="applyDownSitesFilters()" style="max-width: 150px;">
@@ -690,28 +726,31 @@
       </div>
 
       <div class="toolbar-group">
-        <button class="btn btn-file btn-sm" onclick="document.getElementById('down-file-input').click()">📂 Upload Down Sites File</button>
+        <button class="btn btn-file btn-sm" onclick="document.getElementById('down-file-input').click()">📂 Upload Raw File</button>
         <input type="file" id="down-file-input" accept=".csv, .xlsx, .xls" style="display: none;" onchange="handleDownFileUpload(event)">
       </div>
     </div>
 
+    <!-- Down Sites KPI Cards -->
     <div class="kpi-container">
       <div class="kpi-card"><div class="title">Total Down Sites</div><div class="value" id="down-kpi-total" style="color:#dc2626;">-</div></div>
       <div class="kpi-card"><div class="title">&gt; 1 Day Down</div><div class="value" id="down-kpi-gt1d" style="color:#b91c1c;">-</div></div>
       <div class="kpi-card"><div class="title">&lt; 1 Day Down</div><div class="value" id="down-kpi-lt1d" style="color:#d97706;">-</div></div>
       <div class="kpi-card"><div class="title">Down with Avail &ge; 98% (LTE Only)</div><div class="value" id="down-kpi-healthy" style="color:#16a34a;">-</div></div>
+      <div class="kpi-card"><div class="title">Reason Not Updated</div><div class="value" id="down-kpi-notupdated" style="color:#ea580c;">-</div></div>
       <div class="kpi-card"><div class="title">LTE Down</div><div class="value" id="down-kpi-lte">-</div></div>
-      <div class="kpi-card"><div class="title">GSM Down</div><div class="value" id="down-kpi-gsm">-</div></div>
     </div>
 
+    <!-- Sub-Tabs for Down Sites -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDownSubTab('down-unified-view', this)">🚨 1. Down Sites List</button>
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-info-summary-view', this)">📋 2. Information Summary</button>
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-healthy-view', this)">⭐ 3. Healthy Sites Currently Down (Avail &ge;98% - LTE Only)</button>
-      <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 4. Fault-Wise SSA Matrix</button>
+      <button class="sub-tab-btn" onclick="switchDownSubTab('down-notupdated-view', this)">📝 4. Reason Not Updated Tracker</button>
+      <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 5. Fault-Wise SSA Matrix</button>
     </div>
 
-    <!-- SUB-VIEW 1: UNIFIED DOWN SITES LIST -->
+    <!-- SUB-VIEW 1: UNIFIED DOWN SITES LIST (TWO WHATSAPP BUTTONS) -->
     <div class="down-sub-section" id="down-unified-view">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -720,9 +759,10 @@
             <span id="down-unified-count-badge" style="font-size:12px; color:#64748b;">Showing matching down sites</span>
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-whatsapp btn-sm" onclick="shareUnifiedDownWhatsApp()">💬 Share on WhatsApp</button>
+            <button class="btn btn-whatsapp btn-sm" onclick="shareUnifiedDownDetailedWhatsApp()">💬 Share Details on WhatsApp</button>
+            <button class="btn btn-whatsapp btn-sm" onclick="shareUnifiedDownSummaryWhatsApp()">💬 Share Summary Count on WhatsApp</button>
             <button class="btn btn-mail btn-sm" onclick="shareUnifiedDownMail()">✉️ Share on Mail</button>
-            <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('unified')">📥 Export Down Sites Excel</button>
+            <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('unified')">📥 Export Excel</button>
           </div>
         </div>
         <div class="table-container">
@@ -744,7 +784,7 @@
                 <th>Remarks</th>
                 <th>L1 In-charge</th>
                 <th>L2 In-charge</th>
-                <th class="num">30-Day Avail %</th>
+                <th class="num">Rolling 30 Days Avail. %</th>
               </tr>
             </thead>
             <tbody id="down-unified-tbody"></tbody>
@@ -753,18 +793,18 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 2: INFORMATION SUMMARY -->
+    <!-- SUB-VIEW 2: INFORMATION SUMMARY (INCLUDES SSA GROUPING & SSA-FIRST WHATSAPP SHARE) -->
     <div class="down-sub-section" id="down-info-summary-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div>
             <h2 style="margin:0;">Down Sites Information Summary (Technology & Category Breakdown)</h2>
-            <span style="font-size:12px; color:#64748b;">Dynamic breakdown by L1, L2, or SDCA across SSAs</span>
+            <span style="font-size:12px; color:#64748b;">Dynamic breakdown by SSA, L1, L2, or SDCA</span>
           </div>
           <div style="display:flex; gap:8px;">
             <button class="btn btn-whatsapp btn-sm" onclick="shareInfoSummaryWhatsApp()">💬 Share Summary on WhatsApp</button>
             <button class="btn btn-mail btn-sm" onclick="shareInfoSummaryMail()">✉️ Share Summary on Mail</button>
-            <button class="btn btn-green btn-sm" onclick="exportInfoSummaryExcel()">📥 Export Summary Excel</button>
+            <button class="btn btn-green btn-sm" onclick="exportInfoSummaryExcel()">📥 Export Excel</button>
           </div>
         </div>
 
@@ -772,6 +812,7 @@
           <div class="toolbar-group">
             <label for="info-group-by-select"><strong>Group Summary By:</strong></label>
             <select id="info-group-by-select" onchange="renderInfoSummaryTable()" style="font-weight:bold; color:var(--primary);">
+              <option value="SSA">SSA</option>
               <option value="L1" selected>Site In-Charge (L1)</option>
               <option value="L2">Cluster Lead (L2)</option>
               <option value="SDCA">SDCA Name (sdca_name)</option>
@@ -815,7 +856,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN (LTE ONLY & REPORT DATE FILTERED & DROPDOWN L1/L2) -->
+    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN (LTE ONLY & COMMON REPORT DATE) -->
     <div class="down-sub-section" id="down-healthy-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -826,15 +867,11 @@
           <div style="display:flex; gap:8px;">
             <button class="btn btn-whatsapp btn-sm" onclick="shareHealthyDownWhatsAppToL2()">💬 Share to L2 on WhatsApp</button>
             <button class="btn btn-mail btn-sm" onclick="shareHealthyDownMailToL2()">✉️ Share to L2 on Mail</button>
-            <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('healthy')">📥 Export Healthy Down Excel</button>
+            <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('healthy')">📥 Export Excel</button>
           </div>
         </div>
 
         <div class="toolbar" style="margin-bottom: 14px;">
-          <div class="toolbar-group">
-            <label for="healthy-report-date-select"><strong>Report Date (Master):</strong></label>
-            <select id="healthy-report-date-select" onchange="renderHealthyDownSitesTable()"></select>
-          </div>
           <div class="toolbar-group">
             <label for="healthy-ssa-select"><strong>SSA:</strong></label>
             <select id="healthy-ssa-select" onchange="handleHealthySsaChange()">
@@ -893,17 +930,71 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 4: FAULT-WISE MATRIX ACROSS SSAS -->
-    <div class="down-sub-section" id="down-matrix-view" style="display: none;">
+    <!-- SUB-VIEW 4: NEW MODULE - REASON NOT UPDATED TRACKER (GROUPED BY SSA, L1, L2) -->
+    <div class="down-sub-section" id="down-notupdated-view" style="display: none;">
       <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h2 style="margin:0; color:#ea580c;">Reason Not Updated Tracker (Grouped by SSA, L1 & L2)</h2>
+            <span style="font-size:12px; color:#64748b;">Identify sites missing fault causes for urgent follow-up</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareNotUpdatedDetailedWhatsApp()">💬 Share Details on WhatsApp</button>
+            <button class="btn btn-whatsapp btn-sm" onclick="shareNotUpdatedSummaryWhatsApp()">💬 Share Summary Count on WhatsApp</button>
+            <button class="btn btn-green btn-sm" onclick="exportNotUpdatedExcel()">📥 Export Excel</button>
+          </div>
+        </div>
+
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <div class="toolbar-group">
+            <label for="notupdated-group-by"><strong>Group By:</strong></label>
+            <select id="notupdated-group-by" onchange="renderNotUpdatedTable()" style="font-weight:bold; color:var(--primary);">
+              <option value="L1" selected>Site In-Charge (L1)</option>
+              <option value="L2">Cluster Lead (L2)</option>
+              <option value="SSA">SSA Only</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <label for="notupdated-ssa-select"><strong>SSA:</strong></label>
+            <select id="notupdated-ssa-select" onchange="renderNotUpdatedTable()">
+              <option value="ALL">All SSAs</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th id="notupdated-group-header">Officer / Entity</th>
+                <th>SSA</th>
+                <th class="num">Total Down Sites</th>
+                <th class="num" style="color:#16a34a; font-weight:600;">Reason Updated</th>
+                <th class="num" style="color:#dc2626; font-weight:bold;">Reason Not Updated</th>
+                <th class="num" style="color:#dc2626; font-weight:bold;">% Not Updated</th>
+              </tr>
+            </thead>
+            <tbody id="down-notupdated-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 5: FAULT-WISE MATRIX ACROSS SSAS (WITH WHATSAPP, MAIL & SCREENSHOT) -->
+    <div class="down-sub-section" id="down-matrix-view" style="display: none;">
+      <div class="section" id="down-matrix-section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
             <h2 style="margin:0;">Fault-Wise Summary Matrix Across SSAs</h2>
             <div class="toolbar-group" style="margin: 0;">
-              <label for="matrix-duration-filter"><strong>Filter Duration:</strong></label>
+              <label for="matrix-duration-filter"><strong>Duration:</strong></label>
               <select id="matrix-duration-filter" onchange="applyMatrixDurationFilter()" style="font-weight:600; color:var(--primary);">
                 <option value="ALL">All Down Sites</option>
+                <option value="GT2H">&gt; 2 Hr. Down</option>
+                <option value="GT8H">&gt; 8 Hr. Down</option>
                 <option value="LT12H">&lt; 12 Hr. Down</option>
+                <option value="GT12H">&gt; 12 Hr. Down</option>
                 <option value="LT1D">&lt; 1 Day Down</option>
                 <option value="GT1D">&gt; 1 Day Down</option>
                 <option value="GT3D">&gt; 3 Days Down</option>
@@ -911,9 +1002,14 @@
               </select>
             </div>
           </div>
-          <button class="btn btn-green btn-sm" onclick="exportDownMatrixExcel()">📥 Export Matrix Excel</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-whatsapp btn-sm" onclick="shareDownMatrixWhatsApp()">💬 Share on WhatsApp</button>
+            <button class="btn btn-mail btn-sm" onclick="shareDownMatrixMail()">✉️ Share on Mail</button>
+            <button class="btn btn-camera btn-sm" onclick="captureDownMatrixScreenshot()">📷 Screenshot</button>
+            <button class="btn btn-green btn-sm" onclick="exportDownMatrixExcel()">📥 Export Excel</button>
+          </div>
         </div>
-        <div class="table-container">
+        <div class="table-container" id="down-matrix-table-container">
           <table>
             <thead id="down-matrix-thead"></thead>
             <tbody id="down-matrix-tbody"></tbody>
@@ -975,6 +1071,10 @@
   let dbnDataLoaded = false;
   let downDataLoaded = false;
 
+  // Chart Mode State for Stacked SSA Chart
+  let ssaChartMode = "pct"; // 'pct' or 'count'
+  let cachedSsaAgg = null;
+
   // Global Cross-Matching Master Lookups
   const masterInchargeByIp = {};
   const masterL2ByIp = {};
@@ -1018,7 +1118,6 @@
     return `Thanks & Regards,\nOA Team (${ssaValue})`;
   }
 
-  // Helper: Extract 10-digit mobile number from L1 string
   function extractPhoneNumber(l1String) {
     if (!l1String) return "";
     const match = l1String.match(/\b[6-9]\d{9}\b/);
@@ -1434,7 +1533,7 @@
 
     dbnAvailableDates = Array.from(dateSet).sort().reverse();
     populateDbnControls();
-    populateHealthyReportDateControl();
+    populateDownCommonReportDateControl();
     dbnDataLoaded = true;
     applyDbnFilters();
     runDegradedAnalysis();
@@ -1493,16 +1592,61 @@
     const escSsa = document.getElementById("esc-ssa-select");
     escSsa.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
     Array.from(ssaSet).sort().forEach(s => { escSsa.innerHTML += `<option value="${s}">${s}</option>`; });
+
+    populateDbnOfficerDropdowns();
   }
 
-  function populateHealthyReportDateControl() {
-    const healthyReportSelect = document.getElementById("healthy-report-date-select");
-    if (!healthyReportSelect) return;
-    const currentVal = healthyReportSelect.value;
-    healthyReportSelect.innerHTML = "";
-    dbnAvailableDates.forEach(d => { healthyReportSelect.innerHTML += `<option value="${d}">${d}</option>`; });
+  // Populate L1 dropdowns in Degraded and User Degraded sub-views
+  function populateDbnOfficerDropdowns() {
+    handleDegradedSsaChange();
+    handleUserDegSsaChange();
+  }
+
+  function handleDegradedSsaChange() {
+    const chosenSsa = document.getElementById("deg-ssa-select").value;
+    const l1Select = document.getElementById("deg-l1-select");
+    const currentVal = l1Select.value;
+    const l1Set = new Set();
+
+    dbnRawRecords.forEach(r => {
+      if ((chosenSsa === "ALL" || r.ssa === chosenSsa) && r.l1 && r.l1 !== "Unassigned") {
+        l1Set.add(r.l1);
+      }
+    });
+
+    l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+    Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
+    if (currentVal && Array.from(l1Select.options).some(o => o.value === currentVal)) l1Select.value = currentVal;
+    runDegradedAnalysis();
+  }
+
+  function handleUserDegSsaChange() {
+    const chosenSsa = document.getElementById("user-deg-ssa-select").value;
+    const l1Select = document.getElementById("user-deg-l1-select");
+    const currentVal = l1Select.value;
+    const l1Set = new Set();
+
+    dbnRawRecords.forEach(r => {
+      if ((chosenSsa === "ALL" || r.ssa === chosenSsa) && r.l1 && r.l1 !== "Unassigned") {
+        l1Set.add(r.l1);
+      }
+    });
+
+    l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+    Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
+    if (currentVal && Array.from(l1Select.options).some(o => o.value === currentVal)) l1Select.value = currentVal;
+    runUserDegradedAnalysis();
+  }
+
+  // Populate common Master Report Date dropdown in Down Sites Tracker toolbar
+  function populateDownCommonReportDateControl() {
+    const reportSelect = document.getElementById("down-report-date-select");
+    if (!reportSelect) return;
+    const currentVal = reportSelect.value;
+    reportSelect.innerHTML = "";
+    dbnAvailableDates.forEach(d => { reportSelect.innerHTML += `<option value="${d}">${d}</option>`; });
     if (dbnAvailableDates.length > 0) {
-      healthyReportSelect.value = (currentVal && dbnAvailableDates.includes(currentVal)) ? currentVal : dbnAvailableDates[0];
+      reportSelect.value = (currentVal && dbnAvailableDates.includes(currentVal)) ? currentVal : dbnAvailableDates[0];
     }
   }
 
@@ -1583,9 +1727,30 @@
     document.getElementById("dbn-kpi-ndbn").innerText = ndbnCount.toLocaleString();
     document.getElementById("dbn-kpi-critical").innerText = bLt90.toLocaleString();
 
+    cachedSsaAgg = ssaAgg;
     renderDbnCharts(bGte98, b94to98, b90to94, bLt90, ssaAgg);
     renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, bGte98, b94to98, b90to94, bLt90, avgAvail);
     renderDbnDetailTable(dbnFilteredRecords);
+  }
+
+  // Toggle Stacked Chart between Percentage (%) and Count
+  function toggleSsaChartMode() {
+    ssaChartMode = ssaChartMode === "pct" ? "count" : "pct";
+    document.getElementById("btn-toggle-ssa-chart").innerText = ssaChartMode === "pct" ? "Switch to Count" : "Switch to %";
+    if (cachedSsaAgg) {
+      renderStackedSsaChart(cachedSsaAgg);
+    }
+  }
+
+  // Capture screenshot of SSA Chart Card
+  function captureSsaChartScreenshot() {
+    const card = document.getElementById("dbn-ssa-chart-card");
+    html2canvas(card, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `SSA_Availability_Stacked_Chart_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
   }
 
   function renderDbnCharts(gte98, mid94, low90, lt90, ssaAgg) {
@@ -1621,10 +1786,32 @@
       }
     });
 
+    renderStackedSsaChart(ssaAgg);
+  }
+
+  // Stacked Bar Chart for SSA Availability Distribution
+  function renderStackedSsaChart(ssaAgg) {
     const ssaLabels = Object.keys(ssaAgg).sort();
-    const ssaGte98PctData = ssaLabels.map(s => {
+
+    const dataGte98 = [];
+    const dataMid94 = [];
+    const dataLow90 = [];
+    const dataLt90  = [];
+
+    ssaLabels.forEach(s => {
       const a = ssaAgg[s];
-      return a.total > 0 ? parseFloat(((a.gte98 / a.total) * 100).toFixed(1)) : 0;
+      const tot = a.total > 0 ? a.total : 1;
+      if (ssaChartMode === "pct") {
+        dataGte98.push(parseFloat(((a.gte98 / tot) * 100).toFixed(1)));
+        dataMid94.push(parseFloat(((a.mid94 / tot) * 100).toFixed(1)));
+        dataLow90.push(parseFloat(((a.low90 / tot) * 100).toFixed(1)));
+        dataLt90.push(parseFloat(((a.lt90  / tot) * 100).toFixed(1)));
+      } else {
+        dataGte98.push(a.gte98);
+        dataMid94.push(a.mid94);
+        dataLow90.push(a.low90);
+        dataLt90.push(a.lt90);
+      }
     });
 
     const ctxSsa = document.getElementById("dbnSsaChart").getContext("2d");
@@ -1633,28 +1820,35 @@
       type: "bar",
       data: {
         labels: ssaLabels,
-        datasets: [{
-          label: "≥98% Sites %",
-          data: ssaGte98PctData,
-          backgroundColor: "#003366",
-          borderRadius: 4
-        }]
+        datasets: [
+          { label: "≥98%", data: dataGte98, backgroundColor: "#22c55e", stack: "Stack 0" },
+          { label: "94-98%", data: dataMid94, backgroundColor: "#f59e0b", stack: "Stack 0" },
+          { label: "90-94%", data: dataLow90, backgroundColor: "#ea580c", stack: "Stack 0" },
+          { label: "<90%", data: dataLt90, backgroundColor: "#ef4444", stack: "Stack 0" }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-          y: { min: 0, max: 100, ticks: { callback: v => v + "%" } }
+          x: { stacked: true },
+          y: {
+            stacked: true,
+            max: ssaChartMode === "pct" ? 100 : undefined,
+            ticks: {
+              callback: v => ssaChartMode === "pct" ? v + "%" : v
+            }
+          }
         },
         plugins: {
-          legend: { display: false },
+          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
           datalabels: {
-            anchor: "end",
-            align: "top",
-            formatter: (v) => v + "%",
-            color: "#003366",
-            font: { weight: "bold", size: 11 },
-            offset: -2
+            formatter: (v) => {
+              if (v === 0) return "";
+              return ssaChartMode === "pct" ? (v >= 5 ? v + "%" : "") : (v >= 3 ? v : "");
+            },
+            color: "#fff",
+            font: { weight: "bold", size: 10 }
           }
         }
       }
@@ -1787,6 +1981,7 @@
     const nextDate = document.getElementById("deg-next-date").value;
     const selectedSsa = document.getElementById("deg-ssa-select").value;
     const selectedCat = document.getElementById("deg-cat-select") ? document.getElementById("deg-cat-select").value : "ALL";
+    const selectedL1 = document.getElementById("deg-l1-select") ? document.getElementById("deg-l1-select").value : "ALL";
 
     if (!prevDate || !nextDate || prevDate === nextDate) {
       document.getElementById("degraded-sites-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
@@ -1797,7 +1992,9 @@
     let baseHealthyCount = 0;
     dbnRawRecords.forEach(r => {
       if (r.reportDate === prevDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
           prevMap[r.siteId] = r;
           if (r.avail >= 98.0) baseHealthyCount++;
         }
@@ -1807,7 +2004,9 @@
     degradedSitesList = [];
     dbnRawRecords.forEach(r => {
       if (r.reportDate === nextDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
           const prevRec = prevMap[r.siteId];
           if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
             const drop = (r.avail - prevRec.avail).toFixed(2);
@@ -1861,6 +2060,36 @@
     });
   }
 
+  // WhatsApp share for degraded sites
+  function shareDegradedSitesWhatsApp() {
+    if (!degradedSitesList || degradedSitesList.length === 0) {
+      alert("No degraded sites to share.");
+      return;
+    }
+    const prevDate = document.getElementById("deg-prev-date").value;
+    const nextDate = document.getElementById("deg-next-date").value;
+    const chosenSsa = document.getElementById("deg-ssa-select").value;
+    const chosenL1 = document.getElementById("deg-l1-select").value;
+
+    let title = `*⚠️ J&K CM Availability Degraded Sites Alert*\n`;
+    title += `*Period:* ${prevDate} ➔ ${nextDate}\n`;
+    title += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
+    title += `*Total Sites Dropped Below 98%:* ${degradedSitesList.length}\n\n`;
+
+    let body = "";
+    degradedSitesList.slice(0, 30).forEach((s, i) => {
+      body += `${i + 1}. *${s.siteName}* (${s.prevAvail.toFixed(1)}% ➔ ${s.nextAvail.toFixed(1)}%, Drop: ${s.dropDelta}%) [L1: ${s.l1}]\n`;
+    });
+    if (degradedSitesList.length > 30) {
+      body += `\n_...and ${degradedSitesList.length - 30} more degraded sites._\n`;
+    }
+
+    body += `\nPlease investigate and restore network availability immediately.\n\n`;
+    body += getClosingSignature(chosenSsa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(title + body), "_blank");
+  }
+
   function exportDegradedSitesExcel() {
     if (!degradedSitesList || degradedSitesList.length === 0) return;
     const ws = XLSX.utils.json_to_sheet(degradedSitesList);
@@ -1881,7 +2110,7 @@
     const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
     const selectedSsa = document.getElementById("user-deg-ssa-select").value;
     const selectedCat = document.getElementById("user-deg-cat-select") ? document.getElementById("user-deg-cat-select").value : "ALL";
-    const searchOfficer = (document.getElementById("user-deg-incharge-search").value || "").toLowerCase().trim();
+    const selectedL1 = document.getElementById("user-deg-l1-select") ? document.getElementById("user-deg-l1-select").value : "ALL";
 
     if (!prevDate || !nextDate || prevDate === nextDate) {
       document.getElementById("user-degraded-tbody").innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day user comparison.</td></tr>`;
@@ -1892,7 +2121,9 @@
     let totalCompared = 0;
     dbnRawRecords.forEach(r => {
       if (r.reportDate === prevDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
           prevMap[r.siteId] = r;
         }
       }
@@ -1904,7 +2135,9 @@
 
     dbnRawRecords.forEach(r => {
       if (r.reportDate === nextDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) && (selectedCat === "ALL" || r.category === selectedCat)) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
           const prevRec = prevMap[r.siteId];
           if (prevRec) {
             totalCompared++;
@@ -1915,23 +2148,23 @@
               const dropPct = (dropCount / baseUsers) * 100;
 
               if (dropPct >= minDropPct) {
-                if (!searchOfficer || r.l1.toLowerCase().includes(searchOfficer)) {
-                  totalUsersLost += dropCount;
-                  sumDropPct += dropPct;
-                  userDegradedSitesList.push({
-                    siteId: r.siteId,
-                    btsIp: r.btsIp,
-                    siteName: r.siteName,
-                    ssa: r.ssa,
-                    category: r.category,
-                    baseUsers: baseUsers,
-                    nextUsers: nextUsers,
-                    dropCount: dropCount,
-                    dropPct: dropPct,
-                    l1: r.l1,
-                    media: r.media
-                  });
-                }
+                totalUsersLost += dropCount;
+                sumDropPct += dropPct;
+                userDegradedSitesList.push({
+                  siteId: r.siteId,
+                  btsIp: r.btsIp,
+                  siteName: r.siteName,
+                  ssa: r.ssa,
+                  category: r.category,
+                  baseUsers: baseUsers,
+                  baseAvail: prevRec.avail,
+                  nextUsers: nextUsers,
+                  nextAvail: r.avail,
+                  dropCount: dropCount,
+                  dropPct: dropPct,
+                  l1: r.l1,
+                  media: r.media
+                });
               }
             }
           }
@@ -1962,14 +2195,41 @@
           <td>${r.siteName}</td>
           <td>${r.ssa}</td>
           <td>${r.category}</td>
-          <td class="num">${r.baseUsers.toLocaleString()}</td>
-          <td class="num">${r.nextUsers.toLocaleString()}</td>
+          <td class="num"><strong>${r.baseUsers.toLocaleString()}</strong> (${r.baseAvail.toFixed(1)}%)</td>
+          <td class="num"><strong>${r.nextUsers.toLocaleString()}</strong> (${r.nextAvail.toFixed(1)}%)</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
           <td>${r.l1}</td>
           <td>${r.media}</td>
         </tr>`;
     });
+  }
+
+  // Summary-Only WhatsApp Share for User Degradation Tracker
+  function shareUserDegSummaryWhatsApp() {
+    const prevDate = document.getElementById("user-deg-prev-date").value;
+    const nextDate = document.getElementById("user-deg-next-date").value;
+    const threshold = document.getElementById("user-deg-threshold").value;
+    const chosenSsa = document.getElementById("user-deg-ssa-select").value;
+    const chosenL1 = document.getElementById("user-deg-l1-select").value;
+
+    const totalCompared = document.getElementById("user-deg-kpi-total").innerText;
+    const degradedCount = document.getElementById("user-deg-kpi-count").innerText;
+    const usersLost = document.getElementById("user-deg-kpi-lost").innerText;
+    const avgDrop = document.getElementById("user-deg-kpi-drop-pct").innerText;
+
+    let msg = `*👥 J&K CM Max Active User Degradation Summary*\n`;
+    msg += `*Comparison:* ${prevDate} (Base) ➔ ${nextDate} (Compare)\n`;
+    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
+    msg += `*Threshold:* ≥ ${threshold}% User Drop\n\n`;
+    msg += `📊 *Summary Metrics:*\n`;
+    msg += `• Total Compared Sites: ${totalCompared}\n`;
+    msg += `• Sites with User Degradation: *${degradedCount}*\n`;
+    msg += `• Total Active Users Lost: *${usersLost}*\n`;
+    msg += `• Average % User Drop: *${avgDrop}*\n\n`;
+    msg += getClosingSignature(chosenSsa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
   function exportUserDegradedSitesExcel() {
@@ -2266,6 +2526,7 @@
     
     const infoSsaSelect = document.getElementById("info-ssa-select");
     const healthySsaSelect = document.getElementById("healthy-ssa-select");
+    const notUpdatedSsaSelect = document.getElementById("notupdated-ssa-select");
 
     const baSet = new Set(), ssaSet = new Set(), devSet = new Set(), faultSet = new Set();
 
@@ -2294,9 +2555,12 @@
     healthySsaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
     Array.from(ssaSet).sort().forEach(s => healthySsaSelect.innerHTML += `<option value="${s}">${s}</option>`);
 
+    notUpdatedSsaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
+    Array.from(ssaSet).sort().forEach(s => notUpdatedSsaSelect.innerHTML += `<option value="${s}">${s}</option>`);
+
     updateDownOfficerDropdowns();
     updateHealthyOfficerDropdowns();
-    populateHealthyReportDateControl();
+    populateDownCommonReportDateControl();
   }
 
   function handleDownSsaChange() {
@@ -2373,6 +2637,7 @@
     const chosenPeriod = document.getElementById("down-period-filter").value;
     const chosenL1 = document.getElementById("down-select-l1").value;
     const chosenL2 = document.getElementById("down-select-l2").value;
+    const chosenCommonDate = document.getElementById("down-report-date-select") ? document.getElementById("down-report-date-select").value : "";
     const searchVal = (document.getElementById("down-search-input").value || "").toLowerCase().trim();
 
     downFilteredRecords = downRawRecords.map(r => {
@@ -2384,7 +2649,18 @@
       if (r.category === "NDBN" && (masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey])) {
         r.category = masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey];
       }
-      if (r.availVal === null) r.availVal = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
+
+      // Dynamically calculate 30 days availability from Common Report Date
+      let dynamicAvail = null;
+      if (chosenCommonDate) {
+        dynamicAvail = masterAvailByDateAndIp[`${chosenCommonDate}____${ipKey}`] ?? 
+                       masterAvailByDateAndIp[`${chosenCommonDate}____${siteKey}`] ?? null;
+      }
+      if (dynamicAvail === null) {
+        dynamicAvail = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
+      }
+      r.currentSelectedAvail = dynamicAvail;
+
       return r;
     }).filter(r => {
       if (chosenBa !== "ALL" && r.ba !== chosenBa) return false;
@@ -2395,7 +2671,11 @@
       if (chosenL1 !== "ALL" && r.incharge !== chosenL1) return false;
       if (chosenL2 !== "ALL" && r.l2 !== chosenL2) return false;
 
+      // Period filters
+      if (chosenPeriod === "GT2H" && r.durationMinutes < 120) return false;
+      if (chosenPeriod === "GT8H" && r.durationMinutes < 480) return false;
       if (chosenPeriod === "LT12H" && r.durationMinutes >= 720) return false;
+      if (chosenPeriod === "GT12H" && r.durationMinutes < 720) return false;
       if (chosenPeriod === "LT1D" && r.durationMinutes >= 1440) return false;
       if (chosenPeriod === "GT1D" && r.durationMinutes < 1440) return false;
       if (chosenPeriod === "GT3D" && r.durationMinutes < 4320) return false;
@@ -2418,7 +2698,7 @@
 
   function renderDownSitesDashboard() {
     const total = downFilteredRecords.length;
-    let lteCount = 0, gsmCount = 0, gt1dCount = 0, lt1dCount = 0;
+    let lteCount = 0, gsmCount = 0, gt1dCount = 0, lt1dCount = 0, notUpdatedCount = 0;
 
     downFilteredRecords.forEach(r => {
       if (r.deviceType.includes("LTE")) lteCount++;
@@ -2426,17 +2706,20 @@
 
       if (r.durationMinutes >= 1440) gt1dCount++;
       else lt1dCount++;
+
+      if (r.faultType === "Reason not updated") notUpdatedCount++;
     });
 
     document.getElementById("down-kpi-total").innerText = total.toLocaleString();
     document.getElementById("down-kpi-gt1d").innerText = gt1dCount.toLocaleString();
     document.getElementById("down-kpi-lt1d").innerText = lt1dCount.toLocaleString();
+    document.getElementById("down-kpi-notupdated").innerText = notUpdatedCount.toLocaleString();
     document.getElementById("down-kpi-lte").innerText = lteCount.toLocaleString();
-    document.getElementById("down-kpi-gsm").innerText = gsmCount.toLocaleString();
 
     renderUnifiedDownTable(downUnifiedDisplayRecords);
     renderInfoSummaryTable();
     renderHealthyDownSitesTable();
+    renderNotUpdatedTable();
     applyMatrixDurationFilter();
   }
 
@@ -2452,8 +2735,8 @@
     }
 
     records.forEach(r => {
-      const availText = r.availVal !== null 
-        ? `<span style="font-weight:bold; color:${r.availVal >= 98 ? '#16a34a' : (r.availVal >= 94 ? '#d97706' : '#dc2626')}">${r.availVal.toFixed(1)}%</span>`
+      const availText = r.currentSelectedAvail !== null 
+        ? `<span style="font-weight:bold; color:${r.currentSelectedAvail >= 98 ? '#16a34a' : (r.currentSelectedAvail >= 94 ? '#d97706' : '#dc2626')}">${r.currentSelectedAvail.toFixed(1)}%</span>`
         : `<span style="color:#64748b;">N/A</span>`;
 
       const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
@@ -2480,6 +2763,7 @@
     });
   }
 
+  // Information Summary Table (Groups by SSA, L1, L2, SDCA)
   function renderInfoSummaryTable() {
     const tbody = document.getElementById("down-info-summary-tbody");
     const groupHeader = document.getElementById("info-table-group-header");
@@ -2487,7 +2771,7 @@
     const chosenSsa = document.getElementById("info-ssa-select").value;
     const chosenCat = document.getElementById("info-cat-select").value;
 
-    groupHeader.innerText = groupBy === "L1" ? "Site In-Charge (L1)" : (groupBy === "L2" ? "Cluster Lead (L2)" : "SDCA Name");
+    groupHeader.innerText = groupBy === "SSA" ? "SSA Name" : (groupBy === "L1" ? "Site In-Charge (L1)" : (groupBy === "L2" ? "Cluster Lead (L2)" : "SDCA Name"));
 
     const agg = {};
 
@@ -2496,7 +2780,8 @@
       if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
 
       let key = "";
-      if (groupBy === "L1") key = (r.incharge && r.incharge !== "Unassigned") ? r.incharge : "Unassigned";
+      if (groupBy === "SSA") key = r.ssa || "Unknown SSA";
+      else if (groupBy === "L1") key = (r.incharge && r.incharge !== "Unassigned") ? r.incharge : "Unassigned";
       else if (groupBy === "L2") key = (r.l2 && r.l2 !== "-") ? r.l2 : "Unassigned / General";
       else key = (r.sdca && r.sdca !== "-") ? r.sdca : "Unknown SDCA";
 
@@ -2570,11 +2855,11 @@
       </tr>`;
   }
 
+  // Render Healthy Sites Currently Down (LTE Only, uses Common Report Date)
   function renderHealthyDownSitesTable() {
     const tbody = document.getElementById("down-healthy-tbody");
     const countBadge = document.getElementById("down-healthy-count-badge");
 
-    const chosenReportDate = document.getElementById("healthy-report-date-select") ? document.getElementById("healthy-report-date-select").value : (dbnAvailableDates[0] || "");
     const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
     const chosenCat = document.getElementById("healthy-cat-select") ? document.getElementById("healthy-cat-select").value : "ALL";
     const chosenL1 = document.getElementById("healthy-select-l1") ? document.getElementById("healthy-select-l1").value : "ALL";
@@ -2582,20 +2867,7 @@
     const searchVal = (document.getElementById("healthy-search-input") ? document.getElementById("healthy-search-input").value : "").toLowerCase().trim();
 
     const lteDownSites = downFilteredRecords.filter(r => r.deviceType.includes("LTE"));
-
-    const candidateSites = lteDownSites.map(r => {
-      const ipKey = normalizeIpKey(r.btsIpId);
-      const siteKey = normalizeIpKey(r.siteId);
-
-      let dateAvail = null;
-      if (chosenReportDate) {
-        dateAvail = masterAvailByDateAndIp[`${chosenReportDate}____${ipKey}`] ?? 
-                    masterAvailByDateAndIp[`${chosenReportDate}____${siteKey}`] ?? null;
-      }
-      if (dateAvail === null) dateAvail = r.availVal;
-
-      return { ...r, reportDateAvail: dateAvail };
-    }).filter(r => r.reportDateAvail !== null && r.reportDateAvail >= 98.0);
+    const candidateSites = lteDownSites.filter(r => r.currentSelectedAvail !== null && r.currentSelectedAvail >= 98.0);
 
     document.getElementById("down-kpi-healthy").innerText = candidateSites.length.toLocaleString();
 
@@ -2617,10 +2889,10 @@
     window.activeHealthyDownFiltered.sort((a, b) => b.durationMinutes - a.durationMinutes);
 
     tbody.innerHTML = "";
-    countBadge.innerText = `Showing ${window.activeHealthyDownFiltered.length.toLocaleString()} healthy LTE sites currently down (Report Date: ${chosenReportDate || 'Latest'})`;
+    countBadge.innerText = `Showing ${window.activeHealthyDownFiltered.length.toLocaleString()} healthy LTE sites currently down`;
 
     if (window.activeHealthyDownFiltered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No high-availability LTE sites currently down for report date ${chosenReportDate || 'selected'}.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No high-availability LTE sites currently down matching active parameters.</td></tr>`;
       return;
     }
 
@@ -2642,16 +2914,173 @@
           <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td>
           <td><strong>${r.incharge}</strong></td>
           <td><strong>${r.l2}</strong></td>
-          <td class="num"><span style="color:#16a34a; font-weight:bold;">${r.reportDateAvail.toFixed(1)}%</span></td>
+          <td class="num"><span style="color:#16a34a; font-weight:bold;">${r.currentSelectedAvail.toFixed(1)}%</span></td>
         </tr>`;
     });
   }
 
+  // Sub-Module 4: Reason Not Updated Tracker Table
+  function renderNotUpdatedTable() {
+    const tbody = document.getElementById("down-notupdated-tbody");
+    const groupHeader = document.getElementById("notupdated-group-header");
+    const groupBy = document.getElementById("notupdated-group-by").value;
+    const chosenSsa = document.getElementById("notupdated-ssa-select").value;
+
+    groupHeader.innerText = groupBy === "SSA" ? "SSA Name" : (groupBy === "L1" ? "Site In-Charge (L1)" : "Cluster Lead (L2)");
+
+    const agg = {};
+
+    downFilteredRecords.forEach(r => {
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+
+      let key = "";
+      if (groupBy === "SSA") key = r.ssa || "Unknown SSA";
+      else if (groupBy === "L1") key = (r.incharge && r.incharge !== "Unassigned") ? r.incharge : "Unassigned";
+      else key = (r.l2 && r.l2 !== "-") ? r.l2 : "Unassigned / General";
+
+      const ssaName = r.ssa || "-";
+      const fullKey = `${key}____${ssaName}`;
+
+      if (!agg[fullKey]) {
+        agg[fullKey] = { entity: key, ssa: ssaName, total: 0, updated: 0, notUpdated: 0, sitesNotUpdated: [] };
+      }
+
+      agg[fullKey].total++;
+      if (r.faultType === "Reason not updated") {
+        agg[fullKey].notUpdated++;
+        agg[fullKey].sitesNotUpdated.push(r);
+      } else {
+        agg[fullKey].updated++;
+      }
+    });
+
+    const rows = Object.values(agg).sort((a, b) => b.notUpdated - a.notUpdated);
+    tbody.innerHTML = "";
+    window.currentNotUpdatedRows = rows;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">All down sites have updated fault reasons!</td></tr>`;
+      return;
+    }
+
+    let totAll = 0, totUpdated = 0, totNotUpdated = 0;
+
+    rows.forEach(r => {
+      totAll += r.total;
+      totUpdated += r.updated;
+      totNotUpdated += r.notUpdated;
+      const pctNotUpdated = r.total > 0 ? ((r.notUpdated / r.total) * 100).toFixed(1) : "0.0";
+
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${r.entity}</strong></td>
+          <td>${r.ssa}</td>
+          <td class="num"><strong>${r.total}</strong></td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${r.updated}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.notUpdated}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${pctNotUpdated}%</td>
+        </tr>`;
+    });
+
+    const overallPctNotUpdated = totAll > 0 ? ((totNotUpdated / totAll) * 100).toFixed(1) : "0.0";
+    tbody.innerHTML += `
+      <tr class="circle-row">
+        <td>TOTAL DOWN SITES</td>
+        <td>SUMMARY</td>
+        <td class="num">${totAll}</td>
+        <td class="num" style="color:#16a34a;">${totUpdated}</td>
+        <td class="num" style="color:#dc2626;">${totNotUpdated}</td>
+        <td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
+      </tr>`;
+  }
+
+  // WhatsApp Shares for Reason Not Updated Tracker
+  function shareNotUpdatedDetailedWhatsApp() {
+    const rows = window.currentNotUpdatedRows || [];
+    const chosenSsa = document.getElementById("notupdated-ssa-select").value;
+
+    let msg = `*📝 J&K CM Outage Reason Pending Alert*\n`;
+    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n\n`;
+
+    let count = 0;
+    rows.forEach(r => {
+      if (r.sitesNotUpdated && r.sitesNotUpdated.length > 0) {
+        msg += `👤 *${r.entity}* (${r.ssa}) - ${r.sitesNotUpdated.length} Pending:\n`;
+        r.sitesNotUpdated.forEach((s, idx) => {
+          msg += `   ${idx + 1}. *${s.btsName}* (${s.downPeriod}) - Tech: ${s.deviceType}\n`;
+          count++;
+        });
+        msg += `\n`;
+      }
+    });
+
+    if (count === 0) {
+      alert("No sites with missing reasons to share.");
+      return;
+    }
+
+    msg += `Kindly update the outage fault types/remarks immediately.\n\n`;
+    msg += getClosingSignature(chosenSsa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+
+  function shareNotUpdatedSummaryWhatsApp() {
+    const rows = window.currentNotUpdatedRows || [];
+    const chosenSsa = document.getElementById("notupdated-ssa-select").value;
+    if (rows.length === 0) {
+      alert("No data available to share.");
+      return;
+    }
+
+    let totAll = 0, totNotUpdated = 0;
+    rows.forEach(r => { totAll += r.total; totNotUpdated += r.notUpdated; });
+
+    let msg = `*📝 J&K CM Reason Not Updated Summary Count*\n`;
+    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n`;
+    msg += `*Total Down Sites:* ${totAll} | *Reason Pending:* ${totNotUpdated}\n\n`;
+
+    rows.forEach(r => {
+      if (r.notUpdated > 0) {
+        msg += `• *${r.entity}* (${r.ssa}): ${r.notUpdated} of ${r.total} Pending\n`;
+      }
+    });
+
+    msg += `\nPlease ensure pending fault reasons are logged promptly.\n\n`;
+    msg += getClosingSignature(chosenSsa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+
+  function exportNotUpdatedExcel() {
+    const rows = window.currentNotUpdatedRows || [];
+    if (!rows || rows.length === 0) return;
+
+    const data = rows.map((r, i) => ({
+      "S.No": i + 1,
+      "Entity": r.entity,
+      "SSA": r.ssa,
+      "Total Down Sites": r.total,
+      "Reason Updated": r.updated,
+      "Reason Not Updated": r.notUpdated,
+      "% Not Updated": r.total > 0 ? ((r.notUpdated / r.total) * 100).toFixed(1) + "%" : "0.0%"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reason_Not_Updated");
+    XLSX.writeFile(wb, "Down_Sites_Reason_Not_Updated.xlsx");
+  }
+
+  // Matrix Duration Filter
   function applyMatrixDurationFilter() {
     const durVal = document.getElementById("matrix-duration-filter").value;
     let recordsForMatrix = downFilteredRecords;
 
-    if (durVal === "LT12H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 720);
+    if (durVal === "GT2H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 120);
+    else if (durVal === "GT8H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 480);
+    else if (durVal === "LT12H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 720);
+    else if (durVal === "GT12H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 720);
     else if (durVal === "LT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 1440);
     else if (durVal === "GT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
     else if (durVal === "GT3D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 4320);
@@ -2707,42 +3136,129 @@
     tbody.innerHTML += totalRowHtml;
   }
 
-  // =========================================================================
-  // WHATSAPP & MAIL DISPATCHERS
-  // =========================================================================
-  function buildUnifiedDownMessageText() {
+  // WhatsApp & Mail for Fault-Wise Matrix
+  function shareDownMatrixWhatsApp() {
+    const table = document.getElementById("down-matrix-table-container");
+    if (!table) return;
+    const durVal = document.getElementById("matrix-duration-filter").value;
     const chosenSsa = document.getElementById("down-ssa-select").value;
-    const chosenL2 = document.getElementById("down-select-l2").value;
-    const chosenL1 = document.getElementById("down-select-l1").value;
-    const chosenPeriod = document.getElementById("down-period-filter").value;
 
-    let targetTitle = "";
-    if (chosenL2 !== "ALL") targetTitle += ` [L2: ${chosenL2}]`;
-    if (chosenL1 !== "ALL") targetTitle += ` [L1: ${chosenL1}]`;
+    let msg = `*📊 J&K CM Fault-Wise Outage Matrix (${durVal})*\n`;
+    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n\n`;
 
-    let msg = `Dear Sir/Mam,\nFollowing BTS sites are currently DOWN${targetTitle} (${chosenPeriod}):\n\n`;
-    downUnifiedDisplayRecords.forEach((r, idx) => {
-      msg += `${idx + 1}. *${r.btsName}* (${r.downPeriod}) - Tech: ${r.deviceType} | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
+    const rows = document.querySelectorAll("#down-matrix-tbody tr");
+    rows.forEach(tr => {
+      const tds = tr.querySelectorAll("td");
+      if (tds.length >= 3) {
+        const fault = tds[0].innerText.trim();
+        const total = tds[tds.length - 2].innerText.trim();
+        const pct = tds[tds.length - 1].innerText.trim();
+        msg += `• *${fault}*: ${total} sites (${pct})\n`;
+      }
     });
-    msg += `\nPlease restore these sites on priority.\n\n`;
-    msg += getClosingSignature(chosenSsa);
-    return msg;
+
+    msg += `\n${getClosingSignature(chosenSsa)}`;
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
-  function shareUnifiedDownWhatsApp() {
+  function shareDownMatrixMail() {
+    const durVal = document.getElementById("matrix-duration-filter").value;
+    const chosenSsa = document.getElementById("down-ssa-select").value;
+
+    let subject = `Fault-Wise Outage Matrix: J&K CM (${durVal}) - ${chosenSsa === 'ALL' ? 'Circle' : chosenSsa}`;
+    let body = `Fault Matrix Summary (${durVal}):\n\n`;
+
+    const rows = document.querySelectorAll("#down-matrix-tbody tr");
+    rows.forEach(tr => {
+      const tds = tr.querySelectorAll("td");
+      if (tds.length >= 3) {
+        const fault = tds[0].innerText.trim();
+        const total = tds[tds.length - 2].innerText.trim();
+        const pct = tds[tds.length - 1].innerText.trim();
+        body += `${fault}: ${total} sites (${pct})\n`;
+      }
+    });
+
+    body += `\n${getClosingSignature(chosenSsa)}`;
+    window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+  }
+
+  // Screenshot Table for Matrix
+  function captureDownMatrixScreenshot() {
+    const matrixElem = document.getElementById("down-matrix-section");
+    html2canvas(matrixElem, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `Fault_Wise_SSA_Matrix_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+
+  // =========================================================================
+  // WHATSAPP & MAIL DISPATCHERS (WITH GROUPED L1 & SSA-FIRST SORTING)
+  // =========================================================================
+
+  // Item 1: Detailed Down Sites WhatsApp (Grouped by L1, No L1 repeating per row, No down reason)
+  function shareUnifiedDownDetailedWhatsApp() {
     if (!downUnifiedDisplayRecords || downUnifiedDisplayRecords.length === 0) {
       alert("No down sites matching active filters to share.");
       return;
     }
-    const chosenL1 = document.getElementById("down-select-l1").value;
-    const phone = chosenL1 !== "ALL" ? extractPhoneNumber(chosenL1) : "";
-    const msg = buildUnifiedDownMessageText();
+    const chosenSsa = document.getElementById("down-ssa-select").value;
+    const chosenPeriod = document.getElementById("down-period-filter").value;
 
-    const url = phone 
-      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    // Group sites by L1
+    const l1Map = {};
+    downUnifiedDisplayRecords.forEach(r => {
+      const l1 = r.incharge || "Unassigned";
+      if (!l1Map[l1]) l1Map[l1] = [];
+      l1Map[l1].push(r);
+    });
 
-    window.open(url, "_blank");
+    let msg = `Dear Sir/Mam,\nFollowing BTS sites are currently DOWN (${chosenPeriod}):\n\n`;
+
+    Object.keys(l1Map).sort().forEach(l1 => {
+      const sites = l1Map[l1];
+      msg += `👤 *${l1}* (${sites.length} Sites):\n`;
+      sites.forEach((s, idx) => {
+        msg += `   ${idx + 1}. *${s.btsName}* (${s.downPeriod}) - Tech: ${s.deviceType}\n`;
+      });
+      msg += `\n`;
+    });
+
+    msg += `Please restore these sites on priority.\n\n`;
+    msg += getClosingSignature(chosenSsa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+
+  // Item 1: Summary Count Only Down Sites WhatsApp
+  function shareUnifiedDownSummaryWhatsApp() {
+    if (!downUnifiedDisplayRecords || downUnifiedDisplayRecords.length === 0) {
+      alert("No down sites matching active filters to share.");
+      return;
+    }
+    const chosenSsa = document.getElementById("down-ssa-select").value;
+    const chosenPeriod = document.getElementById("down-period-filter").value;
+
+    const l1CountMap = {};
+    downUnifiedDisplayRecords.forEach(r => {
+      const l1 = r.incharge || "Unassigned";
+      l1CountMap[l1] = (l1CountMap[l1] || 0) + 1;
+    });
+
+    let msg = `*🚨 J&K CM Down Sites Outage Count Summary (${chosenPeriod})*\n`;
+    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} | *Total Down:* ${downUnifiedDisplayRecords.length} Sites\n\n`;
+    msg += `📊 *L1 In-Charge Outage Breakdown:*\n`;
+
+    Object.keys(l1CountMap).sort((a,b) => l1CountMap[b] - l1CountMap[a]).forEach(l1 => {
+      msg += `• *${l1}*: ${l1CountMap[l1]} Sites Down\n`;
+    });
+
+    msg += `\nPlease expedite field rectification.\n\n`;
+    msg += getClosingSignature(chosenSsa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
   function shareUnifiedDownMail() {
@@ -2751,35 +3267,66 @@
       return;
     }
     const chosenSsa = document.getElementById("down-ssa-select").value;
-    const chosenL2 = document.getElementById("down-select-l2").value;
-    const subject = `Outage Alert: Down BTS Sites - J&K CM${chosenL2 !== 'ALL' ? ' (' + chosenL2 + ')' : ''}`;
-    const body = buildUnifiedDownMessageText();
+    const chosenPeriod = document.getElementById("down-period-filter").value;
+
+    let subject = `Outage Alert: Down BTS Sites - J&K CM (${chosenPeriod})`;
+    let body = `Dear Sir/Mam,\nFollowing BTS sites are currently DOWN (${chosenPeriod}):\n\n`;
+
+    const l1Map = {};
+    downUnifiedDisplayRecords.forEach(r => {
+      const l1 = r.incharge || "Unassigned";
+      if (!l1Map[l1]) l1Map[l1] = [];
+      l1Map[l1].push(r);
+    });
+
+    Object.keys(l1Map).sort().forEach(l1 => {
+      body += `L1 In-Charge: ${l1} (${l1Map[l1].length} Sites):\n`;
+      l1Map[l1].forEach((s, idx) => {
+        body += `  ${idx + 1}. ${s.btsName} (${s.downPeriod}) - Tech: ${s.deviceType}\n`;
+      });
+      body += `\n`;
+    });
+
+    body += `Please restore these sites on priority.\n\n`;
+    body += getClosingSignature(chosenSsa);
+
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
-  function buildInfoSummaryMessageText() {
-    const groupBy = document.getElementById("info-group-by-select").value;
-    const chosenSsa = document.getElementById("info-ssa-select").value;
-    const rows = window.currentInfoSummaryRows || [];
-
-    let msg = `*📊 J&K CM Down Sites Information Summary*\n`;
-    msg += `*Grouped By:* ${groupBy} | *SSA:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n\n`;
-
-    rows.forEach(r => {
-      msg += `*${r.entity}* (${r.ssa}): Total: *${r.total}* [GSM: ${r.gsm}, UMTS: ${r.umts}, LTE: ${r.lteTotal} (DBN: ${r.lteDbn}, NDBN: ${r.lteNdbn})]\n`;
-    });
-
-    msg += `\n${getClosingSignature(chosenSsa)}`;
-    return msg;
-  }
-
+  // Item 2: Information Summary WhatsApp (Sorted by SSA First, nesting entities underneath)
   function shareInfoSummaryWhatsApp() {
     const rows = window.currentInfoSummaryRows || [];
     if (rows.length === 0) {
       alert("No information summary data to share.");
       return;
     }
-    const msg = buildInfoSummaryMessageText();
+    const groupBy = document.getElementById("info-group-by-select").value;
+    const chosenSsa = document.getElementById("info-ssa-select").value;
+
+    // Group rows by SSA first
+    const ssaGroups = {};
+    rows.forEach(r => {
+      const s = r.ssa || "Other";
+      if (!ssaGroups[s]) ssaGroups[s] = [];
+      ssaGroups[s].push(r);
+    });
+
+    let msg = `*📊 J&K CM Down Sites Information Summary*\n`;
+    msg += `*Grouped By:* ${groupBy} | *Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n\n`;
+
+    Object.keys(ssaGroups).sort().forEach(s => {
+      const groupRows = ssaGroups[s];
+      let ssaTot = 0;
+      groupRows.forEach(gr => ssaTot += gr.total);
+
+      msg += `📍 *${s} SSA* (Total: ${ssaTot}):\n`;
+      groupRows.forEach(r => {
+        msg += `   • *${r.entity}*: ${r.total} [GSM: ${r.gsm}, UMTS: ${r.umts}, LTE: ${r.lteTotal} (DBN: ${r.lteDbn}, NDBN: ${r.lteNdbn})]\n`;
+      });
+      msg += `\n`;
+    });
+
+    msg += getClosingSignature(chosenSsa);
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
@@ -2789,9 +3336,32 @@
       alert("No information summary data to share.");
       return;
     }
+    const groupBy = document.getElementById("info-group-by-select").value;
     const chosenSsa = document.getElementById("info-ssa-select").value;
-    const subject = `Information Summary: Down BTS Sites - J&K CM (${chosenSsa === 'ALL' ? 'Circle' : chosenSsa})`;
-    const body = buildInfoSummaryMessageText();
+
+    const ssaGroups = {};
+    rows.forEach(r => {
+      const s = r.ssa || "Other";
+      if (!ssaGroups[s]) ssaGroups[s] = [];
+      ssaGroups[s].push(r);
+    });
+
+    let subject = `Information Summary: Down BTS Sites - J&K CM (${chosenSsa === 'ALL' ? 'Circle' : chosenSsa})`;
+    let body = `J&K CM Down Sites Information Summary (Grouped by ${groupBy}):\n\n`;
+
+    Object.keys(ssaGroups).sort().forEach(s => {
+      const groupRows = ssaGroups[s];
+      let ssaTot = 0;
+      groupRows.forEach(gr => ssaTot += gr.total);
+
+      body += `[${s} SSA] (Total: ${ssaTot}):\n`;
+      groupRows.forEach(r => {
+        body += `  - ${r.entity}: ${r.total} [GSM: ${r.gsm}, UMTS: ${r.umts}, LTE: ${r.lteTotal} (DBN: ${r.lteDbn}, NDBN: ${r.lteNdbn})]\n`;
+      });
+      body += `\n`;
+    });
+
+    body += getClosingSignature(chosenSsa);
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
@@ -2799,12 +3369,12 @@
     const records = window.activeHealthyDownFiltered || [];
     const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
     const chosenL2 = (document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL");
-    const chosenReportDate = document.getElementById("healthy-report-date-select") ? document.getElementById("healthy-report-date-select").value : "";
+    const chosenCommonDate = document.getElementById("down-report-date-select") ? document.getElementById("down-report-date-select").value : "";
     let l2Title = chosenL2 !== "ALL" ? ` [L2: ${chosenL2}]` : "";
 
-    let msg = `Dear Sir/Mam,\nFollowing High Availability LTE BTS sites (Rolling 30-Day Avail >= 98% as of ${chosenReportDate}) are currently DOWN${l2Title}:\n\n`;
+    let msg = `Dear Sir/Mam,\nFollowing High Availability LTE BTS sites (Rolling 30-Day Avail >= 98% as of ${chosenCommonDate}) are currently DOWN${l2Title}:\n\n`;
     records.forEach((r, idx) => {
-      msg += `${idx + 1}. *${r.btsName}* (${r.downPeriod}) - Avail: ${r.reportDateAvail.toFixed(1)}% | Cat: ${r.category} | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
+      msg += `${idx + 1}. *${r.btsName}* (${r.downPeriod}) - Avail: ${r.currentSelectedAvail.toFixed(1)}% | Cat: ${r.category} | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
     });
     msg += `\nPlease restore these high-availability LTE sites on topmost priority to protect circle SLA.\n\n`;
     msg += getClosingSignature(chosenSsa);
@@ -2873,7 +3443,7 @@
       "Remark": r.remark,
       "Site Incharge (L1)": r.incharge,
       "L2 Incharge": r.l2,
-      "30-Day Avail %": (r.reportDateAvail !== undefined && r.reportDateAvail !== null) ? r.reportDateAvail.toFixed(2) + "%" : (r.availVal !== null ? r.availVal.toFixed(2) + "%" : "N/A")
+      "30-Day Avail %": r.currentSelectedAvail !== null ? r.currentSelectedAvail.toFixed(2) + "%" : "N/A"
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -2907,7 +3477,10 @@
   function exportDownMatrixExcel() {
     const durVal = document.getElementById("matrix-duration-filter").value;
     let recordsForMatrix = downFilteredRecords;
-    if (durVal === "LT12H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 720);
+    if (durVal === "GT2H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 120);
+    else if (durVal === "GT8H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 480);
+    else if (durVal === "LT12H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 720);
+    else if (durVal === "GT12H") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 720);
     else if (durVal === "LT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes < 1440);
     else if (durVal === "GT1D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 1440);
     else if (durVal === "GT3D") recordsForMatrix = downFilteredRecords.filter(r => r.durationMinutes >= 4320);
@@ -3054,7 +3627,7 @@
 
   window.onload = function() {
     fetchAndRenderInfra();
-    setTimeout(() => { if (!dbnDataLoaded) fetchAndRenderDbn(); }, 800);
+    setTimeout(() => { if (!dbnDataLoaded) fetchAndRenderDbn(); }, 600);
   };
 </script>
 </body>
