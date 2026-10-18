@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Report & Tracker</title>
-  <!-- Libraries for CSV Parsing, Excel Import/Export, PDF Export, Chart.js, Datalabels & HTML2Canvas -->
+  <!-- Libraries for CSV/Excel Parsing, Export, Charts & Screenshots -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -54,13 +54,11 @@
     h1 { margin: 0; font-size: 24px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; }
 
-    /* Module Navigation */
     .module-nav { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; }
     .module-btn { background: #e2e8f0; border: none; padding: 12px 22px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 14px; color: #334155; transition: all 0.2s ease; }
     .module-btn:hover { background: #cbd5e1; }
     .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
 
-    /* Sub Tabs */
     .sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .sub-tab-btn { background: #f1f5f9; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; color: #475569; }
     .sub-tab-btn.active { background: #0284c7; color: white; border-color: #0284c7; }
@@ -80,12 +78,10 @@
     .btn-red { background: #dc2626; color: white; }
     .btn-sm { padding: 5px 10px; font-size: 11px; }
 
-    /* Toolbars */
     .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .toolbar-group { display: flex; align-items: center; gap: 8px; }
     .toolbar select, .toolbar input { padding: 7px 11px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; }
 
-    /* Slicer Pills */
     .slicer-group { display: flex; gap: 6px; flex-wrap: wrap; }
     .slicer-btn { border: 1px solid var(--border); background: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .slicer-btn:hover { background: #f1f5f9; }
@@ -117,7 +113,6 @@
     .table-container { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
     .heat-cell { text-align: right; font-variant-numeric: tabular-nums; }
 
-    /* Modal / Popup */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
     .modal-card { background: white; width: 100%; max-width: 1000px; max-height: 90vh; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
     .modal-header { padding: 16px 20px; background: #f1f5f9; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
@@ -126,7 +121,6 @@
     .close-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; color: #64748b; }
     .missing-tag { display: inline-block; background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin: 2px; }
 
-    /* Badges */
     .badge-dbn { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-ndbn { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-fault { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
@@ -162,7 +156,6 @@
     </div>
   </div>
 
-  <!-- Top-Level Module Navigation: 3 Main Modules -->
   <div class="module-nav">
     <button class="module-btn active" id="btn-mod-infra" onclick="switchModule('mod-infra', this)">
       🏢 CNMC Site Infra & Power Tracker
@@ -175,9 +168,7 @@
     </button>
   </div>
 
-  <!-- ========================================================================= -->
-  <!-- MODULE 1: CNMC SITE INFRA & POWER TRACKER                                 -->
-  <!-- ========================================================================= -->
+  <!-- MODULE 1: CNMC SITE INFRA -->
   <div id="mod-infra">
     <div class="toolbar">
       <div class="toolbar-group">
@@ -286,9 +277,7 @@
     </div>
   </div>
 
-  <!-- ========================================================================= -->
-  <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD                                        -->
-  <!-- ========================================================================= -->
+  <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD -->
   <div id="mod-dbn" style="display: none;">
     <div class="metric-legend-note">
       ℹ️ <strong>Note:</strong> Avail % is for rolling 30 days, max. active user is max. for last 30 days, voice erl and data GB are avg. of last 30 days.
@@ -301,7 +290,7 @@
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 4. Escalation Dashboard</button>
     </div>
 
-    <!-- SUB-VIEW 1: CORE AVAILABILITY OVERVIEW (WITH STACKED BAR CHART & SCREENSHOT) -->
+    <!-- SUB-VIEW 1: AVAILABILITY OVERVIEW (STACKED BAR GRAPH, COUNT/% TOGGLE & SCREENSHOT) -->
     <div class="dbn-sub-section" id="dbn-main-view">
       <div class="toolbar">
         <div class="toolbar-group">
@@ -349,7 +338,7 @@
         <div class="kpi-card"><div class="title">Critical Sites (&lt;90%)</div><div class="value" id="dbn-kpi-critical" style="color:#dc2626;">-</div></div>
       </div>
 
-      <!-- Chart Analytics Row with Stacked Bar Graph, Count/% Toggle & Screenshot -->
+      <!-- Analytics Row: Doughnut + Stacked Bar Chart with Count/% Toggle and Screenshot -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
         <div class="section" style="margin-bottom: 0; padding: 14px;">
           <h2 style="font-size: 15px;">4-Bucket Availability Distribution</h2>
@@ -642,11 +631,8 @@
     </div>
   </div>
 
-  <!-- ========================================================================= -->
-  <!-- MODULE 3: DOWN SITES TRACKER                                              -->
-  <!-- ========================================================================= -->
+  <!-- MODULE 3: DOWN SITES TRACKER -->
   <div id="mod-down" style="display: none;">
-    <!-- Universal Down Sites Toolbar with Common Master Report Date -->
     <div class="toolbar">
       <div class="toolbar-group">
         <label for="down-report-date-select"><strong>Avail. Report Date:</strong></label>
@@ -690,7 +676,7 @@
         </select>
       </div>
 
-      <!-- Expanded Period Filter Options -->
+      <!-- Expanded Period Options -->
       <div class="toolbar-group">
         <label for="down-period-filter"><strong>Period:</strong></label>
         <select id="down-period-filter" onchange="applyDownSitesFilters()" style="font-weight:600; color:var(--primary);">
@@ -706,7 +692,6 @@
         </select>
       </div>
 
-      <!-- Cascading L1 & L2 Dropdowns (Narrowed by SSA) -->
       <div class="toolbar-group">
         <label for="down-select-l1"><strong>L1:</strong></label>
         <select id="down-select-l1" onchange="applyDownSitesFilters()" style="max-width: 150px;">
@@ -731,7 +716,6 @@
       </div>
     </div>
 
-    <!-- Down Sites KPI Cards -->
     <div class="kpi-container">
       <div class="kpi-card"><div class="title">Total Down Sites</div><div class="value" id="down-kpi-total" style="color:#dc2626;">-</div></div>
       <div class="kpi-card"><div class="title">&gt; 1 Day Down</div><div class="value" id="down-kpi-gt1d" style="color:#b91c1c;">-</div></div>
@@ -741,7 +725,6 @@
       <div class="kpi-card"><div class="title">LTE Down</div><div class="value" id="down-kpi-lte">-</div></div>
     </div>
 
-    <!-- Sub-Tabs for Down Sites -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDownSubTab('down-unified-view', this)">🚨 1. Down Sites List</button>
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-info-summary-view', this)">📋 2. Information Summary</button>
@@ -750,7 +733,7 @@
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 5. Fault-Wise SSA Matrix</button>
     </div>
 
-    <!-- SUB-VIEW 1: UNIFIED DOWN SITES LIST (TWO WHATSAPP BUTTONS) -->
+    <!-- SUB-VIEW 1: UNIFIED DOWN SITES LIST -->
     <div class="down-sub-section" id="down-unified-view">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -793,7 +776,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 2: INFORMATION SUMMARY (INCLUDES SSA GROUPING & SSA-FIRST WHATSAPP SHARE) -->
+    <!-- SUB-VIEW 2: INFORMATION SUMMARY -->
     <div class="down-sub-section" id="down-info-summary-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -856,7 +839,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN (LTE ONLY & COMMON REPORT DATE) -->
+    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN -->
     <div class="down-sub-section" id="down-healthy-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -930,7 +913,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 4: NEW MODULE - REASON NOT UPDATED TRACKER (GROUPED BY SSA, L1, L2) -->
+    <!-- SUB-VIEW 4: REASON NOT UPDATED TRACKER -->
     <div class="down-sub-section" id="down-notupdated-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -981,7 +964,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 5: FAULT-WISE MATRIX ACROSS SSAS (WITH WHATSAPP, MAIL & SCREENSHOT) -->
+    <!-- SUB-VIEW 5: FAULT-WISE MATRIX ACROSS SSAS -->
     <div class="down-sub-section" id="down-matrix-view" style="display: none;">
       <div class="section" id="down-matrix-section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -1022,7 +1005,7 @@
 
 </div>
 
-<!-- DRILL-DOWN MODAL FOR CNMC INFRA TRACKER -->
+<!-- DRILL-DOWN MODAL -->
 <div class="modal-overlay" id="drilldown-modal">
   <div class="modal-card">
     <div class="modal-header">
@@ -1060,9 +1043,6 @@
 <script>
   Chart.register(ChartDataLabels);
 
-  // =========================================================================
-  // ENDPOINT URLS
-  // =========================================================================
   const SHEET_INFRA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTKnyeZo3FeyVG08TJZOPfSfXAExoXpTRULaaPTY7Ec_pIENIGILjrFTfp5GxZcQ/pub?gid=34149160&single=true&output=csv";
   const SHEET_DBN_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=551656182&single=true&output=csv";
   const SHEET_DOWNSITES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuurHY8A6pHX_zMsRXKmfl2wsWjzhEeaDddgdR03uIBYZAE050sUNlHbGc49QWIQ/pub?gid=0&single=true&output=csv";
@@ -1071,11 +1051,9 @@
   let dbnDataLoaded = false;
   let downDataLoaded = false;
 
-  // Chart Mode State for Stacked SSA Chart
-  let ssaChartMode = "pct"; // 'pct' or 'count'
+  let ssaChartMode = "pct";
   let cachedSsaAgg = null;
 
-  // Global Cross-Matching Master Lookups
   const masterInchargeByIp = {};
   const masterL2ByIp = {};
   const masterAvailByIp = {};
@@ -1083,16 +1061,43 @@
   const masterCategoryByIp = {};
   const masterAvailByDateAndIp = {};
 
+  // Safe String Extractor: Never crashes if value is a Number, null, or undefined
+  function safeStr(val) {
+    if (val === undefined || val === null) return "";
+    return String(val).trim();
+  }
+
   function normalizeIpKey(key) {
     if (!key) return "";
-    let str = key.toString().trim().toUpperCase();
+    let str = String(key).trim().toUpperCase();
     let numOnly = str.replace(/^0+/, "");
     return numOnly || str;
   }
 
+  // Robust Field Resolver (Case-insensitive, space-ignorant, underscore-ignorant)
+  function getRowField(row, possibleKeys) {
+    for (let k of possibleKeys) {
+      if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") {
+        return String(row[k]).trim();
+      }
+    }
+    const cleanMap = {};
+    for (let k in row) {
+      const norm = k.toLowerCase().replace(/[^a-z0-9]/g, "");
+      cleanMap[norm] = row[k];
+    }
+    for (let k of possibleKeys) {
+      const norm = k.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (cleanMap[norm] !== undefined && cleanMap[norm] !== null && String(cleanMap[norm]).trim() !== "") {
+        return String(cleanMap[norm]).trim();
+      }
+    }
+    return "";
+  }
+
   function parseDownPeriodToMinutes(periodStr) {
     if (!periodStr) return 0;
-    const str = periodStr.toLowerCase().trim();
+    const str = String(periodStr).toLowerCase().trim();
     let totalMinutes = 0;
 
     const dayMatch = str.match(/(\d+)\s*(?:days?|d)/);
@@ -1120,13 +1125,11 @@
 
   function extractPhoneNumber(l1String) {
     if (!l1String) return "";
-    const match = l1String.match(/\b[6-9]\d{9}\b/);
+    const match = String(l1String).match(/\b[6-9]\d{9}\b/);
     return match ? "91" + match[0] : "";
   }
 
-  // =========================================================================
   // MODULE 1: CNMC SITE INFRA LOGIC
-  // =========================================================================
   const EXCLUDED_INDICES = new Set([15, 31, 32, 33, 34, 35, 36, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]);
   let rawDataRows = [], globalHeaders = [], cachedSites = [];
   let currentModalSites = [], currentModalEntityName = "";
@@ -1181,12 +1184,12 @@
     const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
 
     cachedSites = rawDataRows.map(row => {
-      const ba = (row[1] || "").trim();
-      const ssa = (row[2] || "").trim();
-      const phyId = (row[5] || "").trim();
-      const btsName = (row[6] || "").trim();
-      const l1 = (row[69] || "Unassigned").trim();
-      const l2 = (row[70] || "-").trim();
+      const ba = safeStr(row[1]);
+      const ssa = safeStr(row[2]);
+      const phyId = safeStr(row[5]);
+      const btsName = safeStr(row[6]);
+      const l1 = safeStr(row[69]) || "Unassigned";
+      const l2 = safeStr(row[70]) || "-";
 
       if (phyId) {
         const pKey = normalizeIpKey(phyId);
@@ -1308,7 +1311,7 @@
 
   function renderOwnerTable() {
     if (!window.activeOwnerMap) return;
-    const q = (document.getElementById("owner-search").value || "").toLowerCase();
+    const q = safeStr(document.getElementById("owner-search").value).toLowerCase();
     const tbody = document.getElementById("owner-tbody");
     tbody.innerHTML = "";
     Object.values(window.activeOwnerMap).forEach(d => {
@@ -1364,7 +1367,7 @@
   }
 
   function handleInstantSiteSearch(q) {
-    const term = (q || "").trim().toLowerCase();
+    const term = safeStr(q).toLowerCase();
     const btn = document.getElementById("search-tab-btn");
     if (!term) {
       btn.style.display = "none";
@@ -1442,46 +1445,62 @@
   }
 
   // =========================================================================
-  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC (AUTO STREAMING LOADER)
+  // MODULE 2: DBN_NDBN AVAIL DASHBOARD LOGIC (RESILIENT LOADER)
   // =========================================================================
   async function fetchAndRenderDbn() {
     const status = document.getElementById("status-bar");
     status.innerText = "Downloading DBN_NDBN master dataset (61k rows)...";
 
-    const urlsToTry = [
-      SHEET_DBN_URL,
-      "https://corsproxy.io/?" + encodeURIComponent(SHEET_DBN_URL)
-    ];
+    let csvText = null;
 
-    for (let i = 0; i < urlsToTry.length; i++) {
-      try {
-        status.innerText = i === 0 
-          ? "Downloading DBN_NDBN master dataset (Direct)..." 
-          : "Downloading DBN_NDBN dataset (High-Capacity Proxy)...";
+    // 1. Try Direct Fetch without preflight triggering options
+    try {
+      const res = await fetch(SHEET_DBN_URL);
+      if (res.ok) {
+        csvText = await res.text();
+      }
+    } catch (e) {
+      console.warn("Direct DBN fetch failed, trying proxy gateway...", e);
+    }
 
-        const response = await fetch(urlsToTry[i], { cache: "no-store" });
-        if (!response.ok) throw new Error("HTTP Status " + response.status);
-        
-        const csvText = await response.text();
-        if (!csvText || csvText.trim().startsWith("<!DOCTYPE html>")) {
-          throw new Error("Received HTML instead of CSV");
-        }
+    // 2. Try High-capacity streaming proxies if direct request was CORS blocked
+    if (!csvText || csvText.trim().startsWith("<!DOCTYPE html>")) {
+      const proxies = [
+        "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_DBN_URL),
+        "https://corsproxy.io/?" + encodeURIComponent(SHEET_DBN_URL)
+      ];
 
-        status.innerText = "Parsing 61k DBN records in browser...";
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          complete: function(results) {
-            processDbnData(results.data);
+      for (let pUrl of proxies) {
+        try {
+          status.innerText = "Connecting via high-capacity data gateway...";
+          const pRes = await fetch(pUrl);
+          if (pRes.ok) {
+            const txt = await pRes.text();
+            if (txt && !txt.trim().startsWith("<!DOCTYPE html>")) {
+              csvText = txt;
+              break;
+            }
           }
-        });
-        return;
-      } catch (err) {
-        console.warn(`DBN download attempt ${i + 1} failed:`, err);
+        } catch (err) {
+          console.warn("Proxy attempt failed:", err);
+        }
       }
     }
 
-    status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error downloading DBN dataset. Please verify Google Sheet publish status.</span>`;
+    if (!csvText) {
+      status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error loading DBN dataset. Please verify internet connectivity or Google Sheet publishing.</span>`;
+      return;
+    }
+
+    status.innerText = "Parsing 61k DBN records in browser memory...";
+    Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: h => h.trim(),
+      complete: function(results) {
+        processDbnData(results.data);
+      }
+    });
   }
 
   function processDbnData(data) {
@@ -1491,58 +1510,64 @@
       return;
     }
 
-    const dateSet = new Set();
-    dbnRawRecords = data.map(r => {
-      const ssa = (r["Circle SSA"] || r["SSA"] || "").trim();
-      const ba = (r["BA"] || "").trim();
-      const siteId = (r["Static_Site_Hierarchy.PHY_Site_ID"] || r["Site IDs"] || r["PHY_Site_ID"] || "").trim();
-      const siteName = (r["Static_Site_Hierarchy.Site Name"] || r["Site Name"] || "").trim();
-      const btsIp = (r["BTS_IP_ID_Clean"] || r["BTS IP ID"] || "").trim();
-      const cat = (r["CATEGORY"] || "").trim().toUpperCase();
-      const availStr = (r["Max NW avail (%)"] || r["Max NW avail"] || "0").toString().replace("%", "").trim();
-      const avail = parseFloat(availStr) || 0;
-      const bucket = getAvailabilityBucket(avail);
-      const reportDate = (r["Report Date"] || "").trim();
-      const maxActiveUser = parseInt(r["Max active User"] || r["Max active user"] || 0) || 0;
-      const l1 = (r["Static_Site_Hierarchy.CM L1_Name_number"] || "Unassigned").trim();
-      const l2 = (r["Static_Site_Hierarchy.CM L2_Name_number"] || r["L2 Incharge"] || "-").trim();
-      const media = (r["Static_Site_Hierarchy.Media"] || "-").trim();
-      const voiceErl = parseFloat(r["avg Voice_erl"]) || 0;
-      const dataGb = parseFloat(r["avg DATA(GB)"]) || 0;
+    try {
+      const dateSet = new Set();
+      dbnRawRecords = data.map(r => {
+        const ssa = safeStr(r["Circle SSA"] || r["SSA"]);
+        const ba = safeStr(r["BA"]);
+        const siteId = safeStr(r["Static_Site_Hierarchy.PHY_Site_ID"] || r["Site IDs"] || r["PHY_Site_ID"]);
+        const siteName = safeStr(r["Static_Site_Hierarchy.Site Name"] || r["Site Name"]);
+        const btsIp = safeStr(r["BTS_IP_ID_Clean"] || r["BTS IP ID"]);
+        const cat = safeStr(r["CATEGORY"]).toUpperCase();
+        const availStr = safeStr(r["Max NW avail (%)"] || r["Max NW avail"] || "0").replace("%", "").trim();
+        const avail = parseFloat(availStr) || 0;
+        const bucket = getAvailabilityBucket(avail);
+        const reportDate = safeStr(r["Report Date"]);
+        const maxActiveUser = parseInt(r["Max active User"] || r["Max active user"] || 0) || 0;
+        const l1 = safeStr(r["Static_Site_Hierarchy.CM L1_Name_number"]) || "Unassigned";
+        const l2 = safeStr(r["Static_Site_Hierarchy.CM L2_Name_number"] || r["L2 Incharge"]) || "-";
+        const media = safeStr(r["Static_Site_Hierarchy.Media"]) || "-";
+        const voiceErl = parseFloat(r["avg Voice_erl"]) || 0;
+        const dataGb = parseFloat(r["avg DATA(GB)"]) || 0;
 
-      if (reportDate) dateSet.add(reportDate);
+        if (reportDate) dateSet.add(reportDate);
 
-      const ipKey = normalizeIpKey(btsIp);
-      const siteKey = normalizeIpKey(siteId);
+        const ipKey = normalizeIpKey(btsIp);
+        const siteKey = normalizeIpKey(siteId);
 
-      [ipKey, siteKey].forEach(k => {
-        if (k) {
-          masterAvailByIp[k] = avail;
-          if (cat) masterCategoryByIp[k] = cat;
-          if (reportDate) {
-            masterAvailByDateAndIp[`${reportDate}____${k}`] = avail;
+        [ipKey, siteKey].forEach(k => {
+          if (k) {
+            masterAvailByIp[k] = avail;
+            if (cat) masterCategoryByIp[k] = cat;
+            if (reportDate) {
+              masterAvailByDateAndIp[`${reportDate}____${k}`] = avail;
+            }
+            if (l1 && l1 !== "Unassigned") masterInchargeByIp[k] = l1;
+            if (l2 && l2 !== "-") masterL2ByIp[k] = l2;
+            if (media && media !== "-") masterMediaByIp[k] = media;
           }
-          if (l1 && l1 !== "Unassigned") masterInchargeByIp[k] = l1;
-          if (l2 && l2 !== "-") masterL2ByIp[k] = l2;
-          if (media && media !== "-") masterMediaByIp[k] = media;
-        }
-      });
+        });
 
-      return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, maxActiveUser, l1, l2, media, voiceErl, dataGb };
-    }).filter(r => r.ssa !== "" && r.siteId !== "");
+        return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, maxActiveUser, l1, l2, media, voiceErl, dataGb };
+      }).filter(r => r.ssa !== "" && r.siteId !== "");
 
-    dbnAvailableDates = Array.from(dateSet).sort().reverse();
-    populateDbnControls();
-    populateDownCommonReportDateControl();
-    dbnDataLoaded = true;
-    applyDbnFilters();
-    runDegradedAnalysis();
-    runUserDegradedAnalysis();
-    renderEscalationDashboard();
+      dbnAvailableDates = Array.from(dateSet).sort().reverse();
+      populateDbnControls();
+      populateDownCommonReportDateControl();
+      dbnDataLoaded = true;
 
-    if (downDataLoaded) applyDownSitesFilters();
+      applyDbnFilters();
+      runDegradedAnalysis();
+      runUserDegradedAnalysis();
+      renderEscalationDashboard();
 
-    status.innerText = `DBN Connected • Loaded ${dbnRawRecords.length.toLocaleString()} rows • ${new Date().toLocaleTimeString()}`;
+      if (downDataLoaded) applyDownSitesFilters();
+
+      status.innerText = `DBN Connected • Loaded ${dbnRawRecords.length.toLocaleString()} rows • ${new Date().toLocaleTimeString()}`;
+    } catch (err) {
+      console.error("Critical error in processDbnData:", err);
+      status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error processing DBN records: ${err.message}</span>`;
+    }
   }
 
   function populateDbnControls() {
@@ -1593,11 +1618,6 @@
     escSsa.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
     Array.from(ssaSet).sort().forEach(s => { escSsa.innerHTML += `<option value="${s}">${s}</option>`; });
 
-    populateDbnOfficerDropdowns();
-  }
-
-  // Populate L1 dropdowns in Degraded and User Degraded sub-views
-  function populateDbnOfficerDropdowns() {
     handleDegradedSsaChange();
     handleUserDegSsaChange();
   }
@@ -1638,7 +1658,6 @@
     runUserDegradedAnalysis();
   }
 
-  // Populate common Master Report Date dropdown in Down Sites Tracker toolbar
   function populateDownCommonReportDateControl() {
     const reportSelect = document.getElementById("down-report-date-select");
     if (!reportSelect) return;
@@ -1669,7 +1688,7 @@
 
     const chosenDate = document.getElementById("dbn-date-select").value;
     const chosenSsa = document.getElementById("dbn-ssa-select").value;
-    const searchVal = (document.getElementById("dbn-search-input").value || "").toLowerCase().trim();
+    const searchVal = safeStr(document.getElementById("dbn-search-input").value).toLowerCase();
 
     dbnFilteredRecords = dbnRawRecords.filter(r => {
       if (chosenDate !== "ALL" && r.reportDate !== chosenDate) return false;
@@ -1733,16 +1752,12 @@
     renderDbnDetailTable(dbnFilteredRecords);
   }
 
-  // Toggle Stacked Chart between Percentage (%) and Count
   function toggleSsaChartMode() {
     ssaChartMode = ssaChartMode === "pct" ? "count" : "pct";
     document.getElementById("btn-toggle-ssa-chart").innerText = ssaChartMode === "pct" ? "Switch to Count" : "Switch to %";
-    if (cachedSsaAgg) {
-      renderStackedSsaChart(cachedSsaAgg);
-    }
+    if (cachedSsaAgg) renderStackedSsaChart(cachedSsaAgg);
   }
 
-  // Capture screenshot of SSA Chart Card
   function captureSsaChartScreenshot() {
     const card = document.getElementById("dbn-ssa-chart-card");
     html2canvas(card, { scale: 2 }).then(canvas => {
@@ -1789,14 +1804,9 @@
     renderStackedSsaChart(ssaAgg);
   }
 
-  // Stacked Bar Chart for SSA Availability Distribution
   function renderStackedSsaChart(ssaAgg) {
     const ssaLabels = Object.keys(ssaAgg).sort();
-
-    const dataGte98 = [];
-    const dataMid94 = [];
-    const dataLow90 = [];
-    const dataLt90  = [];
+    const dataGte98 = [], dataMid94 = [], dataLow90 = [], dataLt90 = [];
 
     ssaLabels.forEach(s => {
       const a = ssaAgg[s];
@@ -1970,11 +1980,6 @@
     });
   }
 
-  // =========================================================================
-  // SUB-MODULE 2: AVAILABILITY DEGRADED SITES LOGIC
-  // =========================================================================
-  let degradedSitesList = [];
-
   function runDegradedAnalysis() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
     const prevDate = document.getElementById("deg-prev-date").value;
@@ -2060,7 +2065,6 @@
     });
   }
 
-  // WhatsApp share for degraded sites
   function shareDegradedSitesWhatsApp() {
     if (!degradedSitesList || degradedSitesList.length === 0) {
       alert("No degraded sites to share.");
@@ -2098,9 +2102,7 @@
     XLSX.writeFile(wb, "Degraded_Avail_Sites.xlsx");
   }
 
-  // =========================================================================
-  // SUB-MODULE 3: USER DEGRADATION TRACKER LOGIC
-  // =========================================================================
+  // SUB-MODULE 3: USER DEGRADATION TRACKER
   let userDegradedSitesList = [];
 
   function runUserDegradedAnalysis() {
@@ -2205,7 +2207,6 @@
     });
   }
 
-  // Summary-Only WhatsApp Share for User Degradation Tracker
   function shareUserDegSummaryWhatsApp() {
     const prevDate = document.getElementById("user-deg-prev-date").value;
     const nextDate = document.getElementById("user-deg-next-date").value;
@@ -2240,16 +2241,14 @@
     XLSX.writeFile(wb, "Max_Active_User_Degradation.xlsx");
   }
 
-  // =========================================================================
-  // SUB-MODULE 4: ESCALATION DASHBOARD LOGIC (CONTEXT-AWARE RANKING)
-  // =========================================================================
+  // SUB-MODULE 4: ESCALATION DASHBOARD
   function renderEscalationDashboard() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
     const chosenDate = document.getElementById("esc-date-select").value;
     const chosenSsa = document.getElementById("esc-ssa-select").value;
     const chosenCat = document.getElementById("esc-cat-select") ? document.getElementById("esc-cat-select").value : "ALL";
     const targetPct = parseFloat(document.getElementById("esc-target-select").value) || 80.0;
-    const searchVal = (document.getElementById("esc-search-input").value || "").toLowerCase().trim();
+    const searchVal = safeStr(document.getElementById("esc-search-input").value).toLowerCase();
 
     const dateRecords = dbnRawRecords.filter(r => {
       if (r.reportDate !== chosenDate) return false;
@@ -2413,8 +2412,13 @@
   }
 
   // =========================================================================
-  // MODULE 3: DOWN SITES TRACKER LOGIC
+  // MODULE 3: DOWN SITES TRACKER LOGIC (SAFE PARSING & UPLOAD)
   // =========================================================================
+  let downRawRecords = [];
+  let downFilteredRecords = [];
+  let downUnifiedDisplayRecords = [];
+
+  // Bulletproof Local File Upload Handler for CSV & Excel
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2427,95 +2431,118 @@
 
     if (fileName.endsWith(".csv")) {
       reader.onload = function(e) {
-        parseDownSitesCsv(e.target.result);
-        status.innerText = `Loaded local CSV: ${file.name} • ${new Date().toLocaleTimeString()}`;
+        Papa.parse(e.target.result, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: h => h.trim(),
+          complete: function(results) {
+            processRawDownRecords(results.data);
+            status.innerText = `Loaded local CSV: ${file.name} • ${new Date().toLocaleTimeString()}`;
+          }
+        });
       };
       reader.readAsText(file);
     } else {
       reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const csvText = XLSX.utils.sheet_to_csv(worksheet);
-        parseDownSitesCsv(csvText);
-        status.innerText = `Loaded local Excel: ${file.name} • ${new Date().toLocaleTimeString()}`;
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+          processRawDownRecords(jsonData);
+          status.innerText = `Loaded local Excel: ${file.name} • ${new Date().toLocaleTimeString()}`;
+        } catch (err) {
+          console.error("Error reading Excel file:", err);
+          status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error reading ${file.name}: ${err.message}</span>`;
+        }
       };
       reader.readAsArrayBuffer(file);
     }
+
+    event.target.value = ""; // Clear file input so same file can be re-selected
   }
 
   async function fetchAndRenderDownSites() {
     const status = document.getElementById("status-bar");
-    status.innerText = "Downloading Down Sites dataset...";
+    status.innerText = "Connecting to Down Sites sheet...";
     const targetUrl = SHEET_DOWNSITES_URL + (SHEET_DOWNSITES_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
 
     try {
       let res = await fetch(targetUrl);
       if (!res.ok) throw new Error("Status: " + res.status);
       let csvText = await res.text();
-      parseDownSitesCsv(csvText);
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim(),
+        complete: function(results) {
+          processRawDownRecords(results.data);
+          status.innerText = `Down Sites Connected • ${downRawRecords.length.toLocaleString()} records • ${new Date().toLocaleTimeString()}`;
+        }
+      });
     } catch (err) {
       console.warn("Direct Down Sites fetch failed, trying proxy gateway...", err);
       try {
         let proxyRes = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl));
         let proxyCsv = await proxyRes.text();
-        parseDownSitesCsv(proxyCsv);
+        Papa.parse(proxyCsv, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: h => h.trim(),
+          complete: function(results) {
+            processRawDownRecords(results.data);
+            status.innerText = `Down Sites Connected (Proxy) • ${downRawRecords.length.toLocaleString()} records • ${new Date().toLocaleTimeString()}`;
+          }
+        });
       } catch (backupErr) {
-        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error loading Down Sites dataset. Check sheet URL.</span>`;
+        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Please upload Down Sites file via '📂 Upload Raw File' button.</span>`;
       }
     }
   }
 
-  function parseDownSitesCsv(csvText) {
+  // Safe Record Mapper (Never crashes on Numbers, Nulls, or Whitespace differences)
+  function processRawDownRecords(data) {
     const status = document.getElementById("status-bar");
-    Papa.parse(csvText, {
-      header: true,
-      skipEmptyLines: true,
-      complete: function(results) {
-        const data = results.data;
-        if (!data || data.length === 0) {
-          status.innerText = "⚠️ Down Sites Dataset is empty.";
-          return;
-        }
+    if (!data || data.length === 0) {
+      status.innerText = "⚠️ Dataset is empty.";
+      return;
+    }
 
-        downRawRecords = data.map(r => {
-          const ba = (r["BA"] || "").trim();
-          const ssa = (r["ssa_id"] || r["SSA"] || "").trim();
-          const sdca = (r["sdca_name"] || r["SDCA"] || "-").trim();
-          const siteId = (r["btsSiteId"] || r["btsSiteID"] || r["Site ID"] || r["PHY_Site_ID"] || "").trim();
-          const btsName = (r["btsName"] || r["BTS Name"] || "").trim();
-          const btsIpId = (r["btsIpId"] || r["btsIpIdNew"] || r["BTS IP ID"] || "").trim();
-          const deviceType = (r["deviceType"] || r["Device Type"] || "Unknown").trim().toUpperCase();
-          const vendor = (r["vendorId"] || r["Vendor"] || "").trim();
-          const downDt = (r["downDt"] || r["Down Date"] || "").trim();
-          const downPeriod = (r["downPeriod"] || r["Down Period"] || "-").trim();
-          
-          let rawFault = (r["fault_type"] || r["Fault Type"] || "").trim();
-          const faultType = rawFault !== "" ? rawFault : "Reason not updated";
-          
-          const remark = (r["remark"] || r["Remark"] || "-").trim();
+    downRawRecords = data.map(r => {
+      const ba = getRowField(r, ["BA", "ba"]);
+      const ssa = getRowField(r, ["ssa_id", "SSA", "ssa", "Circle SSA", "SSA ID"]);
+      const sdca = getRowField(r, ["sdca_name", "SDCA", "sdca"]) || "-";
+      const siteId = getRowField(r, ["btsSiteId", "btsSiteID", "Site ID", "PHY_Site_ID", "SiteId", "site_id"]);
+      const btsName = getRowField(r, ["btsName", "BTS Name", "Site Name", "bts_name"]);
+      const btsIpId = getRowField(r, ["btsIpId", "btsIpIdNew", "BTS IP ID", "BTS_IP_ID"]);
+      const deviceType = (getRowField(r, ["deviceType", "Device Type", "device_type"]) || "Unknown").toUpperCase();
+      const vendor = getRowField(r, ["vendorId", "Vendor", "vendor_id"]);
+      const downDt = getRowField(r, ["downDt", "Down Date", "down_dt"]);
+      const downPeriod = getRowField(r, ["downPeriod", "Down Period", "down_period", "Duration"]) || "-";
+      
+      let rawFault = getRowField(r, ["fault_type", "Fault Type", "faultType", "Reason"]);
+      const faultType = rawFault !== "" ? rawFault : "Reason not updated";
+      
+      const remark = getRowField(r, ["remark", "Remark", "remarks", "Remarks"]) || "-";
 
-          const ipKey = normalizeIpKey(btsIpId);
-          const siteKey = normalizeIpKey(siteId);
+      const ipKey = normalizeIpKey(btsIpId);
+      const siteKey = normalizeIpKey(siteId);
 
-          const incharge = masterInchargeByIp[ipKey] || masterInchargeByIp[siteKey] || "Unassigned";
-          const l2 = masterL2ByIp[ipKey] || masterL2ByIp[siteKey] || "-";
-          const media = masterMediaByIp[ipKey] || masterMediaByIp[siteKey] || "-";
-          const category = (r["CATEGORY"] || masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey] || "NDBN").trim().toUpperCase();
-          const availVal = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
+      const incharge = masterInchargeByIp[ipKey] || masterInchargeByIp[siteKey] || "Unassigned";
+      const l2 = masterL2ByIp[ipKey] || masterL2ByIp[siteKey] || "-";
+      const media = masterMediaByIp[ipKey] || masterMediaByIp[siteKey] || "-";
+      const category = (getRowField(r, ["CATEGORY", "category"]) || masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey] || "NDBN").toUpperCase();
+      const availVal = masterAvailByIp[ipKey] ?? masterAvailByIp[siteKey] ?? null;
 
-          const durationMinutes = parseDownPeriodToMinutes(downPeriod);
+      const durationMinutes = parseDownPeriodToMinutes(downPeriod);
 
-          return { ba, ssa, sdca, siteId, btsName, btsIpId, category, deviceType, vendor, downDt, downPeriod, durationMinutes, faultType, remark, incharge, l2, media, availVal };
-        }).filter(r => r.siteId !== "" || r.btsName !== "");
+      return { ba, ssa, sdca, siteId, btsName, btsIpId, category, deviceType, vendor, downDt, downPeriod, durationMinutes, faultType, remark, incharge, l2, media, availVal };
+    }).filter(r => r.siteId !== "" || r.btsName !== "");
 
-        populateDownSitesControls();
-        downDataLoaded = true;
-        applyDownSitesFilters();
-        status.innerText = `Down Sites Connected • ${downRawRecords.length.toLocaleString()} active down sites • ${new Date().toLocaleTimeString()}`;
-      }
-    });
+    populateDownSitesControls();
+    downDataLoaded = true;
+    applyDownSitesFilters();
   }
 
   function populateDownSitesControls() {
@@ -2638,7 +2665,7 @@
     const chosenL1 = document.getElementById("down-select-l1").value;
     const chosenL2 = document.getElementById("down-select-l2").value;
     const chosenCommonDate = document.getElementById("down-report-date-select") ? document.getElementById("down-report-date-select").value : "";
-    const searchVal = (document.getElementById("down-search-input").value || "").toLowerCase().trim();
+    const searchVal = safeStr(document.getElementById("down-search-input").value).toLowerCase();
 
     downFilteredRecords = downRawRecords.map(r => {
       const ipKey = normalizeIpKey(r.btsIpId);
@@ -2650,7 +2677,6 @@
         r.category = masterCategoryByIp[ipKey] || masterCategoryByIp[siteKey];
       }
 
-      // Dynamically calculate 30 days availability from Common Report Date
       let dynamicAvail = null;
       if (chosenCommonDate) {
         dynamicAvail = masterAvailByDateAndIp[`${chosenCommonDate}____${ipKey}`] ?? 
@@ -2671,7 +2697,6 @@
       if (chosenL1 !== "ALL" && r.incharge !== chosenL1) return false;
       if (chosenL2 !== "ALL" && r.l2 !== chosenL2) return false;
 
-      // Period filters
       if (chosenPeriod === "GT2H" && r.durationMinutes < 120) return false;
       if (chosenPeriod === "GT8H" && r.durationMinutes < 480) return false;
       if (chosenPeriod === "LT12H" && r.durationMinutes >= 720) return false;
@@ -2763,7 +2788,6 @@
     });
   }
 
-  // Information Summary Table (Groups by SSA, L1, L2, SDCA)
   function renderInfoSummaryTable() {
     const tbody = document.getElementById("down-info-summary-tbody");
     const groupHeader = document.getElementById("info-table-group-header");
@@ -2811,7 +2835,6 @@
 
     const rows = Object.values(agg).sort((a, b) => b.total - a.total);
     tbody.innerHTML = "";
-
     window.currentInfoSummaryRows = rows;
 
     if (rows.length === 0) {
@@ -2855,7 +2878,6 @@
       </tr>`;
   }
 
-  // Render Healthy Sites Currently Down (LTE Only, uses Common Report Date)
   function renderHealthyDownSitesTable() {
     const tbody = document.getElementById("down-healthy-tbody");
     const countBadge = document.getElementById("down-healthy-count-badge");
@@ -2864,7 +2886,7 @@
     const chosenCat = document.getElementById("healthy-cat-select") ? document.getElementById("healthy-cat-select").value : "ALL";
     const chosenL1 = document.getElementById("healthy-select-l1") ? document.getElementById("healthy-select-l1").value : "ALL";
     const chosenL2 = document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL";
-    const searchVal = (document.getElementById("healthy-search-input") ? document.getElementById("healthy-search-input").value : "").toLowerCase().trim();
+    const searchVal = safeStr(document.getElementById("healthy-search-input").value).toLowerCase();
 
     const lteDownSites = downFilteredRecords.filter(r => r.deviceType.includes("LTE"));
     const candidateSites = lteDownSites.filter(r => r.currentSelectedAvail !== null && r.currentSelectedAvail >= 98.0);
@@ -2919,7 +2941,6 @@
     });
   }
 
-  // Sub-Module 4: Reason Not Updated Tracker Table
   function renderNotUpdatedTable() {
     const tbody = document.getElementById("down-notupdated-tbody");
     const groupHeader = document.getElementById("notupdated-group-header");
@@ -2994,7 +3015,6 @@
       </tr>`;
   }
 
-  // WhatsApp Shares for Reason Not Updated Tracker
   function shareNotUpdatedDetailedWhatsApp() {
     const rows = window.currentNotUpdatedRows || [];
     const chosenSsa = document.getElementById("notupdated-ssa-select").value;
@@ -3072,7 +3092,6 @@
     XLSX.writeFile(wb, "Down_Sites_Reason_Not_Updated.xlsx");
   }
 
-  // Matrix Duration Filter
   function applyMatrixDurationFilter() {
     const durVal = document.getElementById("matrix-duration-filter").value;
     let recordsForMatrix = downFilteredRecords;
@@ -3136,7 +3155,6 @@
     tbody.innerHTML += totalRowHtml;
   }
 
-  // WhatsApp & Mail for Fault-Wise Matrix
   function shareDownMatrixWhatsApp() {
     const table = document.getElementById("down-matrix-table-container");
     if (!table) return;
@@ -3183,7 +3201,6 @@
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
-  // Screenshot Table for Matrix
   function captureDownMatrixScreenshot() {
     const matrixElem = document.getElementById("down-matrix-section");
     html2canvas(matrixElem, { scale: 2 }).then(canvas => {
@@ -3194,11 +3211,6 @@
     });
   }
 
-  // =========================================================================
-  // WHATSAPP & MAIL DISPATCHERS (WITH GROUPED L1 & SSA-FIRST SORTING)
-  // =========================================================================
-
-  // Item 1: Detailed Down Sites WhatsApp (Grouped by L1, No L1 repeating per row, No down reason)
   function shareUnifiedDownDetailedWhatsApp() {
     if (!downUnifiedDisplayRecords || downUnifiedDisplayRecords.length === 0) {
       alert("No down sites matching active filters to share.");
@@ -3207,7 +3219,6 @@
     const chosenSsa = document.getElementById("down-ssa-select").value;
     const chosenPeriod = document.getElementById("down-period-filter").value;
 
-    // Group sites by L1
     const l1Map = {};
     downUnifiedDisplayRecords.forEach(r => {
       const l1 = r.incharge || "Unassigned";
@@ -3232,7 +3243,6 @@
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
-  // Item 1: Summary Count Only Down Sites WhatsApp
   function shareUnifiedDownSummaryWhatsApp() {
     if (!downUnifiedDisplayRecords || downUnifiedDisplayRecords.length === 0) {
       alert("No down sites matching active filters to share.");
@@ -3293,7 +3303,6 @@
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
-  // Item 2: Information Summary WhatsApp (Sorted by SSA First, nesting entities underneath)
   function shareInfoSummaryWhatsApp() {
     const rows = window.currentInfoSummaryRows || [];
     if (rows.length === 0) {
@@ -3303,7 +3312,6 @@
     const groupBy = document.getElementById("info-group-by-select").value;
     const chosenSsa = document.getElementById("info-ssa-select").value;
 
-    // Group rows by SSA first
     const ssaGroups = {};
     rows.forEach(r => {
       const s = r.ssa || "Other";
@@ -3365,10 +3373,15 @@
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
-  function buildHealthyDownMessageText() {
+  function shareHealthyDownWhatsAppToL2() {
     const records = window.activeHealthyDownFiltered || [];
+    if (!records || records.length === 0) {
+      alert("No healthy LTE down sites matching active filters to share.");
+      return;
+    }
     const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
-    const chosenL2 = (document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL");
+    const chosenL1 = document.getElementById("healthy-select-l1") ? document.getElementById("healthy-select-l1").value : "ALL";
+    const chosenL2 = document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL";
     const chosenCommonDate = document.getElementById("down-report-date-select") ? document.getElementById("down-report-date-select").value : "";
     let l2Title = chosenL2 !== "ALL" ? ` [L2: ${chosenL2}]` : "";
 
@@ -3378,19 +3391,8 @@
     });
     msg += `\nPlease restore these high-availability LTE sites on topmost priority to protect circle SLA.\n\n`;
     msg += getClosingSignature(chosenSsa);
-    return msg;
-  }
 
-  function shareHealthyDownWhatsAppToL2() {
-    const records = window.activeHealthyDownFiltered || [];
-    if (!records || records.length === 0) {
-      alert("No healthy LTE down sites matching active filters to share.");
-      return;
-    }
-    const chosenL1 = document.getElementById("healthy-select-l1") ? document.getElementById("healthy-select-l1").value : "ALL";
     const phone = chosenL1 !== "ALL" ? extractPhoneNumber(chosenL1) : "";
-    const msg = buildHealthyDownMessageText();
-
     const url = phone 
       ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
@@ -3407,13 +3409,20 @@
     const chosenSsa = document.getElementById("healthy-ssa-select") ? document.getElementById("healthy-ssa-select").value : "ALL";
     const chosenL2 = document.getElementById("healthy-select-l2") ? document.getElementById("healthy-select-l2").value : "ALL";
     const subject = `Urgent Alert: High Availability LTE Sites Down (Avail >=98%) - J&K CM${chosenL2 !== 'ALL' ? ' (' + chosenL2 + ')' : ''}`;
-    const body = buildHealthyDownMessageText();
+    
+    const chosenCommonDate = document.getElementById("down-report-date-select") ? document.getElementById("down-report-date-select").value : "";
+    let l2Title = chosenL2 !== "ALL" ? ` [L2: ${chosenL2}]` : "";
+
+    let body = `Dear Sir/Mam,\nFollowing High Availability LTE BTS sites (Rolling 30-Day Avail >= 98% as of ${chosenCommonDate}) are currently DOWN${l2Title}:\n\n`;
+    records.forEach((r, idx) => {
+      body += `${idx + 1}. ${r.btsName} (${r.downPeriod}) - Avail: ${r.currentSelectedAvail.toFixed(1)}% | Cat: ${r.category} | Fault: ${r.faultType} [L1: ${r.incharge}]\n`;
+    });
+    body += `\nPlease restore these high-availability LTE sites on topmost priority to protect circle SLA.\n\n`;
+    body += getClosingSignature(chosenSsa);
+
     window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
-  // =========================================================================
-  // EXPORT UTILITIES
-  // =========================================================================
   function exportDownSitesExcel(type) {
     let list = downUnifiedDisplayRecords;
     let sheetName = "Down_Sites";
@@ -3577,9 +3586,7 @@
     XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
   }
 
-  // =========================================================================
   // NAVIGATION & INITIALIZATION
-  // =========================================================================
   function switchModule(modId, btn) {
     document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("mod-infra").style.display = "none";
