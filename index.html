@@ -54,6 +54,8 @@
     .btn-green:hover { background: #15803d; }
     .btn-whatsapp { background: #25D366; color: white; }
     .btn-whatsapp:hover { background: #1ebe5d; }
+    .btn-alert { background: #dc2626; color: white; }
+    .btn-alert:hover { background: #b91c1c; }
     .btn-mail { background: #0284c7; color: white; }
     .btn-camera { background: #6366f1; color: white; }
     .btn-file { background: #475569; color: white; }
@@ -114,7 +116,6 @@
     .metric-legend-note { font-size: 12px; color: #475569; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 12px; margin-bottom: 16px; display: inline-block; }
     .band-sub { font-size: 11px; color: #64748b; font-weight: normal; margin-left: 3px; }
 
-    /* Admin View Restrictions */
     body:not(.is-admin) .admin-only,
     body:not(.is-admin) .btn-whatsapp,
     body:not(.is-admin) .btn-mail {
@@ -458,7 +459,8 @@
           <span style="font-size:12px; color:#64748b;">Format: Total (2G + 3G + B01 + B28 + B41) | 0 = Healthy, N/A = Not Installed</span>
         </div>
         <div style="display:flex; gap:8px;">
-          <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareHistoryAlarmWhatsApp()">💬 Share on WhatsApp</button>
+          <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareHistoryAlarmWhatsApp()">💬 Share OA Summary</button>
+          <button class="btn btn-alert btn-sm admin-only" onclick="shareHistoryAlarmAlertWhatsApp()">🚨 Top 7 Flap Alert</button>
           <button class="btn btn-green btn-sm" onclick="exportHistoryAlarmExcel()">📥 Export Excel</button>
         </div>
       </div>
@@ -477,18 +479,33 @@
           <select id="hist-tech-select" onchange="renderHistoryAlarmTable()">
             <option value="ALL">All Sites</option>
             <option value="2G">Sites with 2G</option>
+            <option value="3G">Sites with 3G</option>
             <option value="B01">Sites with 4G B01</option>
             <option value="B28">Sites with 4G B28</option>
+            <option value="B41">Sites with 4G B41</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <label for="hist-flap-filter"><strong>Flap Filter:</strong></label>
+          <select id="hist-flap-filter" onchange="renderHistoryAlarmTable()" style="font-weight:600; color:var(--secondary);">
+            <option value="ALL">All Flap Counts</option>
+            <option value="GT0">&gt; 0 Flaps</option>
+            <option value="GT5">&gt; 5 Flaps</option>
+            <option value="GT10">&gt; 10 Flaps</option>
+            <option value="GT20">&gt; 20 Flaps</option>
+            <option value="GT50">&gt; 50 Flaps</option>
+            <option value="GT100">&gt; 100 Flaps</option>
+            <option value="GT150">&gt; 150 Flaps</option>
           </select>
         </div>
         <div class="toolbar-group" style="flex:1; min-width:220px;">
-          <input type="text" id="hist-search-input" placeholder="Search BTS IP ID / Site Name / In-charge..." oninput="renderHistoryAlarmTable()" style="width:100%;">
+          <input type="text" id="hist-search-input" placeholder="Search BTS IP ID / Site Name / Media..." oninput="renderHistoryAlarmTable()" style="width:100%;">
         </div>
       </div>
 
       <div class="kpi-container">
         <div class="kpi-card"><div class="title">Total Physical Nodes</div><div class="value" id="hist-kpi-total">-</div></div>
-        <div class="kpi-card"><div class="title">Flapping Nodes (>0)</div><div class="value" id="hist-kpi-flappers" style="color:var(--secondary);">-</div></div>
+        <div class="kpi-card"><div class="title">Flapping Nodes (&gt;0)</div><div class="value" id="hist-kpi-flappers" style="color:var(--secondary);">-</div></div>
         <div class="kpi-card"><div class="title">Major Outage Nodes</div><div class="value" id="hist-kpi-major" style="color:#dc2626;">-</div></div>
         <div class="kpi-card"><div class="title">Total Outage Hours</div><div class="value" id="hist-kpi-hours">-</div></div>
       </div>
@@ -506,7 +523,6 @@
               <th class="num">Major Outages (&gt;15m)</th>
               <th class="num">Total Down Count</th>
               <th class="num">Total Down Duration (Hr)</th>
-              <th>Site In-Charge (L1)</th>
             </tr>
           </thead>
           <tbody id="hist-alarm-tbody"></tbody>
@@ -854,6 +870,212 @@
   }
 
   // =========================================================================
+  // DBN ANALYSIS LOGIC (EXPLICIT GLOBAL HOISTING TO AVOID UNDEFINED ERRORS)
+  // =========================================================================
+  function runDegradedAnalysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const prevDateElem = document.getElementById("deg-prev-date");
+    const nextDateElem = document.getElementById("deg-next-date");
+    if (!prevDateElem || !nextDateElem) return;
+
+    const prevDate = prevDateElem.value;
+    const nextDate = nextDateElem.value;
+    const selectedSsa = document.getElementById("deg-ssa-select").value;
+    const selectedCat = document.getElementById("deg-cat-select") ? document.getElementById("deg-cat-select").value : "ALL";
+    const selectedL1 = document.getElementById("deg-l1-select") ? document.getElementById("deg-l1-select").value : "ALL";
+
+    if (!prevDate || !nextDate || prevDate === nextDate) {
+      const tbody = document.getElementById("degraded-sites-tbody");
+      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
+      return;
+    }
+
+    const prevMap = {};
+    let baseHealthyCount = 0;
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          prevMap[r.siteId] = r;
+          if (r.avail >= 98.0) baseHealthyCount++;
+        }
+      }
+    });
+
+    degradedSitesList = [];
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === nextDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          const prevRec = prevMap[r.siteId];
+          if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
+            const drop = (r.avail - prevRec.avail).toFixed(2);
+            degradedSitesList.push({
+              siteId: r.siteId,
+              btsIp: r.btsIp,
+              siteName: r.siteName,
+              ssa: r.ssa,
+              category: r.category,
+              prevAvail: prevRec.avail,
+              nextAvail: r.avail,
+              dropDelta: drop,
+              bucket: r.bucket,
+              l1: r.l1,
+              media: r.media
+            });
+          }
+        }
+      }
+    });
+
+    degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
+
+    document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
+    document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
+    const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
+    document.getElementById("deg-kpi-rate").innerText = rate + "%";
+
+    const tbody = document.getElementById("degraded-sites-tbody");
+    if (!tbody) return;
+    if (degradedSitesList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">Great! No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    degradedSitesList.forEach(r => {
+      html += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${r.category}</td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${r.prevAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.nextAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.dropDelta}%</td>
+          <td>${r.bucket}</td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runDegradedAnalysis = runDegradedAnalysis;
+
+  function runUserDegradedAnalysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const prevDateElem = document.getElementById("user-deg-prev-date");
+    const nextDateElem = document.getElementById("user-deg-next-date");
+    if (!prevDateElem || !nextDateElem) return;
+
+    const prevDate = prevDateElem.value;
+    const nextDate = nextDateElem.value;
+    const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
+    const selectedSsa = document.getElementById("user-deg-ssa-select").value;
+    const selectedCat = document.getElementById("user-deg-cat-select") ? document.getElementById("user-deg-cat-select").value : "ALL";
+    const selectedL1 = document.getElementById("user-deg-l1-select") ? document.getElementById("user-deg-l1-select").value : "ALL";
+
+    if (!prevDate || !nextDate || prevDate === nextDate) {
+      const tbody = document.getElementById("user-degraded-tbody");
+      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day user comparison.</td></tr>`;
+      return;
+    }
+
+    const prevMap = {};
+    let totalCompared = 0;
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          prevMap[r.siteId] = r;
+        }
+      }
+    });
+
+    userDegradedSitesList = [];
+    let totalUsersLost = 0;
+    let sumDropPct = 0;
+
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === nextDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          const prevRec = prevMap[r.siteId];
+          if (prevRec) {
+            totalCompared++;
+            const baseUsers = prevRec.maxActiveUser;
+            const nextUsers = r.maxActiveUser;
+            if (baseUsers > 0 && nextUsers < baseUsers) {
+              const dropCount = baseUsers - nextUsers;
+              const dropPct = (dropCount / baseUsers) * 100;
+
+              if (dropPct >= minDropPct) {
+                totalUsersLost += dropCount;
+                sumDropPct += dropPct;
+                userDegradedSitesList.push({
+                  siteId: r.siteId,
+                  btsIp: r.btsIp,
+                  siteName: r.siteName,
+                  ssa: r.ssa,
+                  category: r.category,
+                  baseUsers: baseUsers,
+                  baseAvail: prevRec.avail,
+                  nextUsers: nextUsers,
+                  nextAvail: r.avail,
+                  dropCount: dropCount,
+                  dropPct: dropPct,
+                  l1: r.l1,
+                  media: r.media
+                });
+              }
+            }
+          }
+        }
+      }
+    });
+
+    userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
+
+    document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
+    document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
+    document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
+    const avgDrop = userDegradedSitesList.length > 0 ? (sumDropPct / userDegradedSitesList.length).toFixed(1) : "0.0";
+    document.getElementById("user-deg-kpi-drop-pct").innerText = avgDrop + "%";
+
+    const tbody = document.getElementById("user-degraded-tbody");
+    if (!tbody) return;
+    if (userDegradedSitesList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found with Max Active User degradation matching selected threshold (${minDropPct}%).</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    userDegradedSitesList.forEach(r => {
+      html += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${r.category}</td>
+          <td class="num"><strong>${r.baseUsers.toLocaleString()}</strong> (${r.baseAvail.toFixed(1)}%)</td>
+          <td class="num"><strong>${r.nextUsers.toLocaleString()}</strong> (${r.nextAvail.toFixed(1)}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runUserDegradedAnalysis = runUserDegradedAnalysis;
+
+  // =========================================================================
   // ADMIN AUTHENTICATION
   // =========================================================================
   function applyAdminAccessState() {
@@ -926,7 +1148,7 @@
     if (btn) btn.classList.add("active");
     currentActiveModule = modId;
 
-    // Lazy load when selected to keep initial load lightweight
+    // Fast on-demand load
     if (modId === "mod-dbn" && !dbnDataLoaded) fetchAndRenderDbn();
     if (modId === "mod-history" && !historyAlarmLoaded) loadHistoryAlarmData();
     if (modId === "mod-down" && !downDataLoaded) fetchAndRenderDownSites();
@@ -1461,10 +1683,10 @@
       populateDownCommonReportDateControl();
       dbnDataLoaded = true;
 
-      applyDbnFilters();
-      runDegradedAnalysis();
-      runUserDegradedAnalysis();
-      renderEscalationDashboard();
+      if (typeof applyDbnFilters === 'function') applyDbnFilters();
+      if (typeof runDegradedAnalysis === 'function') runDegradedAnalysis();
+      if (typeof runUserDegradedAnalysis === 'function') runUserDegradedAnalysis();
+      if (typeof renderEscalationDashboard === 'function') renderEscalationDashboard();
 
       if (downDataLoaded) applyDownSitesFilters();
 
@@ -1972,7 +2194,7 @@
     XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
   }
 // =========================================================================
-  // MODULE 3: STANDALONE HISTORY ALARM TRACKER LOGIC
+  // MODULE 3: STANDALONE HISTORY ALARM TRACKER LOGIC (ALL 7 ENHANCEMENTS)
   // =========================================================================
   let staticMasterByIp = {};
   let siteIdToIpMap = {};
@@ -2003,7 +2225,6 @@
             const siteName = safeStr(r["Site Name"] || r["site_name"] || btsName);
             const ssa = safeStr(r["ssa_id"] || r["SSA"] || r["ssa_name"]);
             const media = safeStr(r["Media"] || r["media"]) || "-";
-            const l1 = safeStr(r["L1"] || r["l1"]) || "Unassigned";
 
             if (!ip && !siteId) return;
 
@@ -2015,7 +2236,6 @@
                 siteName: siteName,
                 ssa: ssa,
                 media: media,
-                l1: l1,
                 installed: { "2G": false, "3G": false, "B01": false, "B28": false, "B41": false }
               };
             }
@@ -2070,7 +2290,6 @@
             const band = detectBand(btsType, btsName, siteId);
             alarmEvents.push({ date, ipKey, band, flap, major, downTimes, downHours });
 
-            // Feed cross-reference map for DBN Site-Level details
             if (ipKey) {
               masterHistoryDownHoursByIp[ipKey] = (masterHistoryDownHoursByIp[ipKey] || 0) + downHours;
             }
@@ -2104,7 +2323,6 @@
     historyAlarmLoaded = true;
     renderHistoryAlarmTable();
 
-    // Re-render DBN Site-Level details table to update the cross-referenced duration
     if (dbnFilteredRecords && dbnFilteredRecords.length > 0) {
       renderDbnDetailTable(dbnFilteredRecords);
     }
@@ -2116,6 +2334,7 @@
     const targetDate = document.getElementById("hist-date-select") ? document.getElementById("hist-date-select").value : "";
     const targetSsa = document.getElementById("hist-ssa-select") ? document.getElementById("hist-ssa-select").value : "ALL";
     const targetTech = document.getElementById("hist-tech-select") ? document.getElementById("hist-tech-select").value : "ALL";
+    const flapFilter = document.getElementById("hist-flap-filter") ? document.getElementById("hist-flap-filter").value : "ALL";
     const q = safeStr(document.getElementById("hist-search-input") ? document.getElementById("hist-search-input").value : "").toLowerCase();
 
     // Map daily alarms into indexed hash map
@@ -2149,7 +2368,9 @@
       const node = staticMasterByIp[ipKey];
       if (targetSsa !== "ALL" && node.ssa !== targetSsa) continue;
       if (targetTech !== "ALL" && !node.installed[targetTech]) continue;
-      if (q && !node.btsIp.toLowerCase().includes(q) && !node.siteName.toLowerCase().includes(q) && !node.l1.toLowerCase().includes(q)) continue;
+      
+      // Media search added; L1 removed from query
+      if (q && !node.btsIp.toLowerCase().includes(q) && !node.siteName.toLowerCase().includes(q) && !node.media.toLowerCase().includes(q)) continue;
 
       const alarm = alarmsByIp[ipKey] || null;
 
@@ -2178,6 +2399,15 @@
         }
       }
 
+      // Flapping threshold filter
+      if (flapFilter === "GT0" && totFlap <= 0) continue;
+      if (flapFilter === "GT5" && totFlap <= 5) continue;
+      if (flapFilter === "GT10" && totFlap <= 10) continue;
+      if (flapFilter === "GT20" && totFlap <= 20) continue;
+      if (flapFilter === "GT50" && totFlap <= 50) continue;
+      if (flapFilter === "GT100" && totFlap <= 100) continue;
+      if (flapFilter === "GT150" && totFlap <= 150) continue;
+
       if (totFlap > 0) kpiFlappers++;
       if (totMajor > 0) kpiMajor++;
       kpiHours += totHours;
@@ -2189,7 +2419,6 @@
         siteName: node.siteName,
         ssa: node.ssa,
         media: node.media,
-        l1: node.l1,
         badges: badges,
         installedList: Object.keys(node.installed).filter(b => node.installed[b]).join(", "),
         totFlap: totFlap,
@@ -2202,23 +2431,27 @@
       });
     }
 
-    rows.sort((a,b) => b.totHours - a.totHours || b.totFlap - a.totFlap);
+    rows.sort((a,b) => b.totFlap - a.totFlap || b.totHours - a.totHours);
     currentHistRows = rows;
 
-    const elTotal = document.getElementById("hist-kpi-total"); if (elTotal) elTotal.innerText = rows.length.toLocaleString();
-    const elFlap = document.getElementById("hist-kpi-flappers"); if (elFlap) elFlap.innerText = kpiFlappers.toLocaleString();
-    const elMaj = document.getElementById("hist-kpi-major"); if (elMaj) elMaj.innerText = kpiMajor.toLocaleString();
-    const elHr = document.getElementById("hist-kpi-hours"); if (elHr) elHr.innerText = kpiHours.toFixed(1) + " Hr";
+    const totalNodes = rows.length;
+    const flapPct = totalNodes > 0 ? ((kpiFlappers / totalNodes) * 100).toFixed(1) : "0.0";
+    const majorPct = totalNodes > 0 ? ((kpiMajor / totalNodes) * 100).toFixed(1) : "0.0";
+
+    document.getElementById("hist-kpi-total").innerText = totalNodes.toLocaleString();
+    document.getElementById("hist-kpi-flappers").innerText = `${kpiFlappers.toLocaleString()} (${flapPct}%)`;
+    document.getElementById("hist-kpi-major").innerText = `${kpiMajor.toLocaleString()} (${majorPct}%)`;
+    document.getElementById("hist-kpi-hours").innerText = kpiHours.toFixed(1) + " Hr";
 
     const tbody = document.getElementById("hist-alarm-tbody");
     if (!tbody) return;
 
     if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">No matching physical nodes found for selected criteria.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#64748b;">No matching physical nodes found for selected criteria.</td></tr>`;
       return;
     }
 
-    // High performance batch buffer injection (top 150 rendered in DOM, full dataset in memory)
+    // High performance batch buffer injection (top 150 rendered in DOM without L1 column)
     const displayLimit = Math.min(rows.length, 150);
     let htmlBuffer = "";
     for (let i = 0; i < displayLimit; i++) {
@@ -2233,7 +2466,6 @@
         <td class="num"><strong>${r.majorStr}</strong></td>
         <td class="num">${r.totTimes}</td>
         <td class="num" style="color:${r.totHours > 0 ? '#dc2626' : 'inherit'};"><strong>${r.hoursStr}</strong></td>
-        <td>${r.l1}</td>
       </tr>`;
     }
     tbody.innerHTML = htmlBuffer;
@@ -2246,14 +2478,78 @@
     }
     const d = document.getElementById("hist-date-select").value;
     const ssa = document.getElementById("hist-ssa-select").value;
-    let msg = `*⏱️ J&K CM History Alarm Analytics (${d})*\n*Scope:* ${ssa === 'ALL' ? 'Circle-Wide' : ssa}\n_Format: Total (2G+3G+B01+B28+B41)_\n\n`;
-    currentHistRows.slice(0, 25).forEach((r, i) => {
-      msg += `${i+1}. *${r.btsIp}* [${r.siteName}] (${r.ssa})\n   • Down Duration: *${r.totHours.toFixed(1)}h* | Flaps: ${r.totFlap} | Major: ${r.totMajor}\n`;
+
+    const ssaAgg = {};
+    let totNodes = 0, totFlaps = 0, totMajor = 0, totHours = 0;
+
+    currentHistRows.forEach(r => {
+      const s = r.ssa || "Unknown";
+      if (!ssaAgg[s]) ssaAgg[s] = { count: 0, flaps: 0, major: 0, hours: 0 };
+      ssaAgg[s].count++;
+      ssaAgg[s].flaps += r.totFlap;
+      ssaAgg[s].major += r.totMajor;
+      ssaAgg[s].hours += r.totHours;
+
+      totNodes++;
+      totFlaps += r.totFlap;
+      totMajor += r.totMajor;
+      totHours += r.totHours;
     });
-    if (currentHistRows.length > 25) {
-      msg += `\n_...and ${currentHistRows.length - 25} more physical nodes._\n`;
+
+    let msg = `*⏱️ J&K CM History Alarm OA-Wise Summary (${d})*\n`;
+    msg += `*Scope:* ${ssa === 'ALL' ? 'Circle-Wide' : ssa}\n\n`;
+
+    Object.keys(ssaAgg).sort().forEach(s => {
+      const a = ssaAgg[s];
+      const flapRate = a.count > 0 ? ((a.flaps / a.count)).toFixed(1) : "0.0";
+      const majorRate = a.count > 0 ? ((a.major / a.count) * 100).toFixed(1) : "0.0";
+      msg += `📍 *${s} OA*:\n`;
+      msg += `   • Physical Nodes: *${a.count}*\n`;
+      msg += `   • Flap Count: *${a.flaps}* (Avg ${flapRate}/site)\n`;
+      msg += `   • Major Outages: *${a.major}* (${majorRate}% sites)\n`;
+      msg += `   • Total Outage Duration: *${a.hours.toFixed(1)} Hr*\n\n`;
+    });
+
+    msg += `*🇮🇳 Circle Total*:\n`;
+    msg += `• Total Sites: ${totNodes.toLocaleString()}\n`;
+    msg += `• Total Flaps: ${totFlaps.toLocaleString()}\n`;
+    msg += `• Total Major Outages: ${totMajor.toLocaleString()}\n`;
+    msg += `• Total Duration: ${totHours.toFixed(1)} Hr\n\n`;
+    msg += getClosingSignature(ssa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+
+  function shareHistoryAlarmAlertWhatsApp() {
+    if (!currentHistRows || currentHistRows.length === 0) {
+      alert("No history alarm records available for alert.");
+      return;
     }
-    msg += `\n${getClosingSignature(ssa)}`;
+    const d = document.getElementById("hist-date-select").value;
+    const ssa = document.getElementById("hist-ssa-select").value;
+
+    const ssaGroups = {};
+    currentHistRows.forEach(r => {
+      const s = r.ssa || "Unknown";
+      if (!ssaGroups[s]) ssaGroups[s] = [];
+      ssaGroups[s].push(r);
+    });
+
+    let msg = `*🚨 Critical Flapping Sites Alert (${d})*\n`;
+    msg += `*Scope:* ${ssa === 'ALL' ? 'Circle-Wide' : ssa}\n\n`;
+
+    Object.keys(ssaGroups).sort().forEach(s => {
+      const sites = ssaGroups[s].sort((a,b) => b.totFlap - a.totFlap).slice(0, 7);
+      msg += `📍 *${s} OA (Top 7 Chronic Flapping Sites):*\n`;
+      sites.forEach((site, idx) => {
+        msg += `   ${idx + 1}. *${site.btsIp}* [${site.siteName}] - Flaps: *${site.totFlap}* | Media: *${site.media}* | Down: ${site.totHours.toFixed(1)}h\n`;
+      });
+      msg += `\n`;
+    });
+
+    msg += `Kindly check Power/Media loss first then BTS/eNB hardware.\n\n`;
+    msg += getClosingSignature(ssa);
+
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
@@ -2273,8 +2569,7 @@
       "Major Breakdown (2G+3G+B01+B28+B41)": r.majorStr.replace(/<[^>]*>/g, ""),
       "Total Down Count": r.totTimes,
       "Total Down Hours": parseFloat(r.totHours.toFixed(2)),
-      "Duration Breakdown (2G+3G+B01+B28+B41)": r.hoursStr.replace(/<[^>]*>/g, ""),
-      "Site In-Charge": r.l1
+      "Duration Breakdown (2G+3G+B01+B28+B41)": r.hoursStr.replace(/<[^>]*>/g, "")
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -2283,7 +2578,7 @@
   }
 
   // =========================================================================
-  // MODULE 4: DOWN SITES TRACKER ENGINE (ALL 5 SUB-VIEWS & REPORTERS)
+  // MODULE 4: DOWN SITES TRACKER ENGINE
   // =========================================================================
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
@@ -2911,6 +3206,7 @@
 
     msg += `\nKindly ensure that the fault type and remarks are updated in CNMC for all sites that remain down for more than 2 hours.\n\n`;
     msg += getClosingSignature(chosenSsa);
+
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
