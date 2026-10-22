@@ -2751,16 +2751,17 @@
     if (status) status.innerText = `History Alarm Feed Active • Loaded ${Object.keys(staticMasterByIp).length} nodes • ${new Date().toLocaleTimeString()}`;
   }
 
-  function renderHistoryAlarmTable() {
+function renderHistoryAlarmTable() {
     const targetDate = document.getElementById("hist-date-select") ? document.getElementById("hist-date-select").value : "";
     const targetSsa = document.getElementById("hist-ssa-select") ? document.getElementById("hist-ssa-select").value : "ALL";
     const targetTech = document.getElementById("hist-tech-select") ? document.getElementById("hist-tech-select").value : "ALL";
     const q = safeStr(document.getElementById("hist-search-input") ? document.getElementById("hist-search-input").value : "").toLowerCase();
 
-    // Group Alarms of Target Date by Node & Carrier Band
+    // Map daily alarms
     const alarmsByIp = {};
-    alarmEvents.forEach(ev => {
-      if (ev.date !== targetDate) return;
+    for (let i = 0; i < alarmEvents.length; i++) {
+      const ev = alarmEvents[i];
+      if (ev.date !== targetDate) continue;
       if (!alarmsByIp[ev.ipKey]) {
         alarmsByIp[ev.ipKey] = {
           "2G": { flap: 0, major: 0, hours: 0, times: 0 },
@@ -2776,27 +2777,24 @@
         alarmsByIp[ev.ipKey][ev.band].hours += ev.downHours;
         alarmsByIp[ev.ipKey][ev.band].times += ev.downTimes;
       }
-    });
+    }
 
     const rows = [];
     let kpiFlappers = 0, kpiMajor = 0, kpiHours = 0;
+    const ipKeys = Object.keys(staticMasterByIp);
 
-    Object.keys(staticMasterByIp).forEach(ipKey => {
+    for (let i = 0; i < ipKeys.length; i++) {
+      const ipKey = ipKeys[i];
       const node = staticMasterByIp[ipKey];
-      if (targetSsa !== "ALL" && node.ssa !== targetSsa) return;
-      if (targetTech !== "ALL" && !node.installed[targetTech]) return;
-      if (q && !node.btsIp.toLowerCase().includes(q) && !node.siteName.toLowerCase().includes(q) && !node.l1.toLowerCase().includes(q)) return;
+      if (targetSsa !== "ALL" && node.ssa !== targetSsa) continue;
+      if (targetTech !== "ALL" && !node.installed[targetTech]) continue;
+      if (q && !node.btsIp.toLowerCase().includes(q) && !node.siteName.toLowerCase().includes(q) && !node.l1.toLowerCase().includes(q)) continue;
 
-      const alarm = alarmsByIp[ipKey] || {
-        "2G": { flap: 0, major: 0, hours: 0, times: 0 },
-        "3G": { flap: 0, major: 0, hours: 0, times: 0 },
-        "B01": { flap: 0, major: 0, hours: 0, times: 0 },
-        "B28": { flap: 0, major: 0, hours: 0, times: 0 },
-        "B41": { flap: 0, major: 0, hours: 0, times: 0 }
-      };
+      const alarm = alarmsByIp[ipKey] || null;
 
       function evalSlot(band, metric, isFloat) {
         if (!node.installed[band]) return "N/A";
+        if (!alarm || !alarm[band]) return isFloat ? "0.0" : "0";
         const val = alarm[band][metric];
         return isFloat ? val.toFixed(1) : String(val);
       }
@@ -2806,14 +2804,18 @@
       const h2G = evalSlot("2G", "hours", true), h3G = evalSlot("3G", "hours", true), hB01 = evalSlot("B01", "hours", true), hB28 = evalSlot("B28", "hours", true), hB41 = evalSlot("B41", "hours", true);
 
       let totFlap = 0, totMajor = 0, totHours = 0, totTimes = 0;
-      ["2G", "3G", "B01", "B28", "B41"].forEach(b => {
-        if (node.installed[b]) {
-          totFlap += alarm[b].flap;
-          totMajor += alarm[b].major;
-          totHours += alarm[b].hours;
-          totTimes += alarm[b].times;
+      if (alarm) {
+        const bands = ["2G", "3G", "B01", "B28", "B41"];
+        for (let b = 0; b < bands.length; b++) {
+          const band = bands[b];
+          if (node.installed[band] && alarm[band]) {
+            totFlap += alarm[band].flap;
+            totMajor += alarm[band].major;
+            totHours += alarm[band].hours;
+            totTimes += alarm[band].times;
+          }
         }
-      });
+      }
 
       if (totFlap > 0) kpiFlappers++;
       if (totMajor > 0) kpiMajor++;
@@ -2827,36 +2829,40 @@
         ssa: node.ssa,
         media: node.media,
         l1: node.l1,
-        badges,
+        badges: badges,
         installedList: Object.keys(node.installed).filter(b => node.installed[b]).join(", "),
-        totFlap,
+        totFlap: totFlap,
         flapStr: `${totFlap} <span class="band-sub">(${f2G}+${f3G}+${fB01}+${fB28}+${fB41})</span>`,
-        totMajor,
+        totMajor: totMajor,
         majorStr: `${totMajor} <span class="band-sub">(${m2G}+${m3G}+${mB01}+${mB28}+${mB41})</span>`,
-        totHours,
+        totHours: totHours,
         hoursStr: `${totHours.toFixed(2)} <span class="band-sub">(${h2G}+${h3G}+${hB01}+${hB28}+${hB41})</span>`,
-        totTimes
+        totTimes: totTimes
       });
-    });
+    }
 
     rows.sort((a,b) => b.totHours - a.totHours || b.totFlap - a.totFlap);
     currentHistRows = rows;
 
-    const elTotal = document.getElementById("hist-kpi-total"); if (elTotal) elTotal.innerText = rows.length.toLocaleString();
-    const elFlap = document.getElementById("hist-kpi-flappers"); if (elFlap) elFlap.innerText = kpiFlappers.toLocaleString();
-    const elMaj = document.getElementById("hist-kpi-major"); if (elMaj) elMaj.innerText = kpiMajor.toLocaleString();
-    const elHr = document.getElementById("hist-kpi-hours"); if (elHr) elHr.innerText = kpiHours.toFixed(1) + " Hr";
+    document.getElementById("hist-kpi-total").innerText = rows.length.toLocaleString();
+    document.getElementById("hist-kpi-flappers").innerText = kpiFlappers.toLocaleString();
+    document.getElementById("hist-kpi-major").innerText = kpiMajor.toLocaleString();
+    document.getElementById("hist-kpi-hours").innerText = kpiHours.toFixed(1) + " Hr";
 
     const tbody = document.getElementById("hist-alarm-tbody");
     if (!tbody) return;
-    tbody.innerHTML = "";
+
     if (rows.length === 0) {
       tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">No matching physical nodes found for selected criteria.</td></tr>`;
       return;
     }
 
-    rows.forEach(r => {
-      tbody.innerHTML += `<tr>
+    // Render in a single string write (top 150 nodes to keep DOM lightweight)
+    const limit = Math.min(rows.length, 150);
+    let htmlBuffer = "";
+    for (let i = 0; i < limit; i++) {
+      const r = rows[i];
+      htmlBuffer += `<tr>
         <td><strong>${r.btsIp}</strong></td>
         <td>${r.siteName}</td>
         <td>${r.ssa}</td>
@@ -2868,9 +2874,9 @@
         <td class="num" style="color:${r.totHours > 0 ? '#dc2626' : 'inherit'};"><strong>${r.hoursStr}</strong></td>
         <td>${r.l1}</td>
       </tr>`;
-    });
+    }
+    tbody.innerHTML = htmlBuffer;
   }
-
   function shareHistoryAlarmWhatsApp() {
     if (!currentHistRows || currentHistRows.length === 0) {
       alert("No history alarm records available to share.");
@@ -3239,7 +3245,6 @@
   function renderUnifiedDownTable(records) {
     const tbody = document.getElementById("down-unified-tbody");
     const countBadge = document.getElementById("down-unified-count-badge");
-    tbody.innerHTML = "";
     countBadge.innerText = `Showing ${records.length.toLocaleString()} matching down sites`;
 
     if (records.length === 0) {
@@ -3247,33 +3252,36 @@
       return;
     }
 
-    records.forEach(r => {
+    const limit = Math.min(records.length, 200);
+    let htmlBuffer = "";
+    for (let i = 0; i < limit; i++) {
+      const r = records[i];
       const availText = r.currentSelectedAvail !== null 
         ? `<span style="font-weight:bold; color:${r.currentSelectedAvail >= 98 ? '#16a34a' : (r.currentSelectedAvail >= 94 ? '#d97706' : '#dc2626')}">${r.currentSelectedAvail.toFixed(1)}%</span>`
         : `<span style="color:#64748b;">N/A</span>`;
 
       const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
 
-      tbody.innerHTML += `
-        <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIpId || "-"}</td>
-          <td>${r.btsName}</td>
-          <td>${r.ba}</td>
-          <td>${r.ssa}</td>
-          <td>${r.sdca}</td>
-          <td>${catBadge}</td>
-          <td><span class="badge-tech">${r.deviceType}</span></td>
-          <td><span class="badge-media">${r.media}</span></td>
-          <td>${r.downDt}</td>
-          <td><strong style="color:${r.durationMinutes >= 1440 ? '#dc2626' : '#d97706'};">${r.downPeriod}</strong></td>
-          <td><span class="badge-fault">${r.faultType}</span></td>
-          <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td>
-          <td><strong>${r.incharge}</strong></td>
-          <td><strong>${r.l2}</strong></td>
-          <td class="num">${availText}</td>
-        </tr>`;
-    });
+      htmlBuffer += `<tr>
+        <td><strong>${r.siteId}</strong></td>
+        <td>${r.btsIpId || "-"}</td>
+        <td>${r.btsName}</td>
+        <td>${r.ba}</td>
+        <td>${r.ssa}</td>
+        <td>${r.sdca}</td>
+        <td>${catBadge}</td>
+        <td><span class="badge-tech">${r.deviceType}</span></td>
+        <td><span class="badge-media">${r.media}</span></td>
+        <td>${r.downDt}</td>
+        <td><strong style="color:${r.durationMinutes >= 1440 ? '#dc2626' : '#d97706'};">${r.downPeriod}</strong></td>
+        <td><span class="badge-fault">${r.faultType}</span></td>
+        <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td>
+        <td><strong>${r.incharge}</strong></td>
+        <td><strong>${r.l2}</strong></td>
+        <td class="num">${availText}</td>
+      </tr>`;
+    }
+    tbody.innerHTML = htmlBuffer;
   }
 
   function renderInfoSummaryTable() {
@@ -4166,8 +4174,8 @@
   window.onload = function() {
     applyAdminAccessState();
     fetchAndRenderInfra();
-    setTimeout(() => { if (!dbnDataLoaded) fetchAndRenderDbn(); }, 500);
-    setTimeout(() => { if (!historyAlarmLoaded) loadHistoryAlarmData(); }, 1000);
+    setTimeout(() => { if (!dbnDataLoaded) fetchAndRenderDbn(); }, 800);
+    setTimeout(() => { if (!historyAlarmLoaded) loadHistoryAlarmData(); }, 2500);
   };
 </script>
 </body>
