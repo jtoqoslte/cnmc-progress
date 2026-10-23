@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Operations Portal & Alarm Analytics</title>
+  <!-- Data Parsing, Charting, Screenshot & PDF Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -26,39 +27,57 @@
       margin: 0; padding: 20px; background-color: var(--bg); color: var(--text);
       position: relative; min-height: 100vh;
     }
+    body::before {
+      content: ""; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 480px; height: 480px;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><circle cx="150" cy="150" r="140" fill="none" stroke="%23003366" stroke-width="14"/><path d="M70 180 Q150 40 230 180 Q150 120 70 180 Z" fill="%23003366"/><path d="M100 210 Q150 110 200 210 Q150 160 100 210 Z" fill="%23d97706"/><circle cx="150" cy="80" r="22" fill="%23003366"/><text x="150" y="270" font-family="Arial,sans-serif" font-weight="900" font-size="34" fill="%23003366" text-anchor="middle" letter-spacing="2">BSNL</text></svg>');
+      background-repeat: no-repeat; background-position: center; background-size: contain; opacity: 0.05; pointer-events: none; z-index: 0;
+    }
     .container { position: relative; z-index: 1; max-width: 1560px; margin: 0 auto; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
     h1 { margin: 0; font-size: 24px; color: var(--primary); display: flex; align-items: center; gap: 10px; }
     .status-bar { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500; }
+
     .module-nav { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; }
     .module-btn { background: #e2e8f0; border: none; padding: 12px 22px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 14px; color: #334155; transition: all 0.2s ease; }
     .module-btn:hover { background: #cbd5e1; }
     .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
+
     .sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .sub-tab-btn { background: #f1f5f9; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; color: #475569; }
     .sub-tab-btn.active { background: #0284c7; color: white; border-color: #0284c7; }
+
     .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-green { background: #16a34a; color: white; }
+    .btn-green:hover { background: #15803d; }
     .btn-whatsapp { background: #25D366; color: white; }
+    .btn-whatsapp:hover { background: #1ebe5d; }
     .btn-alert { background: #dc2626; color: white; }
+    .btn-alert:hover { background: #b91c1c; }
     .btn-mail { background: #0284c7; color: white; }
     .btn-camera { background: #6366f1; color: white; }
     .btn-file { background: #475569; color: white; }
     .btn-red { background: #dc2626; color: white; }
     .btn-sm { padding: 5px 10px; font-size: 11px; }
-    .toolbar { background: var(--card-bg); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+    .toolbar { background: var(--card-bg); backdrop-filter: blur(4px); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .toolbar-group { display: flex; align-items: center; gap: 8px; }
     .toolbar select, .toolbar input { padding: 7px 11px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white; }
+
     .slicer-group { display: flex; gap: 6px; flex-wrap: wrap; }
-    .slicer-btn { border: 1px solid var(--border); background: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .slicer-btn { border: 1px solid var(--border); background: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .slicer-btn:hover { background: #f1f5f9; }
     .slicer-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
     .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px; }
-    .kpi-card { background: var(--card-bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .kpi-card { background: var(--card-bg); backdrop-filter: blur(4px); padding: 16px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .kpi-card .title { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600; }
     .kpi-card .value { font-size: 22px; font-weight: bold; margin-top: 6px; color: var(--primary); }
-    .section { background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+    .section { background: var(--card-bg); backdrop-filter: blur(4px); border-radius: 8px; border: 1px solid var(--border); padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     h2 { font-size: 17px; margin-top: 0; margin-bottom: 14px; color: var(--text); }
+
     table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; }
     th, td { padding: 9px 11px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
     th { background: #f1f5f9; font-weight: 600; color: #334155; position: sticky; top: 0; z-index: 2; }
@@ -67,6 +86,7 @@
     .clickable-row:hover { background: #eff6ff !important; }
     .num { text-align: right; font-variant-numeric: tabular-nums; }
     .circle-row { font-weight: bold; background: #e2e8f0; }
+
     .progress-track { background: #e2e8f0; border-radius: 4px; height: 14px; width: 80px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
     .progress-fill { height: 100%; }
     .progress-fill.high { background: #22c55e; }
@@ -74,12 +94,15 @@
     .progress-fill.low { background: #ef4444; }
     .table-container { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
     .heat-cell { text-align: right; font-variant-numeric: tabular-nums; }
+
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
-    .modal-card { background: white; width: 100%; max-width: 1000px; max-height: 90vh; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; }
+    .modal-card { background: white; width: 100%; max-width: 1000px; max-height: 90vh; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
     .modal-header { padding: 16px 20px; background: #f1f5f9; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { margin: 0; font-size: 17px; color: var(--primary); }
     .modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
     .close-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; color: #64748b; }
     .missing-tag { display: inline-block; background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin: 2px; }
+
     .badge-dbn { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-ndbn { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
     .badge-fault { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
@@ -89,8 +112,10 @@
     .badge-ok { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
     .badge-rank { background: #003366; color: #ffffff; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 11px; }
     .badge-rank-na { background: #e2e8f0; color: #64748b; padding: 2px 6px; border-radius: 10px; font-size: 10px; }
+    .metric-legend-note { font-size: 12px; color: #475569; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 12px; margin-bottom: 16px; display: inline-block; }
     .band-sub { font-size: 11px; color: #64748b; font-weight: normal; margin-left: 3px; }
 
+    /* Admin View Restrictions */
     body:not(.is-admin) .admin-only,
     body:not(.is-admin) .btn-whatsapp,
     body:not(.is-admin) .btn-alert,
@@ -113,6 +138,7 @@
     </div>
   </div>
 
+  <!-- Primary Module Navigation -->
   <div class="module-nav">
     <button class="module-btn active" id="btn-mod-infra" onclick="switchModule('mod-infra', this)">
       🏢 CNMC Site Infra & Power Tracker
@@ -164,7 +190,9 @@
         <table>
           <thead>
             <tr>
-              <th>BA Name</th><th>OA / SSA Name</th><th class="num">Total Sites</th><th class="num">Not Started</th><th class="num">In Progress</th><th class="num">Completed</th><th class="num">Progress Bar</th><th class="num">Avg Fill %</th>
+              <th>BA Name</th><th>OA / SSA Name</th>
+              <th class="num">Total Sites</th><th class="num">Not Started</th><th class="num">In Progress</th><th class="num">Completed</th>
+              <th class="num">Progress Bar</th><th class="num">Avg Fill %</th>
             </tr>
           </thead>
           <tbody id="oa-tbody"></tbody>
@@ -186,7 +214,9 @@
         <table>
           <thead>
             <tr>
-              <th>SSA Name</th><th>L1 In-charge</th><th>L2 In-charge</th><th class="num">Total Assigned</th><th class="num">Not Started</th><th class="num">In Progress</th><th class="num">Completed</th><th class="num">Progress Bar</th><th class="num">Fill %</th><th style="text-align: center;">Export My Sites</th>
+              <th>SSA Name</th><th>L1 In-charge</th><th>L2 In-charge</th>
+              <th class="num">Total Assigned</th><th class="num">Not Started</th><th class="num">In Progress</th><th class="num">Completed</th>
+              <th class="num">Progress Bar</th><th class="num">Fill %</th><th style="text-align: center;">Export My Sites</th>
             </tr>
           </thead>
           <tbody id="owner-tbody"></tbody>
@@ -210,7 +240,8 @@
         <table>
           <thead>
             <tr>
-              <th>Phy Site ID</th><th>BTS Name</th><th>SSA Name</th><th>L1 Owner</th><th>L2 Owner</th><th class="num">Fill %</th><th>Missing Parameters</th>
+              <th>Phy Site ID</th><th>BTS Name</th><th>SSA Name</th><th>L1 Owner</th><th>L2 Owner</th>
+              <th class="num">Fill %</th><th>Missing Parameters</th>
             </tr>
           </thead>
           <tbody id="search-tbody"></tbody>
@@ -221,6 +252,10 @@
 
   <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD -->
   <div id="mod-dbn" style="display: none;">
+    <div class="metric-legend-note">
+      ℹ️ <strong>Note:</strong> Avail % is for rolling 30 days, max. active user is max. for last 30 days, voice erl and data GB are avg. of last 30 days.
+    </div>
+
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDbnSubTab('dbn-main-view', this)">📊 1. Availability Overview</button>
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-degraded-view', this)">⚠️ 2. Degraded Sites (Avail Drop)</button>
@@ -228,10 +263,17 @@
       <button class="sub-tab-btn" onclick="switchDbnSubTab('dbn-escalation-view', this)">🎯 4. Escalation Dashboard</button>
     </div>
 
+    <!-- SUB-VIEW 1: AVAILABILITY OVERVIEW -->
     <div class="dbn-sub-section" id="dbn-main-view">
       <div class="toolbar">
-        <div class="toolbar-group"><label for="dbn-date-select"><strong>Report Date:</strong></label><select id="dbn-date-select" onchange="applyDbnFilters()"></select></div>
-        <div class="toolbar-group"><label for="dbn-ssa-select"><strong>SSA:</strong></label><select id="dbn-ssa-select" onchange="applyDbnFilters()"><option value="ALL">All SSAs (Circle)</option></select></div>
+        <div class="toolbar-group">
+          <label for="dbn-date-select"><strong>Report Date:</strong></label>
+          <select id="dbn-date-select" onchange="applyDbnFilters()"></select>
+        </div>
+        <div class="toolbar-group">
+          <label for="dbn-ssa-select"><strong>SSA:</strong></label>
+          <select id="dbn-ssa-select" onchange="applyDbnFilters()"><option value="ALL">All SSAs (Circle)</option></select>
+        </div>
         <div class="toolbar-group">
           <label><strong>Category:</strong></label>
           <div class="slicer-group" id="slicer-category">
@@ -304,7 +346,10 @@
 
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-          <div><h2 style="margin:0;">Site-Level Details & Outage Inspection Report</h2><span id="dbn-site-count-badge" style="font-size:12px; color:#64748b;">Showing matching records</span></div>
+          <div>
+            <h2 style="margin:0;">Site-Level Details & Outage Inspection Report</h2>
+            <span id="dbn-site-count-badge" style="font-size:12px; color:#64748b;">Showing matching records</span>
+          </div>
           <button class="btn btn-green btn-sm" onclick="exportDbnSitesExcel()">📥 Export Filtered Sites Excel</button>
         </div>
         <div class="table-container">
@@ -449,7 +494,7 @@
           </select>
         </div>
         <div class="toolbar-group" style="flex:1; min-width:220px;">
-          <input type="text" id="hist-search-input" placeholder="Search BTS IP ID / Site Name / Media..." oninput="renderHistoryAlarmTable()" style="width:100%;">
+          <input type="text" id="hist-search-input" placeholder="Search BTS IP ID / Site Name / Media / L1..." oninput="renderHistoryAlarmTable()" style="width:100%;">
         </div>
       </div>
 
@@ -828,1194 +873,400 @@
     return "OTHER";
   }
 
-  // Admin and Navigation Controllers
-  function applyAdminAccessState() {
-    const btn = document.getElementById("btn-admin-auth");
-    if (isAdminAuthenticated) {
-      document.body.classList.add("is-admin");
-      if (btn) {
-        btn.innerHTML = "🔓 Logout (Admin)";
-        btn.className = "btn btn-red btn-sm";
-      }
-    } else {
-      document.body.classList.remove("is-admin");
-      if (btn) {
-        btn.innerHTML = "🔐 Admin Login";
-        btn.className = "btn btn-file btn-sm";
-      }
-      if (currentActiveModule === "mod-down") {
-        switchModule("mod-infra", document.getElementById("btn-mod-infra"));
-      }
-    }
-  }
-
-  function toggleAdminAuthModal() {
-    if (isAdminAuthenticated) {
-      if (confirm("Do you want to log out of admin access?")) {
-        isAdminAuthenticated = false;
-        sessionStorage.removeItem("bsnl_jk_admin_auth");
-        applyAdminAccessState();
-      }
-    } else {
-      const err = document.getElementById("admin-login-error");
-      if (err) err.style.display = "none";
-      document.getElementById("admin-username-input").value = "";
-      document.getElementById("admin-password-input").value = "";
-      document.getElementById("admin-login-modal").style.display = "flex";
-      setTimeout(() => document.getElementById("admin-username-input").focus(), 100);
-    }
-  }
-
-  function closeAdminAuthModal() {
-    document.getElementById("admin-login-modal").style.display = "none";
-  }
-
-  function verifyAdminCredentials() {
-    const u = document.getElementById("admin-username-input").value.trim();
-    const p = document.getElementById("admin-password-input").value.trim();
-    const err = document.getElementById("admin-login-error");
-
-    if (u === "admin" && p === "bsnljk") {
-      isAdminAuthenticated = true;
-      sessionStorage.setItem("bsnl_jk_admin_auth", "true");
-      closeAdminAuthModal();
-      applyAdminAccessState();
-    } else {
-      if (err) err.style.display = "block";
-    }
-  }
-
-  function switchModule(modId, btn) {
-    document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
-    ["mod-infra", "mod-dbn", "mod-history", "mod-down"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = "none";
-    });
-
-    document.getElementById(modId).style.display = "block";
-    if (btn) btn.classList.add("active");
-    currentActiveModule = modId;
-
-    if (modId === "mod-dbn" && !dbnDataLoaded) fetchAndRenderDbn();
-    if (modId === "mod-history" && !historyAlarmLoaded) loadHistoryAlarmData();
-    if (modId === "mod-down" && !downDataLoaded) fetchAndRenderDownSites();
-  }
-
-  function switchSubTab(viewId, btn) {
-    document.querySelectorAll("#mod-infra .sub-tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll("#mod-infra .sub-section").forEach(s => s.style.display = "none");
-    document.getElementById(viewId).style.display = "block";
-    if (btn) btn.classList.add("active");
-  }
-
-  function switchDbnSubTab(viewId, btn) {
-    document.querySelectorAll("#mod-dbn .sub-tabs .sub-tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".dbn-sub-section").forEach(s => s.style.display = "none");
-    document.getElementById(viewId).style.display = "block";
-    if (btn) btn.classList.add("active");
-
-    if (viewId === "dbn-escalation-view") {
-      setTimeout(() => renderEscalationDashboard(), 50);
-    } else if (viewId === "dbn-degraded-view") {
-      setTimeout(() => runDegradedAnalysis(), 50);
-    } else if (viewId === "dbn-user-degraded-view") {
-      setTimeout(() => runUserDegradedAnalysis(), 50);
-    }
-  }
-
-  function switchDownSubTab(viewId, btn) {
-    document.querySelectorAll("#mod-down .sub-tabs .sub-tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".down-sub-section").forEach(s => s.style.display = "none");
-    document.getElementById(viewId).style.display = "block";
-    if (btn) btn.classList.add("active");
-  }
-
-  function refreshCurrentModule() {
-    if (currentActiveModule === "mod-infra") fetchAndRenderInfra();
-    else if (currentActiveModule === "mod-dbn") fetchAndRenderDbn();
-    else if (currentActiveModule === "mod-history") loadHistoryAlarmData();
-    else if (currentActiveModule === "mod-down") fetchAndRenderDownSites();
-  }
-
-  // Module 1 Logic
-  function getMandatoryIndices(totalCols) {
-    const indices = [];
-    const maxLimit = Math.min(totalCols - 1, 64);
-    for (let i = 7; i <= maxLimit; i++) {
-      if (!EXCLUDED_INDICES.has(i)) indices.push(i);
-    }
-    return indices;
-  }
-
-  async function fetchAndRenderInfra() {
-    const status = document.getElementById("status-bar");
-    status.innerText = "Connecting to CNMC live sheet...";
-    const targetUrl = SHEET_INFRA_URL + (SHEET_INFRA_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
-
-    try {
-      let res = await fetch(targetUrl);
-      if (!res.ok) throw new Error("Status: " + res.status);
-      let csvText = await res.text();
-      Papa.parse(csvText, {
-        skipEmptyLines: true,
-        complete: function(results) {
-          processRawInfraData(results.data);
-          status.innerText = "Live Connected • Updated: " + new Date().toLocaleTimeString();
-        }
-      });
-    } catch (err) {
-      console.warn("Direct fetch busy, trying proxy route...", err);
-      try {
-        let proxyRes = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl));
-        let proxyCsv = await proxyRes.text();
-        Papa.parse(proxyCsv, {
-          skipEmptyLines: true,
-          complete: function(results) {
-            processRawInfraData(results.data);
-            status.innerText = "Live Connected (Backup) • " + new Date().toLocaleTimeString();
-          }
-        });
-      } catch (backupErr) {
-        status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Connection failed.</span>`;
-      }
-    }
-  }
-
-  function processRawInfraData(rows) {
-    if (!rows || rows.length < 2) return;
-    globalHeaders = rows[0];
-    rawDataRows = rows.slice(1);
-    const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
-
-    let l1Idx = -1, l2Idx = -1;
-    for (let i = 0; i < globalHeaders.length; i++) {
-      const h = safeStr(globalHeaders[i]).toLowerCase();
-      if (l1Idx === -1 && h.includes("l1") && !h.includes("avail") && !h.includes("%")) l1Idx = i;
-      if (l2Idx === -1 && h.includes("l2") && !h.includes("avail") && !h.includes("%")) l2Idx = i;
-    }
-    if (l1Idx === -1) l1Idx = 70;
-    if (l2Idx === -1) l2Idx = 71;
-
-    cachedSites = rawDataRows.map(row => {
-      const ba = safeStr(row[1]);
-      const ssa = safeStr(row[2]);
-      const phyId = safeStr(row[5]);
-      const btsName = safeStr(row[6]);
-      
-      let l1 = safeStr(row[l1Idx]);
-      let l2 = safeStr(row[l2Idx]);
-
-      if (!l1 || l1.endsWith("%") || !isNaN(parseFloat(l1))) l1 = safeStr(row[70]);
-      if (!l2) l2 = safeStr(row[71]);
-
-      l1 = cleanL1(l1, "Unassigned");
-      if (!l2) l2 = "-";
-
-      if (phyId) {
-        const pKey = normalizeIpKey(phyId);
-        if (l1 !== "Unassigned") masterInchargeByIp[pKey] = l1;
-        if (l2 !== "-") masterL2ByIp[pKey] = l2;
-      }
-
-      let filledCount = 0;
-      const missingFields = [];
-      mandatoryIndices.forEach(idx => {
-        const val = row[idx];
-        if (val && val.toString().trim() !== "") filledCount++;
-        else missingFields.push(globalHeaders[idx] || ("Col_" + idx));
-      });
-
-      return { ba, ssa, phyId, btsName, l1, l2, filledCount, missingFields, fillPct: (filledCount / 41) * 100, rawRow: row };
-    }).filter(s => s.ssa !== "");
-
-    populateGlobalBAFilter();
-    applyGlobalFilters();
-  }
-
-  function populateGlobalBAFilter() {
-    const select = document.getElementById("global-ba-filter");
-    const currentVal = select.value;
-    const filterOptions = new Set();
-    cachedSites.forEach(s => {
-      if (s.ba) filterOptions.add("BA: " + s.ba);
-      if (s.ssa) filterOptions.add("SSA: " + s.ssa);
-    });
-    select.innerHTML = '<option value="ALL">All BAs & SSAs (Circle View)</option>';
-    Array.from(filterOptions).sort().forEach(opt => select.innerHTML += `<option value="${opt}">${opt}</option>`);
-    if (Array.from(select.options).some(o => o.value === currentVal)) select.value = currentVal;
-  }
-
-  function applyGlobalFilters() {
-    const selectedFilter = document.getElementById("global-ba-filter").value;
-    let filtered = cachedSites;
-    if (selectedFilter.startsWith("BA: ")) filtered = cachedSites.filter(s => s.ba === selectedFilter.replace("BA: ", ""));
-    else if (selectedFilter.startsWith("SSA: ")) filtered = cachedSites.filter(s => s.ssa === selectedFilter.replace("SSA: ", ""));
-    
-    populateOwnerL1Dropdown(filtered);
-    renderDashboardWithSites(filtered);
-  }
-
-  function populateOwnerL1Dropdown(sites) {
-    const select = document.getElementById("owner-l1-select");
-    if (!select) return;
-    const currentVal = select.value;
-    const l1Set = new Set();
-    sites.forEach(s => {
-      if (s.l1 && s.l1 !== "Unassigned") l1Set.add(s.l1);
-    });
-    select.innerHTML = '<option value="ALL">All L1 Officers</option>';
-    Array.from(l1Set).sort().forEach(l => {
-      select.innerHTML += `<option value="${l}">${l}</option>`;
-    });
-    if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
-      select.value = currentVal;
-    }
-  }
-
-  function renderDashboardWithSites(sites) {
-    const totalSites = sites.length;
-    let notStarted = 0, inProgress = 0, completed = 0, totalFilled = 0;
-    const ssaMap = {}, ownerMap = {};
-    const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
-
-    sites.forEach(s => {
-      totalFilled += s.filledCount;
-      if (s.filledCount === 0) notStarted++;
-      else if (s.filledCount === 41) completed++;
-      else inProgress++;
-
-      if (!ssaMap[s.ssa]) {
-        ssaMap[s.ssa] = { ba: s.ba, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, fieldCounts: {}, sites: [] };
-        mandatoryIndices.forEach(idx => ssaMap[s.ssa].fieldCounts[idx] = 0);
-      }
-      ssaMap[s.ssa].total++;
-      ssaMap[s.ssa].filledFieldsSum += s.filledCount;
-      ssaMap[s.ssa].sites.push(s);
-      if (s.filledCount === 0) ssaMap[s.ssa].notStarted++;
-      else if (s.filledCount === 41) ssaMap[s.ssa].completed++;
-      else ssaMap[s.ssa].inProgress++;
-
-      mandatoryIndices.forEach(idx => {
-        if (s.rawRow[idx] && s.rawRow[idx].toString().trim() !== "") ssaMap[s.ssa].fieldCounts[idx]++;
-      });
-
-      const ownerKey = s.l1;
-      if (!ownerMap[ownerKey]) {
-        ownerMap[ownerKey] = {
-          ssa: s.ssa,
-          ssas: new Set([s.ssa]),
-          l1: s.l1,
-          l2: s.l2,
-          total: 0,
-          notStarted: 0,
-          inProgress: 0,
-          completed: 0,
-          filledFieldsSum: 0,
-          sites: []
-        };
-      }
-      ownerMap[ownerKey].ssas.add(s.ssa);
-      ownerMap[ownerKey].total++;
-      ownerMap[ownerKey].filledFieldsSum += s.filledCount;
-      ownerMap[ownerKey].sites.push(s);
-      if (s.filledCount === 0) ownerMap[ownerKey].notStarted++;
-      else if (s.filledCount === 41) ownerMap[ownerKey].completed++;
-      else ownerMap[ownerKey].inProgress++;
-    });
-
-    const overallPct = totalSites > 0 ? (totalFilled / (totalSites * 41)) * 100 : 0;
-    document.getElementById("kpi-total").innerText = totalSites.toLocaleString();
-    document.getElementById("kpi-completed").innerText = completed.toLocaleString();
-    document.getElementById("kpi-inprogress").innerText = inProgress.toLocaleString();
-    document.getElementById("kpi-notstarted").innerText = notStarted.toLocaleString();
-    document.getElementById("kpi-circle-pct").innerText = overallPct.toFixed(1) + "%";
-
-    renderOATable(ssaMap, totalSites, notStarted, inProgress, completed, overallPct);
-    window.activeOwnerMap = ownerMap;
-    renderOwnerTable();
-    renderHeatmap(ssaMap, sites.length, mandatoryIndices);
-  }
-
-  function renderOATable(ssaMap, totalSites, notStarted, inProgress, completed, overallPct) {
-    const tbody = document.getElementById("oa-tbody");
-    let html = "";
-    Object.keys(ssaMap).sort().forEach(ssa => {
-      const d = ssaMap[ssa];
-      const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
-      const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
-      html += `
-        <tr class="clickable-row" onclick="openDrilldownModal('SSA: ${ssa}', ssaMap['${ssa}'].sites)">
-          <td>${d.ba}</td><td><strong>${ssa}</strong> 🔍</td>
-          <td class="num">${d.total}</td><td class="num">${d.notStarted}</td><td class="num">${d.inProgress}</td><td class="num">${d.completed}</td>
-          <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
-          <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
-        </tr>`;
-    });
-    html += `
-      <tr class="circle-row">
-        <td>TOTAL</td><td>CURRENT SELECTION</td>
-        <td class="num">${totalSites}</td><td class="num">${notStarted}</td><td class="num">${inProgress}</td><td class="num">${completed}</td>
-        <td class="num"><div class="progress-track"><div class="progress-fill ${overallPct >= 80 ? 'high' : 'mid'}" style="width:${overallPct}%"></div></div></td>
-        <td class="num">${overallPct.toFixed(1)}%</td>
-      </tr>`;
-    tbody.innerHTML = html;
-  }
-
-  function renderOwnerTable() {
-    if (!window.activeOwnerMap) return;
-    const chosenL1 = document.getElementById("owner-l1-select") ? document.getElementById("owner-l1-select").value : "ALL";
-    const q = safeStr(document.getElementById("owner-search").value).toLowerCase();
-    const tbody = document.getElementById("owner-tbody");
-
-    const sortedOwners = Object.values(window.activeOwnerMap).sort((a,b) => b.total - a.total);
-    let html = "";
-
-    sortedOwners.forEach(d => {
-      if (chosenL1 !== "ALL" && d.l1 !== chosenL1) return;
-      if (q && !d.l1.toLowerCase().includes(q)) return;
-
-      const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
-      const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
-      html += `
-        <tr>
-          <td>${Array.from(d.ssas).join(", ")}</td>
-          <td class="clickable-row" onclick="openDrilldownModal('L1: ${d.l1}', window.activeOwnerMap['${d.l1}'].sites)"><strong>${d.l1}</strong> 🔍</td>
-          <td>${d.l2}</td><td class="num">${d.total}</td><td class="num">${d.notStarted}</td><td class="num">${d.inProgress}</td><td class="num">${d.completed}</td>
-          <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
-          <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
-          <td style="text-align: center;">
-            <button class="btn btn-green btn-sm" onclick="exportSingleIncharge('${d.l1}', 'excel')">Excel</button>
-            <button class="btn btn-red btn-sm" onclick="exportSingleIncharge('${d.l1}', 'pdf')">PDF</button>
-          </td>
-        </tr>`;
-    });
-    tbody.innerHTML = html;
-  }
-
-  function shareOwnerProgressWhatsApp() {
-    if (!window.activeOwnerMap) return;
-    const chosenSsaFilter = document.getElementById("global-ba-filter").value;
-    const chosenL1 = document.getElementById("owner-l1-select") ? document.getElementById("owner-l1-select").value : "ALL";
-    
-    let list = Object.values(window.activeOwnerMap);
-    if (chosenL1 !== "ALL") list = list.filter(d => d.l1 === chosenL1);
-    
-    let msg = `*🏢 J&K CM Site Infra & Power Tracker - In-Charge Progress*\n`;
-    msg += `*Filter:* ${chosenSsaFilter} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n\n`;
-    
-    list.sort((a,b) => (b.filledFieldsSum / (b.total * 41)) - (a.filledFieldsSum / (a.total * 41)));
-    list.forEach((d, i) => {
-      const pct = d.total > 0 ? ((d.filledFieldsSum / (d.total * 41)) * 100).toFixed(1) : "0.0";
-      msg += `${i + 1}. *${d.l1}* (${Array.from(d.ssas).join(", ")}): ${d.completed}/${d.total} Complete (${pct}% Fill)\n`;
-    });
-    
-    msg += `\nPlease expedite updating mandatory infrastructure parameters.\n\n`;
-    msg += getClosingSignature(chosenSsaFilter.replace("SSA: ", "").replace("BA: ", ""));
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
-  }
-
-  function renderHeatmap(ssaMap, totalSitesCount, mandatoryIndices) {
-    const ssaList = Object.keys(ssaMap).sort();
-    const thead = document.getElementById("param-thead");
-    const tbody = document.getElementById("param-tbody");
-    let thHtml = `<tr><th>#</th><th>Parameter Name</th><th class="num">Overall %</th>`;
-    ssaList.forEach(ssa => thHtml += `<th class="num">${ssa}</th>`);
-    thead.innerHTML = thHtml + `</tr>`;
-
-    let rowsHtml = "";
-    mandatoryIndices.forEach((idx, i) => {
-      const paramName = globalHeaders[idx] || ("Col " + idx);
-      let filledTotal = 0;
-      ssaList.forEach(ssa => filledTotal += ssaMap[ssa].fieldCounts[idx]);
-      const paramPct = totalSitesCount > 0 ? (filledTotal / totalSitesCount) * 100 : 0;
-      let rHtml = `<tr><td>${i + 1}</td><td><strong>${paramName}</strong></td><td class="heat-cell" style="background:${getColor(paramPct)}"><strong>${paramPct.toFixed(1)}%</strong></td>`;
-      ssaList.forEach(ssa => {
-        const ssaTotal = ssaMap[ssa].total;
-        const ssaFilled = ssaMap[ssa].fieldCounts[idx];
-        const pct = ssaTotal > 0 ? (ssaFilled / ssaTotal) * 100 : 0;
-        rHtml += `<td class="heat-cell" style="background:${getColor(pct)}">${pct.toFixed(0)}%</td>`;
-      });
-      rowsHtml += rHtml + `</tr>`;
-    });
-    tbody.innerHTML = rowsHtml;
-  }
-
-  function getColor(pct) {
-    if (pct >= 90) return "#dcfce7";
-    if (pct >= 70) return "#fef9c3";
-    if (pct >= 40) return "#ffedd5";
-    return "#fee2e2";
-  }
-
-  function handleInstantSiteSearch(q) {
-    const term = safeStr(q).toLowerCase();
-    const btn = document.getElementById("search-tab-btn");
-    if (!term) {
-      btn.style.display = "none";
-      switchSubTab("oa-view", document.querySelectorAll(".sub-tab-btn")[0]);
-      return;
-    }
-    btn.style.display = "inline-block";
-    switchSubTab("search-view", btn);
-
-    const matches = cachedSites.filter(s => s.phyId.toLowerCase().includes(term) || s.btsName.toLowerCase().includes(term));
-    const tbody = document.getElementById("search-tbody");
-    if (matches.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#64748b;">No matching site found.</td></tr>`;
-      return;
-    }
-    let html = "";
-    matches.slice(0, 50).forEach(s => {
-      const missingHtml = s.missingFields.length === 0
-        ? '<span style="color:#16a34a; font-weight:bold;">All Complete</span>'
-        : s.missingFields.map(m => `<span class="missing-tag">${m}</span>`).join(" ");
-      html += `<tr><td><strong>${s.phyId}</strong></td><td>${s.btsName}</td><td>${s.ssa}</td><td>${s.l1}</td><td>${s.l2}</td><td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td><td>${missingHtml}</td></tr>`;
-    });
-    tbody.innerHTML = html;
-  }
-
-  function openDrilldownModal(entityName, sites) {
-    currentModalEntityName = entityName;
-    currentModalSites = sites;
-    document.getElementById("modal-title").innerText = "Site Breakdown: " + entityName;
-    document.getElementById("modal-subtitle").innerText = `Total: ${sites.length} sites`;
-    const tbody = document.getElementById("modal-tbody");
-    let html = "";
-    sites.forEach((s, i) => {
-      const missingHtml = s.missingFields.length === 0
-        ? '<span style="color:#16a34a; font-weight:bold;">All Complete</span>'
-        : s.missingFields.map(m => `<span class="missing-tag">${m}</span>`).join(" ");
-      html += `<tr><td>${i + 1}</td><td><strong>${s.phyId}</strong></td><td>${s.btsName}</td><td>${s.l1}</td><td class="num">${s.filledCount}/41</td><td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td><td>${missingHtml}</td></tr>`;
-    });
-    tbody.innerHTML = html;
-    document.getElementById("drilldown-modal").style.display = "flex";
-  }
-
-  function closeModal() { document.getElementById("drilldown-modal").style.display = "none"; }
-
-  function exportSingleIncharge(k, fmt) {
-    const d = window.activeOwnerMap[k];
-    if (!d || !d.sites) return;
-    if (fmt === 'excel') exportSitesExcel(d.sites, "CNMC_Report_" + d.l1.replace(/[^a-zA-Z0-9]/g, "_"));
-    if (fmt === 'pdf') exportSitesPDF(d.sites, "L1: " + d.l1 + " (" + Array.from(d.ssas).join(", ") + ")");
-  }
-  function exportModalSitesToExcel() { exportSitesExcel(currentModalSites, "CNMC_Sites_" + currentModalEntityName.replace(/[^a-zA-Z0-9]/g, "_")); }
-  function exportModalSitesToPDF() { exportSitesPDF(currentModalSites, currentModalEntityName); }
-
-  function exportSitesExcel(sites, fileName) {
-    const data = sites.map((s, i) => ({
-      "S.No": i + 1, "BA": s.ba, "SSA": s.ssa, "Phy Site ID": s.phyId, "BTS Name": s.btsName,
-      "L1 Owner": s.l1, "L2 Owner": s.l2, "Filled (/41)": s.filledCount, "Fill %": Math.round(s.fillPct) + "%",
-      "Missing Parameters": s.missingFields.join(", ")
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Pending_Sites");
-    XLSX.writeFile(wb, (fileName || "CNMC_Sites") + ".xlsx");
-  }
-
-  function exportSitesPDF(sites, title) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('l', 'pt', 'a4');
-    doc.setFontSize(14); doc.text("CNMC Pending Parameter Report - " + title, 40, 30);
-    doc.setFontSize(10); doc.text("Generated: " + new Date().toLocaleString(), 40, 46);
-    const rows = sites.map((s, i) => [
-      i + 1, s.phyId, s.btsName, s.l1, s.filledCount + "/41", Math.round(s.fillPct) + "%",
-      s.missingFields.slice(0, 5).join(", ") + (s.missingFields.length > 5 ? ` (+${s.missingFields.length - 5})` : "")
-    ]);
-    doc.autoTable({ startY: 55, head: [['#', 'Site ID', 'BTS Name', 'L1 Owner', 'Filled', 'Fill %', 'Missing Params']], body: rows, theme: 'striped', styles: { fontSize: 8 }, headStyles: { fillColor: [0, 51, 102] } });
-    doc.save("CNMC_Report_" + title.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf");
-  }
-
-  // Module 2 Logic
-  async function fetchAndRenderDbn() {
-    const status = document.getElementById("status-bar");
-    status.innerText = "Downloading DBN_NDBN master dataset (61k rows)...";
-
-    let csvText = null;
-    try {
-      const res = await fetch(SHEET_DBN_URL);
-      if (res.ok) csvText = await res.text();
-    } catch (e) {
-      console.warn("Direct DBN fetch failed, trying proxy gateway...", e);
-    }
-
-    if (!csvText || csvText.trim().startsWith("<!DOCTYPE html>")) {
-      const proxies = [
-        "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_DBN_URL),
-        "https://corsproxy.io/?" + encodeURIComponent(SHEET_DBN_URL)
-      ];
-
-      for (let pUrl of proxies) {
-        try {
-          status.innerText = "Connecting via high-capacity data gateway...";
-          const pRes = await fetch(pUrl);
-          if (pRes.ok) {
-            const txt = await pRes.text();
-            if (txt && !txt.trim().startsWith("<!DOCTYPE html>")) {
-              csvText = txt;
-              break;
-            }
-          }
-        } catch (err) {
-          console.warn("Proxy attempt failed:", err);
-        }
-      }
-    }
-
-    if (!csvText) {
-      status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error loading DBN dataset. Please verify internet connectivity or Google Sheet publishing.</span>`;
-      return;
-    }
-
-    status.innerText = "Parsing 61k DBN records in browser memory...";
-    Papa.parse(csvText, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: h => h.trim(),
-      complete: function(results) {
-        processDbnData(results.data);
-      }
-    });
-  }
-
-  function processDbnData(data) {
-    const status = document.getElementById("status-bar");
-    if (!data || data.length === 0) {
-      status.innerText = "⚠️ DBN Dataset empty.";
-      return;
-    }
-
-    try {
-      const dateSet = new Set();
-      dbnRawRecords = data.map(r => {
-        const ssa = safeStr(r["Circle SSA"] || r["SSA"]);
-        const ba = safeStr(r["BA"]);
-        const siteId = safeStr(r["Static_Site_Hierarchy.PHY_Site_ID"] || r["Site IDs"] || r["PHY_Site_ID"]);
-        const siteName = safeStr(r["Static_Site_Hierarchy.Site Name"] || r["Site Name"]);
-        const btsIp = safeStr(r["BTS_IP_ID_Clean"] || r["BTS IP ID"]);
-        const cat = safeStr(r["CATEGORY"]).toUpperCase();
-        const availStr = safeStr(r["Max NW avail (%)"] || r["Max NW avail"] || "0").replace("%", "").trim();
-        const avail = parseFloat(availStr) || 0;
-        const bucket = getAvailabilityBucket(avail);
-        const reportDate = safeStr(r["Report Date"]);
-        const maxActiveUser = parseInt(r["Max active User"] || r["Max active user"] || 0) || 0;
-        const l1 = safeStr(r["Static_Site_Hierarchy.CM L1_Name_number"]) || "Unassigned";
-        const l2 = safeStr(r["Static_Site_Hierarchy.CM L2_Name_number"] || r["L2 Incharge"]) || "-";
-        const media = safeStr(r["Static_Site_Hierarchy.Media"]) || "-";
-        const voiceErl = parseFloat(r["avg Voice_erl"]) || 0;
-        const dataGb = parseFloat(r["avg DATA(GB)"]) || 0;
-
-        if (reportDate) dateSet.add(reportDate);
-
-        const ipKey = normalizeIpKey(btsIp);
-        const siteKey = normalizeIpKey(siteId);
-
-        [ipKey, siteKey].forEach(k => {
-          if (k) {
-            masterAvailByIp[k] = avail;
-            if (cat) masterCategoryByIp[k] = cat;
-            if (reportDate) masterAvailByDateAndIp[`${reportDate}____${k}`] = avail;
-            if (l1 && l1 !== "Unassigned") masterInchargeByIp[k] = l1;
-            if (l2 && l2 !== "-") masterL2ByIp[k] = l2;
-            if (media && media !== "-") masterMediaByIp[k] = media;
-          }
-        });
-
-        return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, maxActiveUser, l1, l2, media, voiceErl, dataGb };
-      }).filter(r => r.ssa !== "" && r.siteId !== "");
-
-      dbnAvailableDates = Array.from(dateSet).sort().reverse();
-      populateDbnControls();
-      populateDownCommonReportDateControl();
-      dbnDataLoaded = true;
-
-      if (typeof applyDbnFilters === 'function') applyDbnFilters();
-      if (typeof runDegradedAnalysis === 'function') runDegradedAnalysis();
-      if (typeof runUserDegradedAnalysis === 'function') runUserDegradedAnalysis();
-      if (typeof renderEscalationDashboard === 'function') renderEscalationDashboard();
-
-      if (downDataLoaded) applyDownSitesFilters();
-
-      status.innerText = `DBN Connected • Loaded ${dbnRawRecords.length.toLocaleString()} rows • ${new Date().toLocaleTimeString()}`;
-    } catch (err) {
-      console.error("Critical error in processDbnData:", err);
-      status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error processing DBN records: ${err.message}</span>`;
-    }
-  }
-
-  function populateDbnControls() {
-    const dateSelect = document.getElementById("dbn-date-select");
-    dateSelect.innerHTML = "";
-    dbnAvailableDates.forEach(d => { dateSelect.innerHTML += `<option value="${d}">${d}</option>`; });
-    dateSelect.innerHTML += `<option value="ALL">All Available Dates</option>`;
-    dateSelect.value = dbnAvailableDates[0];
-
-    const ssaSelect = document.getElementById("dbn-ssa-select");
-    const ssaSet = new Set();
-    dbnRawRecords.forEach(r => { if (r.ssa) ssaSet.add(r.ssa); });
-    ssaSelect.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
-    Array.from(ssaSet).sort().forEach(s => { ssaSelect.innerHTML += `<option value="${s}">${s}</option>`; });
-
-    const degPrev = document.getElementById("deg-prev-date");
-    const degNext = document.getElementById("deg-next-date");
-    const degSsa = document.getElementById("deg-ssa-select");
-    degPrev.innerHTML = ""; degNext.innerHTML = "";
-    dbnAvailableDates.forEach(d => {
-      degPrev.innerHTML += `<option value="${d}">${d}</option>`;
-      degNext.innerHTML += `<option value="${d}">${d}</option>`;
-    });
-    degNext.value = dbnAvailableDates[0];
-    degPrev.value = dbnAvailableDates.length > 1 ? dbnAvailableDates[1] : dbnAvailableDates[0];
-    degSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
-    Array.from(ssaSet).sort().forEach(s => { degSsa.innerHTML += `<option value="${s}">${s}</option>`; });
-
-    const userPrev = document.getElementById("user-deg-prev-date");
-    const userNext = document.getElementById("user-deg-next-date");
-    const userSsa = document.getElementById("user-deg-ssa-select");
-    userPrev.innerHTML = ""; userNext.innerHTML = "";
-    dbnAvailableDates.forEach(d => {
-      userPrev.innerHTML += `<option value="${d}">${d}</option>`;
-      userNext.innerHTML += `<option value="${d}">${d}</option>`;
-    });
-    userNext.value = dbnAvailableDates[0];
-    userPrev.value = dbnAvailableDates.length > 1 ? dbnAvailableDates[1] : dbnAvailableDates[0];
-    userSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
-    Array.from(ssaSet).sort().forEach(s => { userSsa.innerHTML += `<option value="${s}">${s}</option>`; });
-
-    const escDate = document.getElementById("esc-date-select");
-    escDate.innerHTML = "";
-    dbnAvailableDates.forEach(d => { escDate.innerHTML += `<option value="${d}">${d}</option>`; });
-    escDate.value = dbnAvailableDates[0];
-
-    const escSsa = document.getElementById("esc-ssa-select");
-    escSsa.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
-    Array.from(ssaSet).sort().forEach(s => { escSsa.innerHTML += `<option value="${s}">${s}</option>`; });
-
-    handleDegradedSsaChange();
-    handleUserDegSsaChange();
-  }
-
-  function handleDegradedSsaChange() {
-    const chosenSsa = document.getElementById("deg-ssa-select").value;
-    const l1Select = document.getElementById("deg-l1-select");
-    const currentVal = l1Select.value;
-    const l1Set = new Set();
-
-    dbnRawRecords.forEach(r => {
-      if ((chosenSsa === "ALL" || r.ssa === chosenSsa) && r.l1 && r.l1 !== "Unassigned") {
-        l1Set.add(r.l1);
-      }
-    });
-
-    l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
-    Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
-    if (currentVal && Array.from(l1Select.options).some(o => o.value === currentVal)) l1Select.value = currentVal;
-    runDegradedAnalysis();
-  }
-
-  function handleUserDegSsaChange() {
-    const chosenSsa = document.getElementById("user-deg-ssa-select").value;
-    const l1Select = document.getElementById("user-deg-l1-select");
-    const currentVal = l1Select.value;
-    const l1Set = new Set();
-
-    dbnRawRecords.forEach(r => {
-      if ((chosenSsa === "ALL" || r.ssa === chosenSsa) && r.l1 && r.l1 !== "Unassigned") {
-        l1Set.add(r.l1);
-      }
-    });
-
-    l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
-    Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
-    if (currentVal && Array.from(l1Select.options).some(o => o.value === currentVal)) l1Select.value = currentVal;
-    runUserDegradedAnalysis();
-  }
-
-  function populateDownCommonReportDateControl() {
-    const reportSelect = document.getElementById("down-report-date-select");
-    if (!reportSelect) return;
-    const currentVal = reportSelect.value;
-    reportSelect.innerHTML = "";
-    if (Array.isArray(dbnAvailableDates) && dbnAvailableDates.length > 0) {
-      dbnAvailableDates.forEach(d => { reportSelect.innerHTML += `<option value="${d}">${d}</option>`; });
-      reportSelect.value = (currentVal && dbnAvailableDates.includes(currentVal)) ? currentVal : dbnAvailableDates[0];
-    } else {
-      reportSelect.innerHTML = `<option value="">Latest Master Avail</option>`;
-    }
-  }
-
-  function setCategorySlicer(cat, btn) {
-    selectedCategory = cat;
-    document.querySelectorAll("#slicer-category .slicer-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    applyDbnFilters();
-  }
-
-  function setBucketSlicer(bucket, btn) {
-    selectedBucket = bucket;
-    document.querySelectorAll("#slicer-bucket .slicer-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    applyDbnFilters();
-  }
-
-  function applyDbnFilters() {
+  // =========================================================================
+  // DBN ANALYSIS LOGIC (EXPLICIT GLOBAL HOISTING TO AVOID UNDEFINED ERRORS)
+  // =========================================================================
+  function runDegradedAnalysis() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const prevDateElem = document.getElementById("deg-prev-date");
+    const nextDateElem = document.getElementById("deg-next-date");
+    if (!prevDateElem || !nextDateElem) return;
 
-    const chosenDate = document.getElementById("dbn-date-select").value;
-    const chosenSsa = document.getElementById("dbn-ssa-select").value;
-    const searchVal = safeStr(document.getElementById("dbn-search-input").value).toLowerCase();
+    const prevDate = prevDateElem.value;
+    const nextDate = nextDateElem.value;
+    const selectedSsa = document.getElementById("deg-ssa-select").value;
+    const selectedCat = document.getElementById("deg-cat-select") ? document.getElementById("deg-cat-select").value : "ALL";
+    const selectedL1 = document.getElementById("deg-l1-select") ? document.getElementById("deg-l1-select").value : "ALL";
 
-    dbnFilteredRecords = dbnRawRecords.filter(r => {
-      if (chosenDate !== "ALL" && r.reportDate !== chosenDate) return false;
-      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
-      if (selectedCategory !== "ALL" && r.category !== selectedCategory) return false;
-      if (selectedBucket !== "ALL" && r.bucket !== selectedBucket) return false;
-      if (searchVal) {
-        const matches = r.siteId.toLowerCase().includes(searchVal) ||
-                        r.siteName.toLowerCase().includes(searchVal) ||
-                        r.btsIp.toLowerCase().includes(searchVal) ||
-                        r.l1.toLowerCase().includes(searchVal);
-        if (!matches) return false;
+    if (!prevDate || !nextDate || prevDate === nextDate) {
+      const tbody = document.getElementById("degraded-sites-tbody");
+      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
+      return;
+    }
+
+    const prevMap = {};
+    let baseHealthyCount = 0;
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          prevMap[r.siteId] = r;
+          if (r.avail >= 98.0) baseHealthyCount++;
+        }
       }
-      return true;
     });
 
-    renderDbnDashboard();
-  }
-
-  function renderDbnDashboard() {
-    const total = dbnFilteredRecords.length;
-    let dbnCount = 0, ndbnCount = 0, availSum = 0;
-    let bGte98 = 0, b94to98 = 0, b90to94 = 0, bLt90 = 0;
-    const ssaAgg = {};
-
-    dbnFilteredRecords.forEach(r => {
-      availSum += r.avail;
-      if (r.category === "DBN") dbnCount++;
-      else if (r.category === "NDBN") ndbnCount++;
-
-      if (r.bucket === ">=98%") bGte98++;
-      else if (r.bucket === "94-98%") b94to98++;
-      else if (r.bucket === "90-94%") b90to94++;
-      else bLt90++;
-
-      if (!ssaAgg[r.ssa]) {
-        ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
-      }
-      ssaAgg[r.ssa].total++;
-      ssaAgg[r.ssa].availSum += r.avail;
-      if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
-      else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
-
-      if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
-      else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
-      else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
-      else ssaAgg[r.ssa].lt90++;
-    });
-
-    const avgAvail = total > 0 ? (availSum / total).toFixed(2) : "0.00";
-
-    document.getElementById("dbn-kpi-total").innerText = total.toLocaleString();
-    document.getElementById("dbn-kpi-avail").innerText = avgAvail + "%";
-    document.getElementById("dbn-kpi-dbn").innerText = dbnCount.toLocaleString();
-    document.getElementById("dbn-kpi-ndbn").innerText = ndbnCount.toLocaleString();
-    document.getElementById("dbn-kpi-critical").innerText = bLt90.toLocaleString();
-
-    cachedSsaAgg = ssaAgg;
-    renderDbnCharts(bGte98, b94to98, b90to94, bLt90, ssaAgg);
-    renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, bGte98, b94to98, b90to94, bLt90, avgAvail);
-    renderDbnDetailTable(dbnFilteredRecords);
-  }
-
-  function toggleSsaChartMode() {
-    ssaChartMode = ssaChartMode === "pct" ? "count" : "pct";
-    document.getElementById("btn-toggle-ssa-chart").innerText = ssaChartMode === "pct" ? "Switch to Count" : "Switch to %";
-    if (cachedSsaAgg) renderStackedSsaChart(cachedSsaAgg);
-  }
-
-  function captureSsaChartScreenshot() {
-    const card = document.getElementById("dbn-ssa-chart-card");
-    html2canvas(card, { scale: 2 }).then(canvas => {
-      const link = document.createElement("a");
-      link.download = `SSA_Availability_Stacked_Chart_${Date.now()}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    });
-  }
-
-  function renderDbnCharts(gte98, mid94, low90, lt90, ssaAgg) {
-    const ctxBucket = document.getElementById("dbnBucketChart").getContext("2d");
-    if (dbnBucketChartInstance) dbnBucketChartInstance.destroy();
-    dbnBucketChartInstance = new Chart(ctxBucket, {
-      type: "doughnut",
-      data: {
-        labels: ["≥98%", "94-98%", "90-94%", "<90%"],
-        datasets: [{
-          data: [gte98, mid94, low90, lt90],
-          backgroundColor: ["#22c55e", "#f59e0b", "#f97316", "#ef4444"],
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "bottom" },
-          datalabels: {
-            formatter: (value, ctx) => {
-              let sum = 0;
-              let dataArr = ctx.chart.data.datasets[0].data;
-              dataArr.forEach(data => { sum += data; });
-              if (sum === 0 || value === 0) return "";
-              return ((value * 100) / sum).toFixed(1) + "%";
-            },
-            color: "#fff", font: { weight: "bold", size: 11 }
+    degradedSitesList = [];
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === nextDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          const prevRec = prevMap[r.siteId];
+          if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
+            const drop = (r.avail - prevRec.avail).toFixed(2);
+            degradedSitesList.push({
+              siteId: r.siteId,
+              btsIp: r.btsIp,
+              siteName: r.siteName,
+              ssa: r.ssa,
+              category: r.category,
+              prevAvail: prevRec.avail,
+              nextAvail: r.avail,
+              dropDelta: drop,
+              bucket: r.bucket,
+              l1: r.l1,
+              media: r.media
+            });
           }
         }
       }
     });
 
-    renderStackedSsaChart(ssaAgg);
-  }
+    degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
 
-  function renderStackedSsaChart(ssaAgg) {
-    const ssaLabels = Object.keys(ssaAgg).sort();
-    const dataGte98 = [], dataMid94 = [], dataLow90 = [], dataLt90 = [];
+    document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
+    document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
+    const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
+    document.getElementById("deg-kpi-rate").innerText = rate + "%";
 
-    ssaLabels.forEach(s => {
-      const a = ssaAgg[s];
-      const tot = a.total > 0 ? a.total : 1;
-      if (ssaChartMode === "pct") {
-        dataGte98.push(parseFloat(((a.gte98 / tot) * 100).toFixed(1)));
-        dataMid94.push(parseFloat(((a.mid94 / tot) * 100).toFixed(1)));
-        dataLow90.push(parseFloat(((a.low90 / tot) * 100).toFixed(1)));
-        dataLt90.push(parseFloat(((a.lt90  / tot) * 100).toFixed(1)));
-      } else {
-        dataGte98.push(a.gte98);
-        dataMid94.push(a.mid94);
-        dataLow90.push(a.low90);
-        dataLt90.push(a.lt90);
-      }
-    });
-
-    const ctxSsa = document.getElementById("dbnSsaChart").getContext("2d");
-    if (dbnSsaChartInstance) dbnSsaChartInstance.destroy();
-    dbnSsaChartInstance = new Chart(ctxSsa, {
-      type: "bar",
-      data: {
-        labels: ssaLabels,
-        datasets: [
-          { label: "≥98%", data: dataGte98, backgroundColor: "#22c55e", stack: "Stack 0" },
-          { label: "94-98%", data: dataMid94, backgroundColor: "#f59e0b", stack: "Stack 0" },
-          { label: "90-94%", data: dataLow90, backgroundColor: "#ea580c", stack: "Stack 0" },
-          { label: "<90%", data: dataLt90, backgroundColor: "#ef4444", stack: "Stack 0" }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        scales: {
-          x: { stacked: true },
-          y: {
-            stacked: true,
-            max: ssaChartMode === "pct" ? 100 : undefined,
-            ticks: { callback: v => ssaChartMode === "pct" ? v + "%" : v }
-          }
-        },
-        plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
-          datalabels: {
-            formatter: (v) => {
-              if (v === 0) return "";
-              return ssaChartMode === "pct" ? (v >= 5 ? v + "%" : "") : (v >= 3 ? v : "");
-            },
-            color: "#fff", font: { weight: "bold", size: 10 }
-          }
-        }
-      }
-    });
-  }
-
-  function renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail) {
-    const tbody = document.getElementById("dbn-summary-tbody");
-    window.currentSsaSummaryCache = { ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail };
-    let html = "";
-
-    Object.keys(ssaAgg).sort().forEach(s => {
-      const a = ssaAgg[s];
-      const ssaAvg = a.total > 0 ? (a.availSum / a.total).toFixed(2) : "0.00";
-      const pGte = a.total > 0 ? ((a.gte98 / a.total) * 100).toFixed(1) : 0;
-      const pMid = a.total > 0 ? ((a.mid94 / a.total) * 100).toFixed(1) : 0;
-      const pLow = a.total > 0 ? ((a.low90 / a.total) * 100).toFixed(1) : 0;
-      const pLt  = a.total > 0 ? ((a.lt90  / a.total) * 100).toFixed(1) : 0;
-
-      html += `
-        <tr>
-          <td><strong>${s}</strong></td>
-          <td class="num">${a.total}</td>
-          <td class="num"><span class="badge-dbn">${a.dbn}</span></td>
-          <td class="num"><span class="badge-ndbn">${a.ndbn}</span></td>
-          <td class="num" style="color:#16a34a; font-weight:600;">${a.gte98} (${pGte}%)</td>
-          <td class="num" style="color:#d97706; font-weight:600;">${a.mid94} (${pMid}%)</td>
-          <td class="num" style="color:#ea580c; font-weight:600;">${a.low90} (${pLow}%)</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${a.lt90} (${pLt}%)</td>
-          <td class="num"><strong>${ssaAvg}%</strong></td>
-        </tr>`;
-    });
-
-    const cpGte = total > 0 ? ((gte98 / total) * 100).toFixed(1) : 0;
-    const cpMid = total > 0 ? ((mid94 / total) * 100).toFixed(1) : 0;
-    const cpLow = total > 0 ? ((low90 / total) * 100).toFixed(1) : 0;
-    const cpLt  = total > 0 ? ((lt90  / total) * 100).toFixed(1) : 0;
-
-    html += `
-      <tr class="circle-row">
-        <td>TOTAL / CIRCLE</td>
-        <td class="num">${total.toLocaleString()}</td>
-        <td class="num">${dbnCount.toLocaleString()}</td>
-        <td class="num">${ndbnCount.toLocaleString()}</td>
-        <td class="num" style="color:#16a34a;">${gte98.toLocaleString()} (${cpGte}%)</td>
-        <td class="num" style="color:#d97706;">${mid94.toLocaleString()} (${cpMid}%)</td>
-        <td class="num" style="color:#ea580c;">${low90.toLocaleString()} (${cpLow}%)</td>
-        <td class="num" style="color:#dc2626;">${lt90.toLocaleString()} (${cpLt}%)</td>
-        <td class="num">${avgAvail}%</td>
-      </tr>`;
-    tbody.innerHTML = html;
-  }
-
-  function shareSsaSummaryWhatsApp() {
-    if (!window.currentSsaSummaryCache) return;
-    const { ssaAgg, total, gte98, mid94, low90, lt90, avgAvail } = window.currentSsaSummaryCache;
-    const selectedDate = document.getElementById("dbn-date-select").value;
-    const chosenSsa = document.getElementById("dbn-ssa-select").value;
-
-    let catHeading = "DBN+NDBN";
-    if (selectedCategory === "DBN") catHeading = "DBN";
-    else if (selectedCategory === "NDBN") catHeading = "NDBN";
-
-    let msg = `*📊 J&K CM ${catHeading} Availability Summary (${selectedDate})*\n`;
-    msg += `_Rolling 30 Days Network Availability_\n\n`;
-
-    Object.keys(ssaAgg).sort().forEach(s => {
-      const a = ssaAgg[s];
-      const pGte = a.total > 0 ? ((a.gte98 / a.total) * 100).toFixed(1) : 0;
-      const ssaAvg = a.total > 0 ? (a.availSum / a.total).toFixed(1) : 0;
-      msg += `*${s}*: Total: ${a.total} | *≥98%: ${a.gte98} (${pGte}%)* | <90%: ${a.lt90} | Avg: ${ssaAvg}%\n`;
-    });
-
-    const cpGte = total > 0 ? ((gte98 / total) * 100).toFixed(1) : 0;
-    msg += `\n*🇮🇳 Circle Total*: ${total.toLocaleString()} Sites\n`;
-    msg += `*≥98% Healthy*: ${gte98.toLocaleString()} (${cpGte}%)\n`;
-    msg += `*94-98% Degraded*: ${mid94.toLocaleString()}\n`;
-    msg += `*90-94% Low*: ${low90.toLocaleString()}\n`;
-    msg += `*<90% Outage*: ${lt90.toLocaleString()}\n`;
-    msg += `*Circle Avg Availability*: ${avgAvail}%\n\n`;
-    msg += getClosingSignature(chosenSsa);
-
-    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
-    window.open(whatsappUrl, "_blank");
-  }
-
-  function renderDbnDetailTable(records) {
-    const tbody = document.getElementById("dbn-detail-tbody");
-    const countBadge = document.getElementById("dbn-site-count-badge");
-
-    const displayLimit = 150;
-    countBadge.innerText = `Showing ${Math.min(records.length, displayLimit)} of ${records.length.toLocaleString()} matching sites`;
-
-    if (records.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
+    const tbody = document.getElementById("degraded-sites-tbody");
+    if (!tbody) return;
+    if (degradedSitesList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">Great! No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
       return;
     }
 
     let html = "";
-    const limit = Math.min(records.length, displayLimit);
-    for (let i = 0; i < limit; i++) {
-      const r = records[i];
-      const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
-      const availColor = r.avail >= 98 ? "#16a34a" : (r.avail >= 94 ? "#d97706" : (r.avail >= 90 ? "#ea580c" : "#dc2626"));
-
-      const ipKey = normalizeIpKey(r.btsIp);
-      const siteKey = normalizeIpKey(r.siteId);
-      const downHrs = masterHistoryDownHoursByIp[ipKey] !== undefined 
-        ? masterHistoryDownHoursByIp[ipKey].toFixed(2) 
-        : (masterHistoryDownHoursByIp[siteKey] !== undefined ? masterHistoryDownHoursByIp[siteKey].toFixed(2) : "-");
-
+    degradedSitesList.forEach(r => {
       html += `
         <tr>
           <td><strong>${r.siteId}</strong></td>
           <td>${r.btsIp || "-"}</td>
           <td>${r.siteName}</td>
           <td>${r.ssa}</td>
-          <td>${catBadge}</td>
-          <td class="num" style="color:${availColor}; font-weight:bold;">${r.avail.toFixed(2)}%</td>
+          <td>${r.category}</td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${r.prevAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.nextAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.dropDelta}%</td>
           <td>${r.bucket}</td>
-          <td class="num"><strong>${r.maxActiveUser}</strong></td>
           <td>${r.l1}</td>
           <td>${r.media}</td>
-          <td class="num" style="color:var(--primary); font-weight:bold;">${downHrs}</td>
-          <td class="num">${r.voiceErl.toFixed(2)}</td>
-          <td class="num">${r.dataGb.toFixed(2)}</td>
         </tr>`;
-    }
+    });
     tbody.innerHTML = html;
   }
+  window.runDegradedAnalysis = runDegradedAnalysis;
 
-  function exportDbnSummaryExcel() {
-    const ssaAgg = {};
-    dbnFilteredRecords.forEach(r => {
-      if (!ssaAgg[r.ssa]) ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
-      ssaAgg[r.ssa].total++;
-      ssaAgg[r.ssa].availSum += r.avail;
-      if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
-      else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
-      if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
-      else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
-      else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
-      else if (r.bucket === "<90%") ssaAgg[r.ssa].lt90++;
-    });
+  function runUserDegradedAnalysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const prevDateElem = document.getElementById("user-deg-prev-date");
+    const nextDateElem = document.getElementById("user-deg-next-date");
+    if (!prevDateElem || !nextDateElem) return;
 
-    const rows = Object.keys(ssaAgg).sort().map(s => {
-      const a = ssaAgg[s];
-      return {
-        "SSA": s,
-        "Total Sites": a.total,
-        "DBN Count": a.dbn,
-        "NDBN Count": a.ndbn,
-        ">=98% Count": a.gte98,
-        ">=98% Share %": ((a.gte98 / a.total) * 100).toFixed(1) + "%",
-        "94-98% Count": a.mid94,
-        "94-98% Share %": ((a.mid94 / a.total) * 100).toFixed(1) + "%",
-        "90-94% Count": a.low90,
-        "90-94% Share %": ((a.low90 / a.total) * 100).toFixed(1) + "%",
-        "<90% Count": a.lt90,
-        "<90% Share %": ((a.lt90 / a.total) * 100).toFixed(1) + "%",
-        "Average Avail %": (a.availSum / a.total).toFixed(2) + "%"
-      };
-    });
+    const prevDate = prevDateElem.value;
+    const nextDate = nextDateElem.value;
+    const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
+    const selectedSsa = document.getElementById("user-deg-ssa-select").value;
+    const selectedCat = document.getElementById("user-deg-cat-select") ? document.getElementById("user-deg-cat-select").value : "ALL";
+    const selectedL1 = document.getElementById("user-deg-l1-select") ? document.getElementById("user-deg-l1-select").value : "ALL";
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "SSA_Summary");
-    XLSX.writeFile(wb, "DBN_NDBN_SSA_Summary_4Buckets.xlsx");
-  }
-
-  function exportDbnSitesExcel() {
-    const rows = dbnFilteredRecords.map((r, i) => {
-      const ipKey = normalizeIpKey(r.btsIp);
-      const siteKey = normalizeIpKey(r.siteId);
-      const downHrs = masterHistoryDownHoursByIp[ipKey] !== undefined 
-        ? masterHistoryDownHoursByIp[ipKey].toFixed(2) 
-        : (masterHistoryDownHoursByIp[siteKey] !== undefined ? masterHistoryDownHoursByIp[siteKey].toFixed(2) : "-");
-
-      return {
-        "S.No": i + 1,
-        "Date": r.reportDate,
-        "SSA": r.ssa,
-        "BA": r.ba,
-        "Site ID": r.siteId,
-        "Site IP ID": r.btsIp,
-        "Site Name": r.siteName,
-        "Category": r.category,
-        "Availability %": r.avail,
-        "Bucket": r.bucket,
-        "Max Active User": r.maxActiveUser,
-        "L1 Officer": r.l1,
-        "Media": r.media,
-        "Total Down Duration (Hr)": downHrs,
-        "Voice (Erl)": r.voiceErl,
-        "Data (GB)": r.dataGb
-      };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "DBN_Filtered_Sites");
-    XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
-  }
-
-  function exportEscalationExcel() {
-    if (!escalationData || escalationData.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(escalationData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Escalation_Matrix");
-    XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
-  }
-
-  function shareDegradedSitesWhatsApp() {
-    if (!degradedSitesList || degradedSitesList.length === 0) {
-      alert("No degraded sites to share.");
+    if (!prevDate || !nextDate || prevDate === nextDate) {
+      const tbody = document.getElementById("user-degraded-tbody");
+      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day user comparison.</td></tr>`;
       return;
     }
-    const prevDate = document.getElementById("deg-prev-date").value;
-    const nextDate = document.getElementById("deg-next-date").value;
-    const chosenSsa = document.getElementById("deg-ssa-select").value;
-    const chosenL1 = document.getElementById("deg-l1-select").value;
 
-    let title = `*⚠️ J&K CM Availability Degraded Sites Alert*\n`;
-    title += `*Period:* ${prevDate} ➔ ${nextDate}\n`;
-    title += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
-    title += `*Total Sites Dropped Below 98%:* ${degradedSitesList.length}\n\n`;
-
-    let body = "";
-    degradedSitesList.slice(0, 30).forEach((s, i) => {
-      body += `${i + 1}. *${s.siteName}* (${s.prevAvail.toFixed(1)}% ➔ ${s.nextAvail.toFixed(1)}%, Drop: ${s.dropDelta}%) [L1: ${s.l1}]\n`;
+    const prevMap = {};
+    let totalCompared = 0;
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          prevMap[r.siteId] = r;
+        }
+      }
     });
-    if (degradedSitesList.length > 30) {
-      body += `\n_...and ${degradedSitesList.length - 30} more degraded sites._\n`;
+
+    userDegradedSitesList = [];
+    let totalUsersLost = 0;
+    let sumDropPct = 0;
+
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === nextDate) {
+        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
+            (selectedCat === "ALL" || r.category === selectedCat) &&
+            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
+          const prevRec = prevMap[r.siteId];
+          if (prevRec) {
+            totalCompared++;
+            const baseUsers = prevRec.maxActiveUser;
+            const nextUsers = r.maxActiveUser;
+            if (baseUsers > 0 && nextUsers < baseUsers) {
+              const dropCount = baseUsers - nextUsers;
+              const dropPct = (dropCount / baseUsers) * 100;
+
+              if (dropPct >= minDropPct) {
+                totalUsersLost += dropCount;
+                sumDropPct += dropPct;
+                userDegradedSitesList.push({
+                  siteId: r.siteId,
+                  btsIp: r.btsIp,
+                  siteName: r.siteName,
+                  ssa: r.ssa,
+                  category: r.category,
+                  baseUsers: baseUsers,
+                  baseAvail: prevRec.avail,
+                  nextUsers: nextUsers,
+                  nextAvail: r.avail,
+                  dropCount: dropCount,
+                  dropPct: dropPct,
+                  l1: r.l1,
+                  media: r.media
+                });
+              }
+            }
+          }
+        }
+      }
+    });
+
+    userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
+
+    document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
+    document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
+    document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
+    const avgDrop = userDegradedSitesList.length > 0 ? (sumDropPct / userDegradedSitesList.length).toFixed(1) : "0.0";
+    document.getElementById("user-deg-kpi-drop-pct").innerText = avgDrop + "%";
+
+    const tbody = document.getElementById("user-degraded-tbody");
+    if (!tbody) return;
+    if (userDegradedSitesList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found with Max Active User degradation matching selected threshold (${minDropPct}%).</td></tr>`;
+      return;
     }
 
-    body += `\nPlease investigate and restore network availability immediately.\n\n`;
-    body += getClosingSignature(chosenSsa);
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(title + body), "_blank");
+    let html = "";
+    userDegradedSitesList.forEach(r => {
+      html += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${r.category}</td>
+          <td class="num"><strong>${r.baseUsers.toLocaleString()}</strong> (${r.baseAvail.toFixed(1)}%)</td>
+          <td class="num"><strong>${r.nextUsers.toLocaleString()}</strong> (${r.nextAvail.toFixed(1)}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
   }
+  window.runUserDegradedAnalysis = runUserDegradedAnalysis;
 
-  function exportDegradedSitesExcel() {
-    if (!degradedSitesList || degradedSitesList.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(degradedSitesList);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Degraded_Avail_Sites");
-    XLSX.writeFile(wb, "Degraded_Avail_Sites.xlsx");
+  function renderEscalationDashboard() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const dateElem = document.getElementById("esc-date-select");
+    const chosenDate = dateElem && dateElem.value ? dateElem.value : (dbnAvailableDates[0] || "");
+    const chosenSsa = document.getElementById("esc-ssa-select") ? document.getElementById("esc-ssa-select").value : "ALL";
+    const chosenCat = document.getElementById("esc-cat-select") ? document.getElementById("esc-cat-select").value : "ALL";
+    const targetPct = parseFloat(document.getElementById("esc-target-select") ? document.getElementById("esc-target-select").value : 80.0) || 80.0;
+    const searchVal = safeStr(document.getElementById("esc-search-input") ? document.getElementById("esc-search-input").value : "").toLowerCase();
+
+    const dateRecords = dbnRawRecords.filter(r => {
+      if (chosenDate && chosenDate !== "ALL" && r.reportDate !== chosenDate) return false;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
+      return true;
+    });
+
+    const inchargeMap = {};
+
+    dateRecords.forEach(r => {
+      const officer = cleanL1(r.l1, "Unassigned");
+      const key = r.ssa + "____" + officer;
+      if (!inchargeMap[key]) {
+        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0 };
+      }
+      inchargeMap[key].total++;
+      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
+      else if (r.bucket === "94-98%") inchargeMap[key].mid94++;
+      else if (r.bucket === "90-94%") inchargeMap[key].low90++;
+      else if (r.bucket === "<90%") inchargeMap[key].lt90++;
+    });
+
+    const parsedData = Object.values(inchargeMap).map(d => {
+      const actualPct = d.total > 0 ? (d.gte98 / d.total) * 100 : 0;
+      const targetCountNeeded = Math.ceil((targetPct / 100) * d.total);
+      const shortfall = Math.max(0, targetCountNeeded - d.gte98);
+      return {
+        ssa: d.ssa,
+        officer: d.officer,
+        total: d.total,
+        gte98: d.gte98,
+        mid94: d.mid94,
+        low90: d.low90,
+        lt90: d.lt90,
+        actualPct: actualPct,
+        targetPct: targetPct,
+        targetCountNeeded: targetCountNeeded,
+        shortfall: shortfall
+      };
+    });
+
+    const topGroup = parsedData.filter(d => d.total >= 15);
+    const bottomGroup = parsedData.filter(d => d.total < 15);
+
+    topGroup.sort((a, b) => b.actualPct - a.actualPct);
+    bottomGroup.sort((a, b) => b.actualPct - a.actualPct);
+
+    topGroup.forEach((d, idx) => { d.rank = idx + 1; });
+    bottomGroup.forEach(d => { d.rank = null; });
+
+    escalationData = [...topGroup, ...bottomGroup];
+
+    const tbody = document.getElementById("escalation-tbody");
+    if (!tbody) return;
+
+    const filtered = escalationData.filter(d => {
+      if (searchVal && !d.officer.toLowerCase().includes(searchVal) && !d.ssa.toLowerCase().includes(searchVal)) return false;
+      return true;
+    });
+
+    window.currentEscalationFiltered = filtered;
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found for selected filters.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    filtered.forEach((d, idx) => {
+      const pGte = d.total > 0 ? ((d.gte98 / d.total) * 100).toFixed(1) : 0;
+      const pMid = d.total > 0 ? ((d.mid94 / d.total) * 100).toFixed(1) : 0;
+      const pLow = d.total > 0 ? ((d.low90 / d.total) * 100).toFixed(1) : 0;
+      const pLt  = d.total > 0 ? ((d.lt90  / d.total) * 100).toFixed(1) : 0;
+
+      const rankBadge = d.rank !== null 
+        ? `<span class="badge-rank">#${d.rank}</span>` 
+        : `<span class="badge-rank-na">&lt;15 sites</span>`;
+
+      const statusBadge = d.shortfall > 0 
+        ? `<span class="badge-lag">Lagging (-${d.shortfall})</span>` 
+        : `<span class="badge-ok">Target Met</span>`;
+
+      html += `
+        <tr>
+          <td style="text-align: center;">${rankBadge}</td>
+          <td>${d.ssa}</td>
+          <td><strong>${d.officer}</strong></td>
+          <td class="num">${d.total}</td>
+          <td class="num" style="color:#16a34a; font-weight:700;">${d.gte98} (${pGte}%)</td>
+          <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
+          <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90} (${pLt}%)</td>
+          <td class="num"><strong>${d.actualPct.toFixed(1)}%</strong></td>
+          <td class="num">${d.targetCountNeeded} sites</td>
+          <td class="num" style="color:${d.shortfall > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${d.shortfall} sites</td>
+          <td style="text-align:center;">${statusBadge}</td>
+          <td style="text-align:center;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSingleOfficerWhatsApp(${idx})">💬 Alert</button>
+          </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
   }
+  window.renderEscalationDashboard = renderEscalationDashboard;
 
-  function shareUserDegSummaryWhatsApp() {
-    const prevDate = document.getElementById("user-deg-prev-date").value;
-    const nextDate = document.getElementById("user-deg-next-date").value;
-    const threshold = document.getElementById("user-deg-threshold").value;
-    const chosenSsa = document.getElementById("user-deg-ssa-select").value;
-    const chosenL1 = document.getElementById("user-deg-l1-select").value;
+  function shareSingleOfficerWhatsApp(idx) {
+    if (!window.currentEscalationFiltered || !window.currentEscalationFiltered[idx]) return;
+    const d = window.currentEscalationFiltered[idx];
+    const selectedDate = document.getElementById("esc-date-select").value;
+    const chosenSsa = document.getElementById("esc-ssa-select").value;
 
-    const totalCompared = document.getElementById("user-deg-kpi-total").innerText;
-    const degradedCount = document.getElementById("user-deg-kpi-count").innerText;
-    const usersLost = document.getElementById("user-deg-kpi-lost").innerText;
-    const avgDrop = document.getElementById("user-deg-kpi-drop-pct").innerText;
+    const rankType = (chosenSsa && chosenSsa !== "ALL") ? "SSA Rank" : "Circle Rank";
 
-    let msg = `*👥 J&K CM Max Active User Degradation Summary*\n`;
-    msg += `*Comparison:* ${prevDate} (Base) ➔ ${nextDate} (Compare)\n`;
-    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
-    msg += `*Threshold:* ≥ ${threshold}% User Drop\n\n`;
-    msg += `📊 *Summary Metrics:*\n`;
-    msg += `• Total Compared Sites: ${totalCompared}\n`;
-    msg += `• Sites with User Degradation: *${degradedCount}*\n`;
-    msg += `• Total Active Users Lost: *${usersLost}*\n`;
-    msg += `• Average % User Drop: *${avgDrop}*\n\n`;
+    let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
+    msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
+    if (d.rank) {
+      msg += `*Performance Rank:* #${d.rank} (${rankType})\n`;
+    }
+    msg += `*Total Sites Managed:* ${d.total}\n`;
+    msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
+    msg += `*Target Benchmark:* ${d.targetPct}% (${d.targetCountNeeded} sites)\n\n`;
+    
+    if (d.shortfall > 0) {
+      msg += `As per Corporate Office directives, every Site In‑Charge (L1) must ensure >98% availability in at least 80% of sites by the end of Oct. 2026.\n`;
+      msg += `👉 You are falling short by ${d.shortfall} site${d.shortfall > 1 ? 's' : ''}. Immediate restoration and rectification of degraded sites is mandatory to meet compliance.\n`;
+      msg += `Action is to be taken on top priority without delay.\n\n`;
+    } else {
+      msg += `*✅ Target Achieved:* Outstanding performance!\n\n`;
+    }
+    
     msg += getClosingSignature(chosenSsa);
 
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
+    window.open(whatsappUrl, "_blank");
   }
 
-  function exportUserDegradedSitesExcel() {
-    if (!userDegradedSitesList || userDegradedSitesList.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(userDegradedSitesList);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "User_Degradation");
-    XLSX.writeFile(wb, "Max_Active_User_Degradation.xlsx");
+  function shareBulkEscalationWhatsApp() {
+    if (!window.currentEscalationFiltered || window.currentEscalationFiltered.length === 0) return;
+    const chosenSsa = document.getElementById("esc-ssa-select").value;
+    const selectedDate = document.getElementById("esc-date-select").value;
+    const targetPct = document.getElementById("esc-target-select").value;
+
+    let msg = `*🎯 J&K CM Escalation & Target Tracker (${selectedDate})*\n`;
+    msg += `*SSA / Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} | *Target:* ${targetPct}%\n\n`;
+
+    window.currentEscalationFiltered.forEach(d => {
+      const rankStr = d.rank ? `[#${d.rank}] ` : "";
+      const statusIcon = d.shortfall > 0 ? `⚠️ Lagging: -${d.shortfall} sites` : `✅ Target Met`;
+      msg += `${rankStr}*${d.officer}* (${d.ssa}): Total ${d.total} | *≥98%: ${d.gte98} (${d.actualPct.toFixed(1)}%)* | Req: ${d.targetCountNeeded} | ${statusIcon}\n`;
+    });
+
+    msg += `\n${getClosingSignature(chosenSsa)}`;
+
+    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
+    window.open(whatsappUrl, "_blank");
   }
 
-  // Module 3 Logic
+  function captureNotUpdatedScreenshot() {
+    const card = document.getElementById("down-notupdated-section");
+    if (!card) return;
+    html2canvas(card, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `Reason_Not_Updated_Tracker_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+
+  // =========================================================================
+  // --- END OF PART 1 (DO NOT CLOSE SCRIPT TAG - PASTE PART 2 DIRECTLY BELOW) ---
+  // =========================================================================
+// =========================================================================
+  // MODULE 3: STANDALONE HISTORY ALARM TRACKER LOGIC
+  // =========================================================================
   async function loadHistoryAlarmData() {
     const status = document.getElementById("status-bar");
     if (status) status.innerText = "Loading Static Master and History Alarm feeds...";
 
+    // 1. Fetch and Parse Static Master Sheet (Prioritizing 4G Media & Valid L1)
     await new Promise((resolve) => {
       Papa.parse(STATIC_MASTER_URL, {
         download: true,
@@ -2041,6 +1292,7 @@
             const ipKey = normalizeIpKey(ip) || normalizeIpKey(siteId);
             const band = detectBand(btsType, btsName, siteId);
 
+            // Determine technology rank to prioritize 4G media (4G > 3G > 2G)
             let techPriority = 1;
             if (band === "B01" || band === "B28" || band === "B41" || btsType.toUpperCase().includes("LTE") || btsType.toUpperCase().includes("4G")) {
               techPriority = 3;
@@ -2048,6 +1300,7 @@
               techPriority = 2;
             }
 
+            // Fallback L1 resolution across master caches
             const resolvedL1 = cleanL1(rowL1, masterInchargeByIp[ipKey] || masterInchargeByIp[normalizeIpKey(siteId)] || "Unassigned");
 
             if (!staticMasterByIp[ipKey]) {
@@ -2061,10 +1314,12 @@
                 installed: { "2G": false, "3G": false, "B01": false, "B28": false, "B41": false }
               };
             } else {
+              // Preferentially update to 4G media if multiple carriers share the physical tower
               if (techPriority > staticMasterByIp[ipKey].mediaPriority && rowMedia && rowMedia !== "-") {
                 staticMasterByIp[ipKey].media = rowMedia;
                 staticMasterByIp[ipKey].mediaPriority = techPriority;
               }
+              // Update L1 if previously unassigned or error
               if ((staticMasterByIp[ipKey].l1 === "Unassigned" || staticMasterByIp[ipKey].l1.toLowerCase().includes("error")) && resolvedL1 !== "Unassigned") {
                 staticMasterByIp[ipKey].l1 = resolvedL1;
               }
@@ -2086,6 +1341,7 @@
       });
     });
 
+    // 2. Fetch and Parse History Alarm Sheet
     await new Promise((resolve) => {
       Papa.parse(HISTORY_ALARM_URL, {
         download: true,
@@ -2133,6 +1389,7 @@
       });
     });
 
+    // Populate History Controls
     const dSel = document.getElementById("hist-date-select");
     if (dSel) {
       dSel.innerHTML = "";
@@ -2150,6 +1407,7 @@
     historyAlarmLoaded = true;
     renderHistoryAlarmTable();
 
+    // Refresh DBN site details table with cross-matched down duration
     if (dbnFilteredRecords && dbnFilteredRecords.length > 0) {
       renderDbnDetailTable(dbnFilteredRecords);
     }
@@ -2164,6 +1422,7 @@
     const flapFilter = document.getElementById("hist-flap-filter") ? document.getElementById("hist-flap-filter").value : "ALL";
     const q = safeStr(document.getElementById("hist-search-input") ? document.getElementById("hist-search-input").value : "").toLowerCase();
 
+    // Map daily alarms into indexed hash map
     const alarmsByIp = {};
     for (let i = 0; i < alarmEvents.length; i++) {
       const ev = alarmEvents[i];
@@ -2195,6 +1454,7 @@
       if (targetSsa !== "ALL" && node.ssa !== targetSsa) continue;
       if (targetTech !== "ALL" && !node.installed[targetTech]) continue;
       
+      // Search matches on BTS IP ID, Site Name, Media, or L1
       if (q && !node.btsIp.toLowerCase().includes(q) && !node.siteName.toLowerCase().includes(q) && !node.media.toLowerCase().includes(q) && !node.l1.toLowerCase().includes(q)) continue;
 
       const alarm = alarmsByIp[ipKey] || null;
@@ -2224,6 +1484,7 @@
         }
       }
 
+      // Flapping threshold filter
       if (flapFilter === "GT0" && totFlap <= 0) continue;
       if (flapFilter === "GT5" && totFlap <= 5) continue;
       if (flapFilter === "GT10" && totFlap <= 10) continue;
@@ -2276,6 +1537,7 @@
       return;
     }
 
+    // High performance batch buffer injection (top 150 rendered in DOM with valid L1 column)
     const displayLimit = Math.min(rows.length, 150);
     let htmlBuffer = "";
     for (let i = 0; i < displayLimit; i++) {
@@ -2403,7 +1665,9 @@
     XLSX.writeFile(wb, `History_Alarm_${d}.xlsx`);
   }
 
-  // Module 4 Logic
+  // =========================================================================
+  // MODULE 4: DOWN SITES TRACKER ENGINE
+  // =========================================================================
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2973,8 +2237,7 @@
       <tr class="circle-row">
         <td>TOTAL DOWN SITES</td><td>SUMMARY</td>
         <td class="num">${totAll}</td><td class="num" style="color:#16a34a;">${totUpdated}</td>
-        <td class="num" style="color:#dc2626;">${totNotUpdated}</td>
-        <td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
+        <td class="num" style="color:#dc2626;">${totNotUpdated}</td><td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
       </tr>`;
     tbody.innerHTML = htmlBuffer;
   }
@@ -3031,6 +2294,7 @@
 
     msg += `\nKindly ensure that the fault type and remarks are updated in CNMC for all sites that remain down for more than 2 hours.\n\n`;
     msg += getClosingSignature(chosenSsa);
+
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
@@ -3231,6 +2495,7 @@
 
     msg += `\nPlease expedite field rectification.\n\n`;
     msg += getClosingSignature(chosenSsa);
+
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
 
