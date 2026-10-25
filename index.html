@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Operations Portal & Alarm Analytics</title>
-  <!-- Libraries -->
+  <!-- Data, Charting, Screenshot & PDF Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -86,6 +86,18 @@
     .num { text-align: right; font-variant-numeric: tabular-nums; }
     .circle-row { font-weight: bold; background: #e2e8f0; }
 
+    /* Fix 2: Enhanced Text Wrapping for Remarks */
+    .cell-wrap-remark {
+      white-space: normal !important;
+      word-break: break-word !important;
+      overflow-wrap: anywhere !important;
+      min-width: 260px !important;
+      max-width: 380px !important;
+      line-height: 1.4 !important;
+      font-size: 12px !important;
+      color: #334155 !important;
+    }
+
     .progress-track { background: #e2e8f0; border-radius: 4px; height: 14px; width: 80px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
     .progress-fill { height: 100%; }
     .progress-fill.high { background: #22c55e; }
@@ -135,8 +147,12 @@
     </div>
   </div>
 
+  <!-- Primary Module Navigation (Module 1 is now ALERTS) -->
   <div class="module-nav">
-    <button class="module-btn active" id="btn-mod-infra" onclick="switchModule('mod-infra', this)">
+    <button class="module-btn active" id="btn-mod-alerts" onclick="switchModule('mod-alerts', this)">
+      🚨 ALERTS & ESCALATIONS
+    </button>
+    <button class="module-btn" id="btn-mod-infra" onclick="switchModule('mod-infra', this)">
       🏢 CNMC Site Infra & Power Tracker
     </button>
     <button class="module-btn" id="btn-mod-dbn" onclick="switchModule('mod-dbn', this)">
@@ -150,8 +166,173 @@
     </button>
   </div>
 
-  <!-- MODULE 1: CNMC SITE INFRA -->
-  <div id="mod-infra">
+  <!-- MODULE 1: ALERTS & ESCALATIONS -->
+  <div id="mod-alerts">
+    <div class="sub-tabs">
+      <button class="sub-tab-btn active" onclick="switchAlertSubTab('alert-zerodata-view', this)">📶 1. Zero Data GB 4G Sites</button>
+      <button class="sub-tab-btn" onclick="switchAlertSubTab('alert-flappers-view', this)">⚡ 2. Circle Top 10 Flapping Sites</button>
+      <button class="sub-tab-btn" onclick="switchAlertSubTab('alert-worst-avail-view', this)">📉 3. Worst Availability Performers (Bottom 5 L1)</button>
+    </div>
+
+    <!-- SUB-VIEW 1(i): ZERO DATA GB 4G SITES -->
+    <div class="alert-sub-section" id="alert-zerodata-view">
+      <div class="section" id="alert-zerodata-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h2 style="margin: 0; color: #dc2626;">Zero Data (GB) 4G Sites Tracker (Avg DATA = 0 GB)</h2>
+            <span style="font-size: 12px; color: #64748b;">4G sites with zero data throughput over rolling 30 days</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareZeroDataWhatsApp()">💬 Share on WhatsApp</button>
+            <button class="btn btn-camera btn-sm" onclick="captureZeroDataScreenshot()">📷 Screenshot</button>
+            <button class="btn btn-green btn-sm" onclick="exportZeroDataExcel()">📥 Export Excel</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <label for="zerodata-date-select"><strong>Report Date:</strong></label>
+            <select id="zerodata-date-select" onchange="runZeroDataAnalysis()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="zerodata-cat-select"><strong>Category:</strong></label>
+            <select id="zerodata-cat-select" onchange="runZeroDataAnalysis()">
+              <option value="ALL">ALL (DBN + NDBN)</option>
+              <option value="DBN">DBN Only</option>
+              <option value="NDBN">NDBN Only</option>
+            </select>
+          </div>
+          <div class="toolbar-group">
+            <label for="zerodata-ssa-select"><strong>SSA:</strong></label>
+            <select id="zerodata-ssa-select" onchange="handleZeroDataSsaChange()">
+              <option value="ALL">All SSAs</option>
+            </select>
+          </div>
+          <div class="toolbar-group">
+            <label for="zerodata-l1-select"><strong>L1:</strong></label>
+            <select id="zerodata-l1-select" onchange="runZeroDataAnalysis()" style="max-width: 160px;">
+              <option value="ALL">All L1 Officers</option>
+            </select>
+          </div>
+          <div class="toolbar-group">
+            <label for="zerodata-l2-select"><strong>L2:</strong></label>
+            <select id="zerodata-l2-select" onchange="runZeroDataAnalysis()" style="max-width: 160px;">
+              <option value="ALL">All L2 Officers</option>
+            </select>
+          </div>
+          <div class="toolbar-group" style="flex: 1; min-width: 180px;">
+            <input type="text" id="zerodata-search-input" placeholder="Search Site ID / Name / IP..." oninput="runZeroDataAnalysis()" style="width: 100%;">
+          </div>
+        </div>
+
+        <div class="kpi-container" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          <div class="kpi-card"><div class="title">Total 4G Sites</div><div class="value" id="zerodata-kpi-total">-</div></div>
+          <div class="kpi-card"><div class="title">Zero Data Sites</div><div class="value" id="zerodata-kpi-count" style="color: #dc2626;">-</div></div>
+          <div class="kpi-card"><div class="title">DBN Zero Data</div><div class="value" id="zerodata-kpi-dbn" style="color: #1e40af;">-</div></div>
+          <div class="kpi-card"><div class="title">NDBN Zero Data</div><div class="value" id="zerodata-kpi-ndbn" style="color: #92400e;">-</div></div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Phy Site ID</th><th>BTS IP ID</th><th>Site Name</th><th>SSA</th><th>Category</th>
+                <th class="num">Avail %</th><th>Bucket</th><th class="num">Max Active User</th><th class="num">Voice Erl</th>
+                <th class="num" style="color: #dc2626; font-weight: bold;">Avg DATA (GB)</th><th>Media</th><th>L1 In-charge</th><th>L2 In-charge</th>
+              </tr>
+            </thead>
+            <tbody id="zerodata-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 1(ii): CIRCLE TOP 10 FLAPPING SITES -->
+    <div class="alert-sub-section" id="alert-flappers-view" style="display: none;">
+      <div class="section" id="alert-flappers-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h2 style="margin: 0; color: var(--secondary);">⚡ Circle Top 10 Flapping Sites Leaderboard</h2>
+            <span style="font-size: 12px; color: #64748b;">Physical nodes experiencing highest flapping occurrences across all carriers</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareCircleTop10FlapWhatsApp()">💬 Share on WhatsApp (SSA Wise)</button>
+            <button class="btn btn-camera btn-sm" onclick="captureTop10FlapScreenshot()">📷 Screenshot</button>
+            <button class="btn btn-green btn-sm" onclick="exportTop10FlapExcel()">📥 Export Excel</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <label for="flapper-alert-date"><strong>Report Date:</strong></label>
+            <select id="flapper-alert-date" onchange="runTop10FlapAnalysis()"></select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: center;">Rank</th><th>BTS IP ID</th><th>Site Name</th><th>SSA</th><th>Media</th>
+                <th>Installed Bands</th><th class="num" style="color: var(--secondary); font-weight: bold;">Total Flaps (<15m)</th>
+                <th class="num">Major Outages (>15m)</th><th class="num">Total Down Hours</th><th>Site In-Charge (L1)</th>
+              </tr>
+            </thead>
+            <tbody id="flapper-top10-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 1(iii): WORST AVAILABILITY PERFORMERS (BOTTOM 5 L1) -->
+    <div class="alert-sub-section" id="alert-worst-avail-view" style="display: none;">
+      <div class="section" id="alert-worst-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h2 style="margin: 0; color: #dc2626;">📉 Worst Availability Performers (Bottom 5 Site In-Charges)</h2>
+            <span style="font-size: 12px; color: #64748b;">Lowest % of sites meeting ≥98% availability target (Min 10 sites assigned)</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareWorst5L1WhatsApp()">💬 Share Bottom 5 WhatsApp Alert</button>
+            <button class="btn btn-camera btn-sm" onclick="captureWorst5Screenshot()">📷 Screenshot</button>
+            <button class="btn btn-green btn-sm" onclick="exportWorst5L1Excel()">📥 Export Excel</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <label for="worst-date-select"><strong>Report Date:</strong></label>
+            <select id="worst-date-select" onchange="runWorst5L1Analysis()"></select>
+          </div>
+          <div class="toolbar-group">
+            <label for="worst-cat-select"><strong>Category:</strong></label>
+            <select id="worst-cat-select" onchange="runWorst5L1Analysis()">
+              <option value="ALL">ALL (DBN + NDBN)</option>
+              <option value="DBN">DBN</option>
+              <option value="NDBN">NDBN</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: center;">Rank (Lowest)</th><th>SSA</th><th>L1 Site In-charge</th><th class="num">Total Sites</th>
+                <th class="num" style="color: #16a34a;">≥98% Sites</th><th class="num" style="color: #dc2626; font-weight: bold;">&lt;90% Outages</th>
+                <th class="num" style="color: #dc2626; font-weight: bold;">Actual ≥98% Rate</th><th class="num">Target Required (80%)</th>
+                <th class="num" style="color: #dc2626; font-weight: bold;">Shortfall</th><th style="text-align: center;">Individual WhatsApp</th>
+              </tr>
+            </thead>
+            <tbody id="worst-l1-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE 2: CNMC SITE INFRA & POWER TRACKER -->
+  <div id="mod-infra" style="display: none;">
     <div class="toolbar">
       <div class="toolbar-group">
         <label for="global-ba-filter"><strong>Filter BA / SSA:</strong></label>
@@ -246,7 +427,7 @@
     </div>
   </div>
 
-  <!-- MODULE 2: DBN_NDBN AVAIL DASHBOARD -->
+  <!-- MODULE 3: DBN_NDBN AVAIL DASHBOARD -->
   <div id="mod-dbn" style="display: none;">
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchDbnSubTab('dbn-main-view', this)">📊 1. Availability Overview</button>
@@ -307,15 +488,17 @@
         </div>
       </div>
 
-      <div class="section">
+      <!-- SSA SUMMARY BREAKDOWN WITH SCREENSHOT BUTTON (Requirement 4) -->
+      <div class="section" id="dbn-summary-table-section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <h2 style="margin:0;">SSA Availability Summary Breakdown</h2>
           <div style="display:flex; gap:8px;">
             <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSsaSummaryWhatsApp()">💬 Share on WhatsApp</button>
+            <button class="btn btn-camera btn-sm" onclick="captureSsaSummaryScreenshot()">📷 Screenshot</button>
             <button class="btn btn-green btn-sm" onclick="exportDbnSummaryExcel()">📥 Export Summary Excel</button>
           </div>
         </div>
-        <div class="table-container">
+        <div class="table-container" id="dbn-summary-table-container">
           <table>
             <thead>
               <tr>
@@ -329,6 +512,7 @@
         </div>
       </div>
 
+      <!-- DETAIL TABLE WITH 4G DOWN HOURS B01+B28+B41 (Requirement 1) -->
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div>
@@ -343,7 +527,8 @@
               <tr>
                 <th>Phy Site ID</th><th>Site IP ID</th><th>Site Name</th><th>SSA</th><th>Category</th>
                 <th class="num">Avail %</th><th>Bucket</th><th class="num">Max Active User</th><th>L1 Officer</th>
-                <th>Media</th><th class="num" style="color:var(--primary); font-weight:bold;">Total Down Duration (Hr)</th>
+                <th>Media</th>
+                <th class="num" style="color:var(--primary); font-weight:bold;">4G Down Hours (B01+B28+B41)</th>
                 <th class="num">Voice Erl</th><th class="num">Data (GB)</th>
               </tr>
             </thead>
@@ -436,7 +621,7 @@
     </div>
   </div>
 
-  <!-- MODULE 3: STANDALONE HISTORY ALARM TRACKER -->
+  <!-- MODULE 4: STANDALONE HISTORY ALARM TRACKER -->
   <div id="mod-history" style="display: none;">
     <div class="section">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -504,7 +689,7 @@
     </div>
   </div>
 
-  <!-- MODULE 4: DOWN SITES TRACKER (ADMIN ONLY MODULE) -->
+  <!-- MODULE 5: DOWN SITES TRACKER (ADMIN ONLY MODULE) -->
   <div id="mod-down" class="admin-only" style="display: none;">
     <div class="toolbar">
       <div class="toolbar-group"><label for="down-report-date-select"><strong>Avail. Report Date:</strong></label><select id="down-report-date-select" onchange="applyDownSitesFilters()" style="font-weight: 600; color: var(--primary);"></select></div>
@@ -537,7 +722,7 @@
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 5. Fault-Wise SSA Matrix</button>
     </div>
 
-    <!-- SUB-VIEW 1: UNIFIED LIST -->
+    <!-- SUB-VIEW 1: UNIFIED LIST (With Fixed Wrapped Remark) -->
     <div class="down-sub-section" id="down-unified-view">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -551,7 +736,7 @@
         </div>
         <div class="table-container">
           <table>
-            <thead><tr><th>Site ID</th><th>BTS IP ID</th><th>BTS Name</th><th>BA</th><th>SSA</th><th>SDCA</th><th>Category</th><th>Device</th><th>Media</th><th>Down Date</th><th>Down Period</th><th>Fault Type</th><th>Remarks</th><th>L1 In-charge</th><th>L2 In-charge</th><th class="num">Rolling 30 Days Avail. %</th></tr></thead>
+            <thead><tr><th>Site ID</th><th>BTS IP ID</th><th>BTS Name</th><th>BA</th><th>SSA</th><th>SDCA</th><th>Category</th><th>Device</th><th>Media</th><th>Down Date</th><th>Down Period</th><th>Fault Type</th><th style="min-width: 260px;">Remarks</th><th>L1 In-charge</th><th>L2 In-charge</th><th class="num">Rolling 30 Days Avail. %</th></tr></thead>
             <tbody id="down-unified-tbody"></tbody>
           </table>
         </div>
@@ -584,12 +769,13 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN -->
+    <!-- SUB-VIEW 3: HEALTHY SITES CURRENTLY DOWN (With Extra SSA Summary WhatsApp - Requirement 3) -->
     <div class="down-sub-section" id="down-healthy-view" style="display: none;">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
           <div><h2 style="margin:0; color:#16a34a;">High-Availability LTE Sites Currently Down (Rolling 30-Day Avail &ge; 98.0%)</h2><span id="down-healthy-count-badge" style="font-size:12px; color:#64748b;">Evaluated against Master Consolidated Availability</span></div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareHealthyDownSummarySsaWhatsApp()">💬 Share SSA Summary on WhatsApp</button>
             <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareHealthyDownWhatsAppToL2()">💬 Share to L2 on WhatsApp</button>
             <button class="btn btn-mail btn-sm admin-only" onclick="shareHealthyDownMailToL2()">✉️ Share to L2 on Mail</button>
             <button class="btn btn-green btn-sm" onclick="exportDownSitesExcel('healthy')">📥 Export Excel</button>
@@ -604,14 +790,14 @@
         </div>
         <div class="table-container">
           <table>
-            <thead><tr><th>Site ID</th><th>BTS IP ID</th><th>BTS Name</th><th>BA</th><th>SSA</th><th>Category</th><th>Device</th><th>Media</th><th>Down Date</th><th>Down Period</th><th>Fault Type</th><th>Remarks</th><th>L1 In-charge</th><th>L2 In-charge</th><th class="num">30-Day Avail %</th></tr></thead>
+            <thead><tr><th>Site ID</th><th>BTS IP ID</th><th>BTS Name</th><th>BA</th><th>SSA</th><th>Category</th><th>Device</th><th>Media</th><th>Down Date</th><th>Down Period</th><th>Fault Type</th><th style="min-width: 260px;">Remarks</th><th>L1 In-charge</th><th>L2 In-charge</th><th class="num">30-Day Avail %</th></tr></thead>
             <tbody id="down-healthy-tbody"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- SUB-VIEW 4: REASON NOT UPDATED TRACKER (WITH SCREENSHOT BUTTON) -->
+    <!-- SUB-VIEW 4: REASON NOT UPDATED TRACKER -->
     <div class="down-sub-section" id="down-notupdated-view" style="display: none;">
       <div class="section" id="down-notupdated-section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -728,7 +914,7 @@
   const STATIC_MASTER_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ55NLyIDp1Ho7sBOMIGSWNjSUE4AKFSyUTGiJjdfxrlZnfB_2q8Ed9Go6jh-IC9g/pub?gid=876447762&single=true&output=csv";
   const HISTORY_ALARM_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQbg3maV-GJl3RS0pg94k3GyvTlFhOQVRMlAOP2_2zk4CRM_lerD7kS7cJDngkUdw/pub?gid=1684329148&single=true&output=csv";
 
-  let currentActiveModule = "mod-infra";
+  let currentActiveModule = "mod-alerts";
   let isAdminAuthenticated = sessionStorage.getItem("bsnl_jk_admin_auth") === "true";
 
   let dbnDataLoaded = false;
@@ -750,6 +936,11 @@
   let userDegradedSitesList = [];
   let escalationData = [];
 
+  // Module 1 Alert Caches
+  let zeroDataDisplayRecords = [];
+  let top10FlappingRecords = [];
+  let worst5L1Records = [];
+
   let downRawRecords = [];
   let downFilteredRecords = [];
   let downUnifiedDisplayRecords = [];
@@ -761,6 +952,8 @@
   const masterCategoryByIp = {};
   const masterAvailByDateAndIp = {};
   const masterHistoryDownHoursByIp = {};
+  const masterHistoryDownHoursByDateAndIp = {};
+  const master4GDownByDateAndIp = {};
 
   let staticMasterByIp = {};
   let siteIdToIpMap = {};
@@ -859,389 +1052,6 @@
   }
 
   // =========================================================================
-  // DBN ANALYSIS LOGIC (EXPLICIT GLOBAL HOISTING TO AVOID UNDEFINED ERRORS)
-  // =========================================================================
-  function runDegradedAnalysis() {
-    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
-    const prevDateElem = document.getElementById("deg-prev-date");
-    const nextDateElem = document.getElementById("deg-next-date");
-    if (!prevDateElem || !nextDateElem) return;
-
-    const prevDate = prevDateElem.value;
-    const nextDate = nextDateElem.value;
-    const selectedSsa = document.getElementById("deg-ssa-select").value;
-    const selectedCat = document.getElementById("deg-cat-select") ? document.getElementById("deg-cat-select").value : "ALL";
-    const selectedL1 = document.getElementById("deg-l1-select") ? document.getElementById("deg-l1-select").value : "ALL";
-
-    if (!prevDate || !nextDate || prevDate === nextDate) {
-      const tbody = document.getElementById("degraded-sites-tbody");
-      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day comparison.</td></tr>`;
-      return;
-    }
-
-    const prevMap = {};
-    let baseHealthyCount = 0;
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === prevDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
-            (selectedCat === "ALL" || r.category === selectedCat) &&
-            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
-          prevMap[r.siteId] = r;
-          if (r.avail >= 98.0) baseHealthyCount++;
-        }
-      }
-    });
-
-    degradedSitesList = [];
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === nextDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
-            (selectedCat === "ALL" || r.category === selectedCat) &&
-            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
-          const prevRec = prevMap[r.siteId];
-          if (prevRec && prevRec.avail >= 98.0 && r.avail < 98.0) {
-            const drop = (r.avail - prevRec.avail).toFixed(2);
-            degradedSitesList.push({
-              siteId: r.siteId,
-              btsIp: r.btsIp,
-              siteName: r.siteName,
-              ssa: r.ssa,
-              category: r.category,
-              prevAvail: prevRec.avail,
-              nextAvail: r.avail,
-              dropDelta: drop,
-              bucket: r.bucket,
-              l1: r.l1,
-              media: r.media
-            });
-          }
-        }
-      }
-    });
-
-    degradedSitesList.sort((a, b) => parseFloat(a.dropDelta) - parseFloat(b.dropDelta));
-
-    document.getElementById("deg-kpi-base").innerText = baseHealthyCount.toLocaleString();
-    document.getElementById("deg-kpi-count").innerText = degradedSitesList.length.toLocaleString();
-    const rate = baseHealthyCount > 0 ? ((degradedSitesList.length / baseHealthyCount) * 100).toFixed(1) : 0;
-    document.getElementById("deg-kpi-rate").innerText = rate + "%";
-
-    const tbody = document.getElementById("degraded-sites-tbody");
-    if (!tbody) return;
-    if (degradedSitesList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">Great! No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
-      return;
-    }
-
-    let html = "";
-    degradedSitesList.forEach(r => {
-      html += `
-        <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIp || "-"}</td>
-          <td>${r.siteName}</td>
-          <td>${r.ssa}</td>
-          <td>${r.category}</td>
-          <td class="num" style="color:#16a34a; font-weight:600;">${r.prevAvail.toFixed(2)}%</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${r.nextAvail.toFixed(2)}%</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${r.dropDelta}%</td>
-          <td>${r.bucket}</td>
-          <td>${r.l1}</td>
-          <td>${r.media}</td>
-        </tr>`;
-    });
-    tbody.innerHTML = html;
-  }
-  window.runDegradedAnalysis = runDegradedAnalysis;
-
-  function runUserDegradedAnalysis() {
-    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
-    const prevDateElem = document.getElementById("user-deg-prev-date");
-    const nextDateElem = document.getElementById("user-deg-next-date");
-    if (!prevDateElem || !nextDateElem) return;
-
-    const prevDate = prevDateElem.value;
-    const nextDate = nextDateElem.value;
-    const minDropPct = parseFloat(document.getElementById("user-deg-threshold").value) || 0;
-    const selectedSsa = document.getElementById("user-deg-ssa-select").value;
-    const selectedCat = document.getElementById("user-deg-cat-select") ? document.getElementById("user-deg-cat-select").value : "ALL";
-    const selectedL1 = document.getElementById("user-deg-l1-select") ? document.getElementById("user-deg-l1-select").value : "ALL";
-
-    if (!prevDate || !nextDate || prevDate === nextDate) {
-      const tbody = document.getElementById("user-degraded-tbody");
-      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#64748b;">Please select two different dates for day-over-day user comparison.</td></tr>`;
-      return;
-    }
-
-    const prevMap = {};
-    let totalCompared = 0;
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === prevDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
-            (selectedCat === "ALL" || r.category === selectedCat) &&
-            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
-          prevMap[r.siteId] = r;
-        }
-      }
-    });
-
-    userDegradedSitesList = [];
-    let totalUsersLost = 0;
-    let sumDropPct = 0;
-
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === nextDate) {
-        if ((selectedSsa === "ALL" || r.ssa === selectedSsa) &&
-            (selectedCat === "ALL" || r.category === selectedCat) &&
-            (selectedL1 === "ALL" || r.l1 === selectedL1)) {
-          const prevRec = prevMap[r.siteId];
-          if (prevRec) {
-            totalCompared++;
-            const baseUsers = prevRec.maxActiveUser;
-            const nextUsers = r.maxActiveUser;
-            if (baseUsers > 0 && nextUsers < baseUsers) {
-              const dropCount = baseUsers - nextUsers;
-              const dropPct = (dropCount / baseUsers) * 100;
-
-              if (dropPct >= minDropPct) {
-                totalUsersLost += dropCount;
-                sumDropPct += dropPct;
-                userDegradedSitesList.push({
-                  siteId: r.siteId,
-                  btsIp: r.btsIp,
-                  siteName: r.siteName,
-                  ssa: r.ssa,
-                  category: r.category,
-                  baseUsers: baseUsers,
-                  baseAvail: prevRec.avail,
-                  nextUsers: nextUsers,
-                  nextAvail: r.avail,
-                  dropCount: dropCount,
-                  dropPct: dropPct,
-                  l1: r.l1,
-                  media: r.media
-                });
-              }
-            }
-          }
-        }
-      }
-    });
-
-    userDegradedSitesList.sort((a, b) => b.dropPct - a.dropPct);
-
-    document.getElementById("user-deg-kpi-total").innerText = totalCompared.toLocaleString();
-    document.getElementById("user-deg-kpi-count").innerText = userDegradedSitesList.length.toLocaleString();
-    document.getElementById("user-deg-kpi-lost").innerText = totalUsersLost.toLocaleString();
-    const avgDrop = userDegradedSitesList.length > 0 ? (sumDropPct / userDegradedSitesList.length).toFixed(1) : "0.0";
-    document.getElementById("user-deg-kpi-drop-pct").innerText = avgDrop + "%";
-
-    const tbody = document.getElementById("user-degraded-tbody");
-    if (!tbody) return;
-    if (userDegradedSitesList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites found with Max Active User degradation matching selected threshold (${minDropPct}%).</td></tr>`;
-      return;
-    }
-
-    let html = "";
-    userDegradedSitesList.forEach(r => {
-      html += `
-        <tr>
-          <td><strong>${r.siteId}</strong></td>
-          <td>${r.btsIp || "-"}</td>
-          <td>${r.siteName}</td>
-          <td>${r.ssa}</td>
-          <td>${r.category}</td>
-          <td class="num"><strong>${r.baseUsers.toLocaleString()}</strong> (${r.baseAvail.toFixed(1)}%)</td>
-          <td class="num"><strong>${r.nextUsers.toLocaleString()}</strong> (${r.nextAvail.toFixed(1)}%)</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropCount.toLocaleString()}</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${r.dropPct.toFixed(1)}%</td>
-          <td>${r.l1}</td>
-          <td>${r.media}</td>
-        </tr>`;
-    });
-    tbody.innerHTML = html;
-  }
-  window.runUserDegradedAnalysis = runUserDegradedAnalysis;
-
-  function renderEscalationDashboard() {
-    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
-    const dateElem = document.getElementById("esc-date-select");
-    const chosenDate = dateElem && dateElem.value ? dateElem.value : (dbnAvailableDates[0] || "");
-    const chosenSsa = document.getElementById("esc-ssa-select") ? document.getElementById("esc-ssa-select").value : "ALL";
-    const chosenCat = document.getElementById("esc-cat-select") ? document.getElementById("esc-cat-select").value : "ALL";
-    const targetPct = parseFloat(document.getElementById("esc-target-select") ? document.getElementById("esc-target-select").value : 80.0) || 80.0;
-    const searchVal = safeStr(document.getElementById("esc-search-input") ? document.getElementById("esc-search-input").value : "").toLowerCase();
-
-    const dateRecords = dbnRawRecords.filter(r => {
-      if (chosenDate && chosenDate !== "ALL" && r.reportDate !== chosenDate) return false;
-      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
-      if (chosenCat !== "ALL" && r.category !== chosenCat) return false;
-      return true;
-    });
-
-    const inchargeMap = {};
-
-    dateRecords.forEach(r => {
-      const officer = cleanL1(r.l1, "Unassigned");
-      const key = r.ssa + "____" + officer;
-      if (!inchargeMap[key]) {
-        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0 };
-      }
-      inchargeMap[key].total++;
-      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
-      else if (r.bucket === "94-98%") inchargeMap[key].mid94++;
-      else if (r.bucket === "90-94%") inchargeMap[key].low90++;
-      else if (r.bucket === "<90%") inchargeMap[key].lt90++;
-    });
-
-    const parsedData = Object.values(inchargeMap).map(d => {
-      const actualPct = d.total > 0 ? (d.gte98 / d.total) * 100 : 0;
-      const targetCountNeeded = Math.ceil((targetPct / 100) * d.total);
-      const shortfall = Math.max(0, targetCountNeeded - d.gte98);
-      return {
-        ssa: d.ssa,
-        officer: d.officer,
-        total: d.total,
-        gte98: d.gte98,
-        mid94: d.mid94,
-        low90: d.low90,
-        lt90: d.lt90,
-        actualPct: actualPct,
-        targetPct: targetPct,
-        targetCountNeeded: targetCountNeeded,
-        shortfall: shortfall
-      };
-    });
-
-    const topGroup = parsedData.filter(d => d.total >= 15);
-    const bottomGroup = parsedData.filter(d => d.total < 15);
-
-    topGroup.sort((a, b) => b.actualPct - a.actualPct);
-    bottomGroup.sort((a, b) => b.actualPct - a.actualPct);
-
-    topGroup.forEach((d, idx) => { d.rank = idx + 1; });
-    bottomGroup.forEach(d => { d.rank = null; });
-
-    escalationData = [...topGroup, ...bottomGroup];
-
-    const tbody = document.getElementById("escalation-tbody");
-    if (!tbody) return;
-
-    const filtered = escalationData.filter(d => {
-      if (searchVal && !d.officer.toLowerCase().includes(searchVal) && !d.ssa.toLowerCase().includes(searchVal)) return false;
-      return true;
-    });
-
-    window.currentEscalationFiltered = filtered;
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No in-charge records found for selected filters.</td></tr>`;
-      return;
-    }
-
-    let html = "";
-    filtered.forEach((d, idx) => {
-      const pGte = d.total > 0 ? ((d.gte98 / d.total) * 100).toFixed(1) : 0;
-      const pMid = d.total > 0 ? ((d.mid94 / d.total) * 100).toFixed(1) : 0;
-      const pLow = d.total > 0 ? ((d.low90 / d.total) * 100).toFixed(1) : 0;
-      const pLt  = d.total > 0 ? ((d.lt90  / d.total) * 100).toFixed(1) : 0;
-
-      const rankBadge = d.rank !== null 
-        ? `<span class="badge-rank">#${d.rank}</span>` 
-        : `<span class="badge-rank-na">&lt;15 sites</span>`;
-
-      const statusBadge = d.shortfall > 0 
-        ? `<span class="badge-lag">Lagging (-${d.shortfall})</span>` 
-        : `<span class="badge-ok">Target Met</span>`;
-
-      html += `
-        <tr>
-          <td style="text-align: center;">${rankBadge}</td>
-          <td>${d.ssa}</td>
-          <td><strong>${d.officer}</strong></td>
-          <td class="num">${d.total}</td>
-          <td class="num" style="color:#16a34a; font-weight:700;">${d.gte98} (${pGte}%)</td>
-          <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
-          <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90} (${pLt}%)</td>
-          <td class="num"><strong>${d.actualPct.toFixed(1)}%</strong></td>
-          <td class="num">${d.targetCountNeeded} sites</td>
-          <td class="num" style="color:${d.shortfall > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${d.shortfall} sites</td>
-          <td style="text-align:center;">${statusBadge}</td>
-          <td style="text-align:center;">
-            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSingleOfficerWhatsApp(${idx})">💬 Alert</button>
-          </td>
-        </tr>`;
-    });
-    tbody.innerHTML = html;
-  }
-  window.renderEscalationDashboard = renderEscalationDashboard;
-
-  function shareSingleOfficerWhatsApp(idx) {
-    if (!window.currentEscalationFiltered || !window.currentEscalationFiltered[idx]) return;
-    const d = window.currentEscalationFiltered[idx];
-    const selectedDate = document.getElementById("esc-date-select").value;
-    const chosenSsa = document.getElementById("esc-ssa-select").value;
-
-    const rankType = (chosenSsa && chosenSsa !== "ALL") ? "SSA Rank" : "Circle Rank";
-
-    let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
-    msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
-    if (d.rank) {
-      msg += `*Performance Rank:* #${d.rank} (${rankType})\n`;
-    }
-    msg += `*Total Sites Managed:* ${d.total}\n`;
-    msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
-    msg += `*Target Benchmark:* ${d.targetPct}% (${d.targetCountNeeded} sites)\n\n`;
-    
-    if (d.shortfall > 0) {
-      msg += `As per Corporate Office directives, every Site In‑Charge (L1) must ensure >98% availability in at least 80% of sites by the end of Oct. 2026.\n`;
-      msg += `👉 You are falling short by ${d.shortfall} site${d.shortfall > 1 ? 's' : ''}. Immediate restoration and rectification of degraded sites is mandatory to meet compliance.\n`;
-      msg += `Action is to be taken on top priority without delay.\n\n`;
-    } else {
-      msg += `*✅ Target Achieved:* Outstanding performance!\n\n`;
-    }
-    
-    msg += getClosingSignature(chosenSsa);
-
-    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
-    window.open(whatsappUrl, "_blank");
-  }
-
-  function shareBulkEscalationWhatsApp() {
-    if (!window.currentEscalationFiltered || window.currentEscalationFiltered.length === 0) return;
-    const chosenSsa = document.getElementById("esc-ssa-select").value;
-    const selectedDate = document.getElementById("esc-date-select").value;
-    const targetPct = document.getElementById("esc-target-select").value;
-
-    let msg = `*🎯 J&K CM Escalation & Target Tracker (${selectedDate})*\n`;
-    msg += `*SSA / Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} | *Target:* ${targetPct}%\n\n`;
-
-    window.currentEscalationFiltered.forEach(d => {
-      const rankStr = d.rank ? `[#${d.rank}] ` : "";
-      const statusIcon = d.shortfall > 0 ? `⚠️ Lagging: -${d.shortfall} sites` : `✅ Target Met`;
-      msg += `${rankStr}*${d.officer}* (${d.ssa}): Total ${d.total} | *≥98%: ${d.gte98} (${d.actualPct.toFixed(1)}%)* | Req: ${d.targetCountNeeded} | ${statusIcon}\n`;
-    });
-
-    msg += `\n${getClosingSignature(chosenSsa)}`;
-
-    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
-    window.open(whatsappUrl, "_blank");
-  }
-
-  function captureNotUpdatedScreenshot() {
-    const card = document.getElementById("down-notupdated-section");
-    if (!card) return;
-    html2canvas(card, { scale: 2 }).then(canvas => {
-      const link = document.createElement("a");
-      link.download = `Reason_Not_Updated_Tracker_${Date.now()}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    });
-  }
-
-  // =========================================================================
   // --- END OF PART 1 (DO NOT CLOSE SCRIPT TAG - PASTE PART 2 DIRECTLY BELOW) ---
   // =========================================================================
 // =========================================================================
@@ -1262,7 +1072,7 @@
         btn.className = "btn btn-file btn-sm";
       }
       if (currentActiveModule === "mod-down") {
-        switchModule("mod-infra", document.getElementById("btn-mod-infra"));
+        switchModule("mod-alerts", document.getElementById("btn-mod-alerts"));
       }
     }
   }
@@ -1317,7 +1127,7 @@
 
   function switchModule(modId, btn) {
     document.querySelectorAll(".module-btn").forEach(b => b.classList.remove("active"));
-    ["mod-infra", "mod-dbn", "mod-history", "mod-down"].forEach(id => {
+    ["mod-alerts", "mod-infra", "mod-dbn", "mod-history", "mod-down"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = "none";
     });
@@ -1327,11 +1137,30 @@
     if (btn) btn.classList.add("active");
     currentActiveModule = modId;
 
+    if (modId === "mod-alerts" && !dbnDataLoaded) fetchAndRenderDbn();
+    if (modId === "mod-infra" && cachedSites.length === 0) fetchAndRenderInfra();
     if (modId === "mod-dbn" && !dbnDataLoaded) fetchAndRenderDbn();
     if (modId === "mod-history" && !historyAlarmLoaded) loadHistoryAlarmData();
     if (modId === "mod-down" && !downDataLoaded) fetchAndRenderDownSites();
   }
   window.switchModule = switchModule;
+
+  function switchAlertSubTab(viewId, btn) {
+    document.querySelectorAll("#mod-alerts .sub-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".alert-sub-section").forEach(s => s.style.display = "none");
+    const el = document.getElementById(viewId);
+    if (el) el.style.display = "block";
+    if (btn) btn.classList.add("active");
+
+    if (viewId === "alert-flappers-view") {
+      setTimeout(() => runTop10FlapAnalysis(), 50);
+    } else if (viewId === "alert-worst-avail-view") {
+      setTimeout(() => runWorst5L1Analysis(), 50);
+    } else {
+      setTimeout(() => runZeroDataAnalysis(), 50);
+    }
+  }
+  window.switchAlertSubTab = switchAlertSubTab;
 
   function switchSubTab(viewId, btn) {
     document.querySelectorAll("#mod-infra .sub-tab-btn").forEach(b => b.classList.remove("active"));
@@ -1369,15 +1198,613 @@
   window.switchDownSubTab = switchDownSubTab;
 
   function refreshCurrentModule() {
-    if (currentActiveModule === "mod-infra") fetchAndRenderInfra();
-    else if (currentActiveModule === "mod-dbn") fetchAndRenderDbn();
-    else if (currentActiveModule === "mod-history") loadHistoryAlarmData();
-    else if (currentActiveModule === "mod-down") fetchAndRenderDownSites();
+    if (currentActiveModule === "mod-alerts") {
+      fetchAndRenderDbn();
+      loadHistoryAlarmData();
+    } else if (currentActiveModule === "mod-infra") {
+      fetchAndRenderInfra();
+    } else if (currentActiveModule === "mod-dbn") {
+      fetchAndRenderDbn();
+    } else if (currentActiveModule === "mod-history") {
+      loadHistoryAlarmData();
+    } else if (currentActiveModule === "mod-down") {
+      fetchAndRenderDownSites();
+    }
   }
   window.refreshCurrentModule = refreshCurrentModule;
 
   // =========================================================================
-  // MODULE 1: CNMC SITE INFRA & POWER TRACKER ENGINE
+  // MODULE 1: ALERTS & ESCALATION ENGINES
+  // =========================================================================
+  function populateAlertControls() {
+    const zdDate = document.getElementById("zerodata-date-select");
+    const flapDate = document.getElementById("flapper-alert-date");
+    const worstDate = document.getElementById("worst-date-select");
+    const zdSsa = document.getElementById("zerodata-ssa-select");
+
+    if (zdDate) {
+      zdDate.innerHTML = "";
+      dbnAvailableDates.forEach(d => { zdDate.innerHTML += `<option value="${d}">${d}</option>`; });
+      if (dbnAvailableDates.length > 0) zdDate.value = dbnAvailableDates[0];
+    }
+
+    if (worstDate) {
+      worstDate.innerHTML = "";
+      dbnAvailableDates.forEach(d => { worstDate.innerHTML += `<option value="${d}">${d}</option>`; });
+      if (dbnAvailableDates.length > 0) worstDate.value = dbnAvailableDates[0];
+    }
+
+    if (flapDate) {
+      flapDate.innerHTML = "";
+      histDates.forEach(d => { flapDate.innerHTML += `<option value="${d}">${d}</option>`; });
+      if (histDates.length > 0) flapDate.value = histDates[0];
+    }
+
+    if (zdSsa) {
+      const ssaSet = new Set();
+      dbnRawRecords.forEach(r => { if (r.ssa) ssaSet.add(r.ssa); });
+      zdSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
+      Array.from(ssaSet).sort().forEach(s => { zdSsa.innerHTML += `<option value="${s}">${s}</option>`; });
+    }
+
+    handleZeroDataSsaChange();
+  }
+
+  function handleZeroDataSsaChange() {
+    const ssaElem = document.getElementById("zerodata-ssa-select");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const l1Select = document.getElementById("zerodata-l1-select");
+    const l2Select = document.getElementById("zerodata-l2-select");
+
+    const currentL1 = l1Select ? l1Select.value : "ALL";
+    const currentL2 = l2Select ? l2Select.value : "ALL";
+    const l1Set = new Set(), l2Set = new Set();
+
+    dbnRawRecords.forEach(r => {
+      if (chosenSsa === "ALL" || r.ssa === chosenSsa) {
+        if (r.l1 && r.l1 !== "Unassigned") l1Set.add(r.l1);
+        if (r.l2 && r.l2 !== "-") l2Set.add(r.l2);
+      }
+    });
+
+    if (l1Select) {
+      l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+      Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
+      if (currentL1 && Array.from(l1Select.options).some(o => o.value === currentL1)) l1Select.value = currentL1;
+    }
+
+    if (l2Select) {
+      l2Select.innerHTML = `<option value="ALL">All L2 Officers</option>`;
+      Array.from(l2Set).sort().forEach(l => l2Select.innerHTML += `<option value="${l}">${l}</option>`);
+      if (currentL2 && Array.from(l2Select.options).some(o => o.value === currentL2)) l2Select.value = currentL2;
+    }
+
+    runZeroDataAnalysis();
+  }
+  window.handleZeroDataSsaChange = handleZeroDataSsaChange;
+
+  function runZeroDataAnalysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const dateElem = document.getElementById("zerodata-date-select");
+    const targetDate = dateElem ? dateElem.value : (dbnAvailableDates[0] || "");
+    const catElem = document.getElementById("zerodata-cat-select");
+    const chosenCat = catElem ? catElem.value : "ALL";
+    const ssaElem = document.getElementById("zerodata-ssa-select");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const l1Elem = document.getElementById("zerodata-l1-select");
+    const chosenL1 = l1Elem ? l1Elem.value : "ALL";
+    const l2Elem = document.getElementById("zerodata-l2-select");
+    const chosenL2 = l2Elem ? l2Elem.value : "ALL";
+    const searchElem = document.getElementById("zerodata-search-input");
+    const searchVal = safeStr(searchElem ? searchElem.value : "").toLowerCase();
+
+    const dateRecords = dbnRawRecords.filter(r => r.reportDate === targetDate);
+    const total4GSites = dateRecords.length;
+
+    let zeroDbn = 0, zeroNdbn = 0;
+    const zeroDataCandidates = [];
+
+    dateRecords.forEach(r => {
+      if (r.dataGb <= 0.0) {
+        if (r.category === "DBN") zeroDbn++;
+        else zeroNdbn++;
+
+        if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+        if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
+        if (chosenL1 !== "ALL" && r.l1 !== chosenL1) return;
+        if (chosenL2 !== "ALL" && r.l2 !== chosenL2) return;
+        if (searchVal) {
+          const match = r.siteId.toLowerCase().includes(searchVal) ||
+                        r.siteName.toLowerCase().includes(searchVal) ||
+                        r.btsIp.toLowerCase().includes(searchVal);
+          if (!match) return;
+        }
+
+        zeroDataCandidates.push(r);
+      }
+    });
+
+    zeroDataCandidates.sort((a, b) => b.avail - a.avail);
+    zeroDataDisplayRecords = zeroDataCandidates;
+
+    const elTot = document.getElementById("zerodata-kpi-total"); if (elTot) elTot.innerText = total4GSites.toLocaleString();
+    const elCnt = document.getElementById("zerodata-kpi-count"); if (elCnt) elCnt.innerText = (zeroDbn + zeroNdbn).toLocaleString();
+    const elDbn = document.getElementById("zerodata-kpi-dbn"); if (elDbn) elDbn.innerText = zeroDbn.toLocaleString();
+    const elNdbn = document.getElementById("zerodata-kpi-ndbn"); if (elNdbn) elNdbn.innerText = zeroNdbn.toLocaleString();
+
+    const tbody = document.getElementById("zerodata-tbody");
+    if (!tbody) return;
+
+    if (zeroDataCandidates.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No 4G sites found with 0.0 GB Data consumption matching active filters.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    zeroDataCandidates.forEach(r => {
+      const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
+      const availColor = r.avail >= 98 ? "#16a34a" : (r.avail >= 94 ? "#d97706" : "#dc2626");
+
+      html += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${catBadge}</td>
+          <td class="num" style="color:${availColor}; font-weight:bold;">${r.avail.toFixed(2)}%</td>
+          <td>${r.bucket}</td>
+          <td class="num">${r.maxActiveUser}</td>
+          <td class="num">${r.voiceErl.toFixed(2)}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.dataGb.toFixed(2)}</td>
+          <td>${r.media}</td>
+          <td><strong>${r.l1}</strong></td>
+          <td>${r.l2}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runZeroDataAnalysis = runZeroDataAnalysis;
+
+  function shareZeroDataWhatsApp() {
+    if (!zeroDataDisplayRecords || zeroDataDisplayRecords.length === 0) {
+      alert("No zero data records to share.");
+      return;
+    }
+
+    const dateElem = document.getElementById("zerodata-date-select");
+    const d = dateElem ? dateElem.value : "";
+    const ssaElem = document.getElementById("zerodata-ssa-select");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const catElem = document.getElementById("zerodata-cat-select");
+    const chosenCat = catElem ? catElem.value : "ALL";
+
+    let msg = `*📶 J&K CM Zero Data (GB) 4G Sites Alert (${d})*\n`;
+    msg += `*Category:* ${chosenCat} | *Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n`;
+    msg += `*Total Sites with 0 GB:* ${zeroDataDisplayRecords.length}\n\n`;
+
+    const ssaMap = {};
+    zeroDataDisplayRecords.forEach(r => {
+      if (!ssaMap[r.ssa]) ssaMap[r.ssa] = [];
+      ssaMap[r.ssa].push(r);
+    });
+
+    Object.keys(ssaMap).sort().forEach(s => {
+      const sites = ssaMap[s];
+      msg += `📍 *${s} SSA* (${sites.length} Sites):\n`;
+      sites.slice(0, 15).forEach((site, idx) => {
+        msg += `   ${idx + 1}. *${site.siteName}* (${site.siteId}) - Avail: ${site.avail.toFixed(1)}% | Users: ${site.maxActiveUser} [L1: ${site.l1}]\n`;
+      });
+      if (sites.length > 15) {
+        msg += `   _...and ${sites.length - 15} more sites._\n`;
+      }
+      msg += `\n`;
+    });
+
+    msg += `Please investigate eNodeB throughput and S1-U bearer connectivity.\n\n`;
+    msg += getClosingSignature(chosenSsa);
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareZeroDataWhatsApp = shareZeroDataWhatsApp;
+
+  function captureZeroDataScreenshot() {
+    const elem = document.getElementById("alert-zerodata-section");
+    if (!elem) return;
+    html2canvas(elem, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `Zero_Data_4G_Sites_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureZeroDataScreenshot = captureZeroDataScreenshot;
+
+  function exportZeroDataExcel() {
+    if (!zeroDataDisplayRecords || zeroDataDisplayRecords.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(zeroDataDisplayRecords.map((r, i) => ({
+      "S.No": i + 1,
+      "Report Date": r.reportDate,
+      "Site ID": r.siteId,
+      "BTS IP ID": r.btsIp,
+      "Site Name": r.siteName,
+      "SSA": r.ssa,
+      "Category": r.category,
+      "Avail %": r.avail,
+      "Max Active Users": r.maxActiveUser,
+      "Voice Erl": r.voiceErl,
+      "Data (GB)": r.dataGb,
+      "Media": r.media,
+      "L1 Officer": r.l1,
+      "L2 Officer": r.l2
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Zero_Data_4G");
+    XLSX.writeFile(wb, "Zero_Data_4G_Sites.xlsx");
+  }
+  window.exportZeroDataExcel = exportZeroDataExcel;
+
+  function runTop10FlapAnalysis() {
+    if (!historyAlarmLoaded) {
+      loadHistoryAlarmData();
+      return;
+    }
+
+    const dElem = document.getElementById("flapper-alert-date");
+    const targetDate = dElem ? dElem.value : (histDates[0] || "");
+    const alarmsByIp = {};
+
+    alarmEvents.forEach(ev => {
+      if (ev.date !== targetDate) return;
+      if (!alarmsByIp[ev.ipKey]) {
+        alarmsByIp[ev.ipKey] = {
+          "2G": { flap: 0, major: 0, hours: 0 },
+          "3G": { flap: 0, major: 0, hours: 0 },
+          "B01": { flap: 0, major: 0, hours: 0 },
+          "B28": { flap: 0, major: 0, hours: 0 },
+          "B41": { flap: 0, major: 0, hours: 0 }
+        };
+      }
+      if (alarmsByIp[ev.ipKey][ev.band]) {
+        alarmsByIp[ev.ipKey][ev.band].flap += ev.flap;
+        alarmsByIp[ev.ipKey][ev.band].major += ev.major;
+        alarmsByIp[ev.ipKey][ev.band].hours += ev.downHours;
+      }
+    });
+
+    const candidates = [];
+    Object.keys(staticMasterByIp).forEach(ipKey => {
+      const node = staticMasterByIp[ipKey];
+      const alarm = alarmsByIp[ipKey];
+      if (!alarm) return;
+
+      let totFlap = 0, totMajor = 0, totHours = 0;
+      ["2G", "3G", "B01", "B28", "B41"].forEach(b => {
+        if (node.installed[b] && alarm[b]) {
+          totFlap += alarm[b].flap;
+          totMajor += alarm[b].major;
+          totHours += alarm[b].hours;
+        }
+      });
+
+      if (totFlap > 0) {
+        const badges = Object.keys(node.installed).filter(b => node.installed[b]).map(b => `<span class="badge-tech">${b}</span>`).join(" ");
+        candidates.push({
+          btsIp: node.btsIp,
+          siteName: node.siteName,
+          ssa: node.ssa,
+          media: node.media,
+          l1: node.l1,
+          badges: badges,
+          installedBands: Object.keys(node.installed).filter(b => node.installed[b]).join(", "),
+          totFlap: totFlap,
+          totMajor: totMajor,
+          totHours: totHours
+        });
+      }
+    });
+
+    candidates.sort((a, b) => b.totFlap - a.totFlap || b.totHours - a.totHours);
+    top10FlappingRecords = candidates.slice(0, 10);
+
+    const tbody = document.getElementById("flapper-top10-tbody");
+    if (!tbody) return;
+
+    if (top10FlappingRecords.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No flapping alarms recorded on ${targetDate}.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    top10FlappingRecords.forEach((r, idx) => {
+      html += `
+        <tr>
+          <td style="text-align:center;"><span class="badge-rank">#${idx + 1}</span></td>
+          <td><strong>${r.btsIp}</strong></td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td><span class="badge-media">${r.media}</span></td>
+          <td>${r.badges}</td>
+          <td class="num" style="color:var(--secondary); font-weight:bold;">${r.totFlap}</td>
+          <td class="num">${r.totMajor}</td>
+          <td class="num" style="color:${r.totHours > 0 ? '#dc2626' : 'inherit'};"><strong>${r.totHours.toFixed(1)} Hr</strong></td>
+          <td><strong>${r.l1}</strong></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runTop10FlapAnalysis = runTop10FlapAnalysis;
+
+  function shareCircleTop10FlapWhatsApp() {
+    if (!top10FlappingRecords || top10FlappingRecords.length === 0) {
+      alert("No flapping records to share.");
+      return;
+    }
+
+    const dElem = document.getElementById("flapper-alert-date");
+    const d = dElem ? dElem.value : "";
+
+    const ssaMap = {};
+    top10FlappingRecords.forEach((r, idx) => {
+      if (!ssaMap[r.ssa]) ssaMap[r.ssa] = [];
+      ssaMap[r.ssa].push({ ...r, overallRank: idx + 1 });
+    });
+
+    let msg = `*⚡ Circle Top 10 Chronic Flapping Sites Alert (${d})*\n`;
+    msg += `_Sites with highest flapping occurrences across J&K Circle_\n\n`;
+
+    Object.keys(ssaMap).sort().forEach(s => {
+      msg += `📍 *${s} SSA:*\n`;
+      ssaMap[s].forEach(site => {
+        msg += `   [Rank #${site.overallRank}] *${site.btsIp}* [${site.siteName}]\n`;
+        msg += `   • Flaps: *${site.totFlap}* | Major: ${site.totMajor} | Down: ${site.totHours.toFixed(1)}h\n`;
+        msg += `   • Media: ${site.media} | L1: ${site.l1}\n\n`;
+      });
+    });
+
+    msg += `Kindly inspect CPRI links, power fluctuation, or media jitter on highest priority.\n\n`;
+    msg += getClosingSignature("ALL");
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareCircleTop10FlapWhatsApp = shareCircleTop10FlapWhatsApp;
+
+  function captureTop10FlapScreenshot() {
+    const elem = document.getElementById("alert-flappers-section");
+    if (!elem) return;
+    html2canvas(elem, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `Circle_Top10_Flapping_Sites_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureTop10FlapScreenshot = captureTop10FlapScreenshot;
+
+  function exportTop10FlapExcel() {
+    if (!top10FlappingRecords || top10FlappingRecords.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(top10FlappingRecords.map((r, i) => ({
+      "Rank": i + 1,
+      "BTS IP ID": r.btsIp,
+      "Site Name": r.siteName,
+      "SSA": r.ssa,
+      "Media": r.media,
+      "Installed Bands": r.installedBands,
+      "Total Flap Count (<15m)": r.totFlap,
+      "Major Outages (>15m)": r.totMajor,
+      "Total Down Hours": r.totHours.toFixed(2),
+      "L1 Officer": r.l1
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Top_10_Flapping");
+    XLSX.writeFile(wb, "Circle_Top_10_Flapping_Sites.xlsx");
+  }
+  window.exportTop10FlapExcel = exportTop10FlapExcel;
+
+  function runWorst5L1Analysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const dElem = document.getElementById("worst-date-select");
+    const targetDate = dElem ? dElem.value : (dbnAvailableDates[0] || "");
+    const catElem = document.getElementById("worst-cat-select");
+    const chosenCat = catElem ? catElem.value : "ALL";
+
+    const inchargeMap = {};
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate !== targetDate) return;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+
+      const officer = cleanL1(r.l1, "Unassigned");
+      if (officer === "Unassigned") return;
+
+      const key = r.ssa + "____" + officer;
+      if (!inchargeMap[key]) {
+        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, lt90: 0 };
+      }
+      inchargeMap[key].total++;
+      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
+      else if (r.bucket === "<90%") inchargeMap[key].lt90++;
+    });
+
+    const parsed = Object.values(inchargeMap)
+      .filter(d => d.total >= 10) // Focus on officers managing at least 10 sites
+      .map(d => {
+        const actualPct = (d.gte98 / d.total) * 100;
+        const targetReq = Math.ceil(0.80 * d.total);
+        const shortfall = Math.max(0, targetReq - d.gte98);
+        return {
+          ssa: d.ssa,
+          officer: d.officer,
+          total: d.total,
+          gte98: d.gte98,
+          lt90: d.lt90,
+          actualPct: actualPct,
+          targetReq: targetReq,
+          shortfall: shortfall
+        };
+      });
+
+    parsed.sort((a, b) => a.actualPct - b.actualPct || b.shortfall - a.shortfall);
+    worst5L1Records = parsed.slice(0, 5);
+
+    const tbody = document.getElementById("worst-l1-tbody");
+    if (!tbody) return;
+
+    if (worst5L1Records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">All officers have high availability performance or insufficient data.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    worst5L1Records.forEach((d, idx) => {
+      html += `
+        <tr>
+          <td style="text-align:center;"><span class="badge-lag">Bottom #${idx + 1}</span></td>
+          <td>${d.ssa}</td>
+          <td><strong>${d.officer}</strong></td>
+          <td class="num">${d.total}</td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${d.gte98}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.actualPct.toFixed(1)}%</td>
+          <td class="num">${d.targetReq} sites</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${d.shortfall} sites</td>
+          <td style="text-align:center;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSingleWorstL1WhatsApp(${idx})">💬 Alert L1</button>
+          </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runWorst5L1Analysis = runWorst5L1Analysis;
+
+  function shareSingleWorstL1WhatsApp(idx) {
+    if (!worst5L1Records || !worst5L1Records[idx]) return;
+    const d = worst5L1Records[idx];
+    const dElem = document.getElementById("worst-date-select");
+    const selectedDate = dElem ? dElem.value : "";
+
+    let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
+    msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
+    msg += `*Performance Standing:* Bottom Performer (Lagging)\n`;
+    msg += `*Total Sites Managed:* ${d.total}\n`;
+    msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
+    msg += `*Corporate Target:* 80.0% (${d.targetReq} sites)\n\n`;
+    msg += `👉 You have a shortfall of *${d.shortfall} sites* to meet the 80% threshold. Furthermore, ${d.lt90} of your sites are currently in critical breakdown (<90%).\n\n`;
+    msg += `Please initiate immediate corrective action and expedite field restoration.\n\n`;
+    msg += getClosingSignature(d.ssa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareSingleWorstL1WhatsApp = shareSingleWorstL1WhatsApp;
+
+  function shareWorst5L1WhatsApp() {
+    if (!worst5L1Records || worst5L1Records.length === 0) {
+      alert("No worst performers to share.");
+      return;
+    }
+
+    const dElem = document.getElementById("worst-date-select");
+    const d = dElem ? dElem.value : "";
+
+    let msg = `*📉 J&K CM Bottom 5 In-Charge Availability Escalation (${d})*\n`;
+    msg += `_L1 officers with lowest % sites achieving ≥98% availability (Min 10 sites)_\n\n`;
+
+    worst5L1Records.forEach((r, idx) => {
+      msg += `${idx + 1}. *${r.officer}* (${r.ssa})\n`;
+      msg += `   • Managed: ${r.total} Sites | *≥98% Rate: ${r.actualPct.toFixed(1)}%* (${r.gte98} Sites)\n`;
+      msg += `   • Target Shortfall: *-${r.shortfall} Sites* | <90% Outages: ${r.lt90}\n\n`;
+    });
+
+    msg += `All concerned officers are requested to review down/flapping sites immediately.\n\n`;
+    msg += getClosingSignature("ALL");
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareWorst5L1WhatsApp = shareWorst5L1WhatsApp;
+
+  function captureWorst5Screenshot() {
+    const elem = document.getElementById("alert-worst-section");
+    if (!elem) return;
+    html2canvas(elem, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `Worst_Availability_L1_Performers_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureWorst5Screenshot = captureWorst5Screenshot;
+
+  function exportWorst5L1Excel() {
+    if (!worst5L1Records || worst5L1Records.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(worst5L1Records.map((r, i) => ({
+      "Rank (Lowest)": i + 1,
+      "SSA": r.ssa,
+      "Site In-charge (L1)": r.officer,
+      "Total Sites": r.total,
+      ">=98% Healthy Sites": r.gte98,
+      "<90% Outage Sites": r.lt90,
+      "Actual >=98% Rate %": r.actualPct.toFixed(2) + "%",
+      "Target Required (80%)": r.targetReq,
+      "Shortfall Sites": r.shortfall
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Worst_L1_Availability");
+    XLSX.writeFile(wb, "Worst_5_L1_Availability.xlsx");
+  }
+  window.exportWorst5L1Excel = exportWorst5L1Excel;
+
+  // =========================================================================
+  // MODULE 3: 4G DOWN HOURS FORMATTER (B01+B28+B41) & SCREENSHOT (Req 1 & 4)
+  // =========================================================================
+  function format4GBandDowntime(ipRaw, siteIdRaw, targetDate) {
+    if (!historyAlarmLoaded) return "-";
+
+    const ipKey = normalizeIpKey(ipRaw);
+    const siteKey = normalizeIpKey(siteIdRaw);
+    const node = staticMasterByIp[ipKey] || staticMasterByIp[siteKey] || (siteIdToIpMap[siteKey] ? staticMasterByIp[siteIdToIpMap[siteKey]] : null);
+
+    const has4G = node && node.installed && (node.installed["B01"] || node.installed["B28"] || node.installed["B41"]);
+    if (node && !has4G) return "N/A";
+
+    const lookupIps = [ipKey, siteKey];
+    if (siteIdToIpMap[siteKey]) lookupIps.push(siteIdToIpMap[siteKey]);
+
+    const bandHours = { "B01": 0, "B28": 0, "B41": 0 };
+    const datesToScan = (targetDate && targetDate !== "ALL") ? [targetDate] : histDates;
+
+    datesToScan.forEach(d => {
+      lookupIps.forEach(k => {
+        if (!k) return;
+        const rec = master4GDownByDateAndIp[`${d}____${k}`];
+        if (rec) {
+          if (rec["B01"]) bandHours["B01"] += rec["B01"];
+          if (rec["B28"]) bandHours["B28"] += rec["B28"];
+          if (rec["B41"]) bandHours["B41"] += rec["B41"];
+        }
+      });
+    });
+
+    function getBandSlot(b) {
+      if (node && node.installed && !node.installed[b]) return "N/A";
+      return bandHours[b] > 0 ? bandHours[b].toFixed(1) : "0.0";
+    }
+
+    return `${getBandSlot("B01")} + ${getBandSlot("B28")} + ${getBandSlot("B41")}`;
+  }
+  window.format4GBandDowntime = format4GBandDowntime;
+
+  function captureSsaSummaryScreenshot() {
+    const card = document.getElementById("dbn-summary-table-section");
+    if (!card) return;
+    html2canvas(card, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `SSA_Availability_Summary_Table_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureSsaSummaryScreenshot = captureSsaSummaryScreenshot;
+
+  // =========================================================================
+  // MODULE 2: CNMC SITE INFRA LOGIC
   // =========================================================================
   function getMandatoryIndices(totalCols) {
     const indices = [];
@@ -1590,7 +2017,7 @@
       const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
       const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
       html += `
-        <tr class="clickable-row" onclick="openDrilldownModal('SSA: ${ssa}', window.cachedSites.filter(s => s.ssa === '${ssa}'))">
+        <tr class="clickable-row" onclick="openDrilldownModal('SSA: ${ssa}', ssaMap['${ssa}'].sites)">
           <td>${d.ba}</td><td><strong>${ssa}</strong> 🔍</td>
           <td class="num">${d.total}</td><td class="num">${d.notStarted}</td><td class="num">${d.inProgress}</td><td class="num">${d.completed}</td>
           <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
@@ -1799,7 +2226,7 @@
   }
 
   // =========================================================================
-  // MODULE 2: DBN_NDBN AVAILABILITY ENGINE
+  // MODULE 3: DBN_NDBN AVAILABILITY ENGINE
   // =========================================================================
   async function fetchAndRenderDbn() {
     const status = document.getElementById("status-bar");
@@ -1900,13 +2327,20 @@
 
       dbnAvailableDates = Array.from(dateSet).sort().reverse();
       populateDbnControls();
+      populateAlertControls();
       populateDownCommonReportDateControl();
       dbnDataLoaded = true;
+
+      if (!historyAlarmLoaded) {
+        loadHistoryAlarmData();
+      }
 
       if (typeof applyDbnFilters === 'function') applyDbnFilters();
       if (typeof runDegradedAnalysis === 'function') runDegradedAnalysis();
       if (typeof runUserDegradedAnalysis === 'function') runUserDegradedAnalysis();
       if (typeof renderEscalationDashboard === 'function') renderEscalationDashboard();
+      if (typeof runZeroDataAnalysis === 'function') runZeroDataAnalysis();
+      if (typeof runWorst5L1Analysis === 'function') runWorst5L1Analysis();
 
       if (downDataLoaded && typeof applyDownSitesFilters === 'function') applyDownSitesFilters();
 
@@ -2338,18 +2772,19 @@
       return;
     }
 
+    const chosenDate = document.getElementById("dbn-date-select") ? document.getElementById("dbn-date-select").value : "ALL";
     let html = "";
     const limit = Math.min(records.length, displayLimit);
+
     for (let i = 0; i < limit; i++) {
       const r = records[i];
       const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
       const availColor = r.avail >= 98 ? "#16a34a" : (r.avail >= 94 ? "#d97706" : (r.avail >= 90 ? "#ea580c" : "#dc2626"));
 
-      const ipKey = normalizeIpKey(r.btsIp);
-      const siteKey = normalizeIpKey(r.siteId);
-      const downHrs = masterHistoryDownHoursByIp[ipKey] !== undefined 
-        ? masterHistoryDownHoursByIp[ipKey].toFixed(2) 
-        : (masterHistoryDownHoursByIp[siteKey] !== undefined ? masterHistoryDownHoursByIp[siteKey].toFixed(2) : "-");
+      const targetDate = (chosenDate && chosenDate !== "ALL") ? chosenDate : r.reportDate;
+      const downHrs = format4GBandDowntime(r.btsIp, r.siteId, targetDate);
+      const isDown = downHrs.includes(".") && downHrs !== "0.0 + 0.0 + 0.0" && downHrs !== "0.0 + 0.0 + N/A" && downHrs !== "0.0 + N/A + N/A";
+      const styleColor = isDown ? "color:#dc2626; font-weight:bold;" : "color:#64748b;";
 
       html += `
         <tr>
@@ -2363,7 +2798,7 @@
           <td class="num"><strong>${r.maxActiveUser}</strong></td>
           <td>${r.l1}</td>
           <td>${r.media}</td>
-          <td class="num" style="color:var(--primary); font-weight:bold;">${downHrs}</td>
+          <td class="num" style="${styleColor}">${downHrs}</td>
           <td class="num">${r.voiceErl.toFixed(2)}</td>
           <td class="num">${r.dataGb.toFixed(2)}</td>
         </tr>`;
@@ -2412,12 +2847,11 @@
   window.exportDbnSummaryExcel = exportDbnSummaryExcel;
 
   function exportDbnSitesExcel() {
+    const chosenDate = document.getElementById("dbn-date-select") ? document.getElementById("dbn-date-select").value : "ALL";
+
     const rows = dbnFilteredRecords.map((r, i) => {
-      const ipKey = normalizeIpKey(r.btsIp);
-      const siteKey = normalizeIpKey(r.siteId);
-      const downHrs = masterHistoryDownHoursByIp[ipKey] !== undefined 
-        ? masterHistoryDownHoursByIp[ipKey].toFixed(2) 
-        : (masterHistoryDownHoursByIp[siteKey] !== undefined ? masterHistoryDownHoursByIp[siteKey].toFixed(2) : "-");
+      const targetDate = (chosenDate && chosenDate !== "ALL") ? chosenDate : r.reportDate;
+      const downHrs = format4GBandDowntime(r.btsIp, r.siteId, targetDate);
 
       return {
         "S.No": i + 1,
@@ -2433,7 +2867,7 @@
         "Max Active User": r.maxActiveUser,
         "L1 Officer": r.l1,
         "Media": r.media,
-        "Total Down Duration (Hr)": downHrs,
+        "4G Down Hours (B01+B28+B41)": downHrs,
         "Voice (Erl)": r.voiceErl,
         "Data (GB)": r.dataGb
       };
@@ -2530,7 +2964,7 @@
   window.exportUserDegradedSitesExcel = exportUserDegradedSitesExcel;
 
   // =========================================================================
-  // MODULE 3: HISTORY ALARM TRACKER LOGIC
+  // MODULE 4: HISTORY ALARM TRACKER LOGIC
   // =========================================================================
   async function loadHistoryAlarmData() {
     const status = document.getElementById("status-bar");
@@ -2640,6 +3074,15 @@
 
             if (ipKey) {
               masterHistoryDownHoursByIp[ipKey] = (masterHistoryDownHoursByIp[ipKey] || 0) + downHours;
+              if (date) {
+                const dateKey = `${date}____${ipKey}`;
+                masterHistoryDownHoursByDateAndIp[dateKey] = (masterHistoryDownHoursByDateAndIp[dateKey] || 0) + downHours;
+
+                if (band === "B01" || band === "B28" || band === "B41") {
+                  if (!master4GDownByDateAndIp[dateKey]) master4GDownByDateAndIp[dateKey] = {};
+                  master4GDownByDateAndIp[dateKey][band] = (master4GDownByDateAndIp[dateKey][band] || 0) + downHours;
+                }
+              }
             }
           });
 
@@ -2667,6 +3110,7 @@
       Array.from(ssaSet).sort().forEach(s => { sSel.innerHTML += `<option value="${s}">${s}</option>`; });
     }
 
+    populateAlertControls();
     historyAlarmLoaded = true;
     renderHistoryAlarmTable();
 
@@ -2939,7 +3383,7 @@
   window.exportHistoryAlarmExcel = exportHistoryAlarmExcel;
 
   // =========================================================================
-  // MODULE 4: DOWN SITES TRACKER ENGINE
+  // MODULE 5: DOWN SITES TRACKER ENGINE
   // =========================================================================
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
@@ -3026,11 +3470,7 @@
   window.fetchAndRenderDownSites = fetchAndRenderDownSites;
 
   function processRawDownRecords(data) {
-    const status = document.getElementById("status-bar");
-    if (!data || data.length === 0) {
-      if (status) status.innerText = "⚠️ Dataset is empty.";
-      return;
-    }
+    if (!data || data.length === 0) return;
 
     downRawRecords = data.map(r => {
       const ba = getRowField(r, ["BA", "ba"]);
@@ -3329,7 +3769,7 @@
         <td>${r.downDt}</td>
         <td><strong style="color:${r.durationMinutes >= 1440 ? '#dc2626' : '#d97706'};">${r.downPeriod}</strong></td>
         <td><span class="badge-fault">${r.faultType}</span></td>
-        <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td>
+        <td class="cell-wrap-remark">${r.remark}</td>
         <td><strong>${r.incharge}</strong></td>
         <td><strong>${r.l2}</strong></td>
         <td class="num">${availText}</td>
@@ -3488,13 +3928,60 @@
           <td><strong>${r.siteId}</strong></td><td>${r.btsIpId || "-"}</td><td>${r.btsName}</td><td>${r.ba}</td><td>${r.ssa}</td>
           <td>${catBadge}</td><td><span class="badge-tech">${r.deviceType}</span></td><td><span class="badge-media">${r.media}</span></td>
           <td>${r.downDt}</td><td><strong style="color:#dc2626;">${r.downPeriod}</strong></td><td><span class="badge-fault">${r.faultType}</span></td>
-          <td style="max-width:200px; font-size:12px; color:#475569;">${r.remark}</td><td><strong>${r.incharge}</strong></td><td><strong>${r.l2}</strong></td>
+          <td class="cell-wrap-remark">${r.remark}</td><td><strong>${r.incharge}</strong></td><td><strong>${r.l2}</strong></td>
           <td class="num"><span style="color:#16a34a; font-weight:bold;">${r.currentSelectedAvail.toFixed(1)}%</span></td>
         </tr>`;
     });
     tbody.innerHTML = htmlBuffer;
   }
   window.renderHealthyDownSitesTable = renderHealthyDownSitesTable;
+
+  function shareHealthyDownSummarySsaWhatsApp() {
+    const records = window.activeHealthyDownFiltered || [];
+    if (!records || records.length === 0) {
+      alert("No healthy LTE down sites to summarize.");
+      return;
+    }
+
+    const repElem = document.getElementById("down-report-date-select");
+    const chosenCommonDate = repElem ? repElem.value : "";
+    const ssaElem = document.getElementById("healthy-ssa-select");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+
+    const ssaMap = {};
+    let totalHealthyDown = 0, totalDbn = 0, totalNdbn = 0;
+
+    records.forEach(r => {
+      const s = r.ssa || "Unknown";
+      if (!ssaMap[s]) ssaMap[s] = { total: 0, dbn: 0, ndbn: 0 };
+      ssaMap[s].total++;
+      totalHealthyDown++;
+
+      if (r.category === "DBN") {
+        ssaMap[s].dbn++;
+        totalDbn++;
+      } else {
+        ssaMap[s].ndbn++;
+        totalNdbn++;
+      }
+    });
+
+    let msg = `*⭐ J&K CM Healthy LTE Sites Currently Down - SSA Summary*\n`;
+    msg += `_Rolling 30-Day Avail ≥ 98.0% as of ${chosenCommonDate}_\n`;
+    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} | *Total Healthy Down:* ${totalHealthyDown}\n\n`;
+
+    Object.keys(ssaMap).sort().forEach(s => {
+      const a = ssaMap[s];
+      msg += `📍 *${s} SSA*: Total *${a.total}* [DBN: *${a.dbn}* | NDBN: *${a.ndbn}*]\n`;
+    });
+
+    msg += `\n*🇮🇳 Circle Total*: *${totalHealthyDown}* [DBN: *${totalDbn}* | NDBN: *${totalNdbn}*]\n\n`;
+    msg += `Please restore these high-availability sites immediately to prevent circle SLA degradation.\n\n`;
+    msg += getClosingSignature(chosenSsa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareHealthyDownSummarySsaWhatsApp = shareHealthyDownSummarySsaWhatsApp;
 
   function renderNotUpdatedTable() {
     const tbody = document.getElementById("down-notupdated-tbody");
@@ -3564,7 +4051,8 @@
       <tr class="circle-row">
         <td>TOTAL DOWN SITES</td><td>SUMMARY</td>
         <td class="num">${totAll}</td><td class="num" style="color:#16a34a;">${totUpdated}</td>
-        <td class="num" style="color:#dc2626;">${totNotUpdated}</td><td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
+        <td class="num" style="color:#dc2626;">${totNotUpdated}</td>
+        <td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
       </tr>`;
     tbody.innerHTML = htmlBuffer;
   }
@@ -4126,7 +4614,9 @@
   // =========================================================================
   window.onload = function() {
     applyAdminAccessState();
-    fetchAndRenderInfra();
+    // Preload DBN and History feeds on launch to feed the default ALERTS module
+    fetchAndRenderDbn();
+    loadHistoryAlarmData();
   };
 </script>
 </body>
