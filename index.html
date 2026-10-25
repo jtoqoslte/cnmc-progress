@@ -43,6 +43,38 @@
     .module-btn:hover { background: #cbd5e1; }
     .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
 
+    /* Blinking Red Animation for Alerts & Escalations Module */
+    @keyframes pulseRedAlert {
+      0% {
+        background-color: #dc2626;
+        color: #ffffff;
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.75);
+      }
+      50% {
+        background-color: #ef4444;
+        color: #ffffff;
+        box-shadow: 0 0 12px 5px rgba(239, 68, 68, 0.6);
+      }
+      100% {
+        background-color: #dc2626;
+        color: #ffffff;
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+      }
+    }
+
+    #btn-mod-alerts {
+      animation: pulseRedAlert 1.6s infinite;
+      font-weight: 800;
+      border: 1px solid #b91c1c;
+      letter-spacing: 0.3px;
+    }
+    #btn-mod-alerts.active {
+      background-color: #991b1b !important;
+      color: #ffffff !important;
+      border-color: #7f1d1d !important;
+      animation: pulseRedAlert 1.4s infinite;
+    }
+
     .sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .sub-tab-btn { background: #f1f5f9; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; color: #475569; }
     .sub-tab-btn.active { background: #0284c7; color: white; border-color: #0284c7; }
@@ -146,7 +178,7 @@
     </div>
   </div>
 
-  <!-- Primary Module Navigation -->
+  <!-- Primary Module Navigation (Alerts is Red & Blinking) -->
   <div class="module-nav">
     <button class="module-btn active" id="btn-mod-alerts" onclick="switchModule('mod-alerts', this)">
       🚨 ALERTS & ESCALATIONS
@@ -597,7 +629,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 4: ESCALATION DASHBOARD -->
+    <!-- SUB-VIEW 4: ESCALATION DASHBOARD (RANK 1 = BEST, EXCLUDING <10 SITES) -->
     <div class="dbn-sub-section" id="dbn-escalation-view" style="display: none;">
       <div class="section">
         <h2>Site In-Charge Escalation & Target Gap Tracker</h2>
@@ -612,7 +644,7 @@
         </div>
         <div class="table-container">
           <table>
-            <thead><tr><th style="text-align: center;">Rank</th><th>SSA</th><th>L1 Site In-charge</th><th class="num">Total Sites</th><th class="num">≥98% Count (%)</th><th class="num">94-98% Count (%)</th><th class="num">90-94% Count (%)</th><th class="num">&lt;90% Count (%)</th><th class="num">Actual ≥98% Rate</th><th class="num">Target Required</th><th class="num">Shortfall</th><th style="text-align:center;">Status</th><th style="text-align:center;">WhatsApp Alert</th></tr></thead>
+            <thead><tr><th style="text-align: center;">Rank</th><th>SSA</th><th>L1 Site In-charge</th><th class="num">Total Sites (≥10)</th><th class="num">≥98% Count (%)</th><th class="num">94-98% Count (%)</th><th class="num">90-94% Count (%)</th><th class="num">&lt;90% Count (%)</th><th class="num">Actual ≥98% Rate</th><th class="num">Target Required</th><th class="num">Shortfall</th><th style="text-align:center;">Status</th><th style="text-align:center;">WhatsApp Alert</th></tr></thead>
             <tbody id="escalation-tbody"></tbody>
           </table>
         </div>
@@ -721,7 +753,7 @@
       <button class="sub-tab-btn" onclick="switchDownSubTab('down-matrix-view', this)">📊 5. Fault-Wise SSA Matrix</button>
     </div>
 
-    <!-- SUB-VIEW 1: UNIFIED LIST -->
+    <!-- SUB-VIEW 1: UNIFIED LIST (With updated '4G Rolling 30 Days Avail.' Header) -->
     <div class="down-sub-section" id="down-unified-view">
       <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
@@ -735,7 +767,7 @@
         </div>
         <div class="table-container">
           <table>
-            <thead><tr><th>Site ID</th><th>BTS IP ID</th><th>BTS Name</th><th>BA</th><th>SSA</th><th>SDCA</th><th>Category</th><th>Device</th><th>Media</th><th>Down Date</th><th>Down Period</th><th>Fault Type</th><th style="min-width: 260px;">Remarks</th><th>L1 In-charge</th><th>L2 In-charge</th><th class="num">Rolling 30 Days Avail. %</th></tr></thead>
+            <thead><tr><th>Site ID</th><th>BTS IP ID</th><th>BTS Name</th><th>BA</th><th>SSA</th><th>SDCA</th><th>Category</th><th>Device</th><th>Media</th><th>Down Date</th><th>Down Period</th><th>Fault Type</th><th style="min-width: 260px;">Remarks</th><th>L1 In-charge</th><th>L2 In-charge</th><th class="num">4G Rolling 30 Days Avail. %</th></tr></thead>
             <tbody id="down-unified-tbody"></tbody>
           </table>
         </div>
@@ -991,7 +1023,6 @@
     return numOnly || str;
   }
 
-  // Robust date standardizer converts "YYYY-MM-DD", "DD-MM-YYYY", or "DD/MM/YYYY" to "YYYY-MM-DD"
   function normalizeDateStr(dateStr) {
     if (!dateStr) return "";
     const s = String(dateStr).trim().split(" ")[0];
@@ -1780,25 +1811,26 @@
     const has4G = node && node.installed && (node.installed["B01"] || node.installed["B28"] || node.installed["B41"]);
     if (node && !has4G) return "N/A";
 
-    const lookupKeys = new Set();
-    if (ipKey) lookupKeys.add(ipKey);
-    if (siteKey) lookupKeys.add(siteKey);
-    if (siteIdToIpMap[siteKey]) lookupKeys.add(siteIdToIpMap[siteKey]);
-    if (node && node.btsIp) lookupKeys.add(normalizeIpKey(node.btsIp));
+    const canonicalKey = (node && node.btsIp) ? normalizeIpKey(node.btsIp) : (siteIdToIpMap[siteKey] || ipKey || siteKey);
 
     const bandHours = { "B01": 0, "B28": 0, "B41": 0 };
     const normTargetDate = normalizeDateStr(targetDate);
     const datesToScan = (normTargetDate && normTargetDate !== "ALL") ? [normTargetDate] : histDates;
 
     datesToScan.forEach(d => {
-      lookupKeys.forEach(k => {
-        const rec = master4GDownByDateAndIp[`${d}____${k}`];
-        if (rec) {
-          if (rec["B01"]) bandHours["B01"] += rec["B01"];
-          if (rec["B28"]) bandHours["B28"] += rec["B28"];
-          if (rec["B41"]) bandHours["B41"] += rec["B41"];
-        }
-      });
+      let rec = master4GDownByDateAndIp[`${d}____${canonicalKey}`];
+      if (!rec && ipKey && ipKey !== canonicalKey) {
+        rec = master4GDownByDateAndIp[`${d}____${ipKey}`];
+      }
+      if (!rec && siteKey && siteKey !== canonicalKey) {
+        rec = master4GDownByDateAndIp[`${d}____${siteKey}`];
+      }
+
+      if (rec) {
+        if (rec["B01"]) bandHours["B01"] += rec["B01"];
+        if (rec["B28"]) bandHours["B28"] += rec["B28"];
+        if (rec["B41"]) bandHours["B41"] += rec["B41"];
+      }
     });
 
     function getBandSlot(b) {
@@ -2056,37 +2088,40 @@
       else inchargeMap[key].lt90++;
     });
 
-    const parsed = Object.values(inchargeMap).map(d => {
-      const actualPct = (d.gte98 / d.total) * 100;
-      const targetReq = Math.ceil((targetPct / 100) * d.total);
-      const shortfall = Math.max(0, targetReq - d.gte98);
-      const isTargetMet = actualPct >= targetPct;
-      return {
-        ssa: d.ssa,
-        officer: d.officer,
-        total: d.total,
-        gte98: d.gte98,
-        mid94: d.mid94,
-        low90: d.low90,
-        lt90: d.lt90,
-        actualPct: actualPct,
-        targetReq: targetReq,
-        shortfall: shortfall,
-        isTargetMet: isTargetMet
-      };
-    }).filter(d => {
-      if (searchVal && !d.officer.toLowerCase().includes(searchVal)) return false;
-      return true;
-    });
+    const parsed = Object.values(inchargeMap)
+      .filter(d => d.total >= 10)
+      .map(d => {
+        const actualPct = (d.gte98 / d.total) * 100;
+        const targetReq = Math.ceil((targetPct / 100) * d.total);
+        const shortfall = Math.max(0, targetReq - d.gte98);
+        const isTargetMet = actualPct >= targetPct;
+        return {
+          ssa: d.ssa,
+          officer: d.officer,
+          total: d.total,
+          gte98: d.gte98,
+          mid94: d.mid94,
+          low90: d.low90,
+          lt90: d.lt90,
+          actualPct: actualPct,
+          targetReq: targetReq,
+          shortfall: shortfall,
+          isTargetMet: isTargetMet
+        };
+      }).filter(d => {
+        if (searchVal && !d.officer.toLowerCase().includes(searchVal)) return false;
+        return true;
+      });
 
-    parsed.sort((a, b) => a.actualPct - b.actualPct || b.shortfall - a.shortfall);
+    // Best Performer = Rank 1 (Descending by actual % achieved)
+    parsed.sort((a, b) => b.actualPct - a.actualPct || a.shortfall - b.shortfall || b.total - a.total);
     escalationData = parsed;
 
     const tbody = document.getElementById("escalation-tbody");
     if (!tbody) return;
 
     if (parsed.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No officers match active criteria.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No officers managing ≥10 sites found for selected criteria.</td></tr>`;
       return;
     }
 
@@ -3119,8 +3154,7 @@
     msg += `*Circle Avg Availability*: ${avgAvail}%\n\n`;
     msg += getClosingSignature(chosenSsa);
 
-    const whatsappUrl = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
-    window.open(whatsappUrl, "_blank");
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
   window.shareSsaSummaryWhatsApp = shareSsaSummaryWhatsApp;
 
@@ -3329,7 +3363,7 @@
   window.exportUserDegradedSitesExcel = exportUserDegradedSitesExcel;
 
   // =========================================================================
-  // MODULE 4: HISTORY ALARM TRACKER LOGIC
+  // MODULE 4: HISTORY ALARM TRACKER LOGIC (SINGLE-CANONICAL DEDUPLICATION)
   // =========================================================================
   async function loadHistoryAlarmData() {
     const status = document.getElementById("status-bar");
@@ -3434,25 +3468,28 @@
 
             if (date) dateSet.add(date);
 
-            let ipKey = normalizeIpKey(ipRaw);
+            const ipKey = normalizeIpKey(ipRaw);
             const sKey = normalizeIpKey(siteId);
 
-            if (!ipKey || !staticMasterByIp[ipKey]) {
-              ipKey = siteIdToIpMap[sKey] || ipKey || sKey;
+            // Determine SINGLE canonical physical node key to prevent doubling
+            let canonicalKey = ipKey;
+            if (ipKey && staticMasterByIp[ipKey] && staticMasterByIp[ipKey].btsIp) {
+              canonicalKey = normalizeIpKey(staticMasterByIp[ipKey].btsIp);
+            } else if (sKey && siteIdToIpMap[sKey]) {
+              canonicalKey = siteIdToIpMap[sKey];
+            } else if (sKey && staticMasterByIp[sKey] && staticMasterByIp[sKey].btsIp) {
+              canonicalKey = normalizeIpKey(staticMasterByIp[sKey].btsIp);
+            } else {
+              canonicalKey = ipKey || sKey;
             }
 
             const band = detectBand(btsType, btsName, siteId);
-            alarmEvents.push({ date, ipKey, band, flap, major, downTimes, downHours });
+            alarmEvents.push({ date, ipKey: canonicalKey, band, flap, major, downTimes, downHours });
 
-            const targetKeys = new Set();
-            if (ipKey) targetKeys.add(ipKey);
-            if (sKey) targetKeys.add(sKey);
-            if (siteIdToIpMap[sKey]) targetKeys.add(siteIdToIpMap[sKey]);
-
-            targetKeys.forEach(k => {
-              masterHistoryDownHoursByIp[k] = (masterHistoryDownHoursByIp[k] || 0) + downHours;
+            if (canonicalKey) {
+              masterHistoryDownHoursByIp[canonicalKey] = (masterHistoryDownHoursByIp[canonicalKey] || 0) + downHours;
               if (date) {
-                const dateKey = `${date}____${k}`;
+                const dateKey = `${date}____${canonicalKey}`;
                 masterHistoryDownHoursByDateAndIp[dateKey] = (masterHistoryDownHoursByDateAndIp[dateKey] || 0) + downHours;
 
                 if (band === "B01" || band === "B28" || band === "B41") {
@@ -3460,7 +3497,7 @@
                   master4GDownByDateAndIp[dateKey][band] = (master4GDownByDateAndIp[dateKey][band] || 0) + downHours;
                 }
               }
-            });
+            }
           });
 
           histDates = Array.from(dateSet).sort().reverse();
@@ -4911,7 +4948,7 @@
       "Remark": r.remark,
       "Site Incharge (L1)": r.incharge,
       "L2 Incharge": r.l2,
-      "30-Day Avail %": r.currentSelectedAvail !== null ? r.currentSelectedAvail.toFixed(2) + "%" : "N/A"
+      "4G Rolling 30 Days Avail. %": r.currentSelectedAvail !== null ? r.currentSelectedAvail.toFixed(2) + "%" : "N/A"
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
