@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Operations Portal & Alarm Analytics</title>
-  <!-- Libraries -->
+  <!-- Data, Charting, Screenshot & PDF Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -43,7 +43,7 @@
     .module-btn:hover { background: #cbd5e1; }
     .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
 
-    /* Blinking Red Animation for Alerts & Escalations */
+    /* Blinking Red Animation for Alerts & Escalations Module Button */
     @keyframes pulseRedAlert {
       0% {
         background-color: #dc2626;
@@ -118,6 +118,7 @@
     .num { text-align: right; font-variant-numeric: tabular-nums; }
     .circle-row { font-weight: bold; background: #e2e8f0; }
 
+    /* Text Wrapping for Remarks */
     .cell-wrap-remark {
       white-space: normal !important;
       word-break: break-word !important;
@@ -629,7 +630,7 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 4: ESCALATION DASHBOARD (RANK 1 = BEST, EXCLUDING <10 SITES) -->
+    <!-- SUB-VIEW 4: ESCALATION DASHBOARD (ALL IN-CHARGES LISTED, RANKED IF >=10 SITES) -->
     <div class="dbn-sub-section" id="dbn-escalation-view" style="display: none;">
       <div class="section">
         <h2>Site In-Charge Escalation & Target Gap Tracker</h2>
@@ -644,7 +645,23 @@
         </div>
         <div class="table-container">
           <table>
-            <thead><tr><th style="text-align: center;">Rank</th><th>SSA</th><th>L1 Site In-charge</th><th class="num">Total Sites (≥10)</th><th class="num">≥98% Count (%)</th><th class="num">94-98% Count (%)</th><th class="num">90-94% Count (%)</th><th class="num">&lt;90% Count (%)</th><th class="num">Actual ≥98% Rate</th><th class="num">Target Required</th><th class="num">Shortfall</th><th style="text-align:center;">Status</th><th style="text-align:center;">WhatsApp Alert</th></tr></thead>
+            <thead>
+              <tr>
+                <th style="text-align: center;">Rank (≥10 Sites)</th>
+                <th>SSA</th>
+                <th>L1 Site In-charge</th>
+                <th class="num">Total Sites</th>
+                <th class="num">≥98% Count (%)</th>
+                <th class="num">94-98% Count (%)</th>
+                <th class="num">90-94% Count (%)</th>
+                <th class="num">&lt;90% Count (%)</th>
+                <th class="num">Actual ≥98% Rate</th>
+                <th class="num">Target Required</th>
+                <th class="num">Shortfall</th>
+                <th style="text-align:center;">Status</th>
+                <th style="text-align:center;">WhatsApp Alert</th>
+              </tr>
+            </thead>
             <tbody id="escalation-tbody"></tbody>
           </table>
         </div>
@@ -2055,6 +2072,9 @@
   }
   window.runUserDegradedAnalysis = runUserDegradedAnalysis;
 
+  // =========================================================================
+  // ESCALATION DASHBOARD (ALL IN-CHARGES LISTED, RANKED IF TOTAL SITES >= 10)
+  // =========================================================================
   function renderEscalationDashboard() {
     const dElem = document.getElementById("esc-date-select");
     const ssaElem = document.getElementById("esc-ssa-select");
@@ -2091,14 +2111,14 @@
       else inchargeMap[key].lt90++;
     });
 
-    // Enforce Minimum 10 Sites Threshold
+    // Retain ALL officers; flag whether they meet the >= 10 sites threshold
     const parsed = Object.values(inchargeMap)
-      .filter(d => d.total >= 10)
       .map(d => {
         const actualPct = (d.gte98 / d.total) * 100;
         const targetReq = Math.ceil((targetPct / 100) * d.total);
         const shortfall = Math.max(0, targetReq - d.gte98);
         const isTargetMet = actualPct >= targetPct;
+        const isRankable = d.total >= 10;
         return {
           ssa: d.ssa,
           officer: d.officer,
@@ -2110,22 +2130,39 @@
           actualPct: actualPct,
           targetReq: targetReq,
           shortfall: shortfall,
-          isTargetMet: isTargetMet
+          isTargetMet: isTargetMet,
+          isRankable: isRankable
         };
       }).filter(d => {
         if (searchVal && !d.officer.toLowerCase().includes(searchVal)) return false;
         return true;
       });
 
-    // Best Performer = Rank 1 (Descending by actual % achieved)
-    parsed.sort((a, b) => b.actualPct - a.actualPct || a.shortfall - b.shortfall || b.total - a.total);
+    // Rankable officers (>=10 sites) sorted first from best to worst,
+    // followed by unranked officers (<10 sites) sorted by availability %
+    parsed.sort((a, b) => {
+      if (a.isRankable && !b.isRankable) return -1;
+      if (!a.isRankable && b.isRankable) return 1;
+      return b.actualPct - a.actualPct || a.shortfall - b.shortfall || b.total - a.total;
+    });
+
+    // Assign ranks strictly to officers managing >= 10 sites
+    let currentRank = 1;
+    parsed.forEach(d => {
+      if (d.isRankable) {
+        d.rank = currentRank++;
+      } else {
+        d.rank = null;
+      }
+    });
+
     escalationData = parsed;
 
     const tbody = document.getElementById("escalation-tbody");
     if (!tbody) return;
 
     if (parsed.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No officers managing ≥10 sites found for selected criteria.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No matching officers found for active criteria.</td></tr>`;
       return;
     }
 
@@ -2136,12 +2173,16 @@
       const pLow = ((d.low90 / d.total) * 100).toFixed(1);
       const pLt  = ((d.lt90  / d.total) * 100).toFixed(1);
 
+      const rankBadge = d.isRankable
+        ? `<span class="badge-rank">#${d.rank}</span>`
+        : `<span class="badge-rank-na" title="Minimum 10 sites required for ranking">N/A (&lt;10)</span>`;
+
       html += `
-        <tr>
-          <td style="text-align:center;"><span class="badge-rank">#${idx + 1}</span></td>
+        <tr style="${!d.isRankable ? 'background-color: #fafafa;' : ''}">
+          <td style="text-align:center;">${rankBadge}</td>
           <td>${d.ssa}</td>
           <td><strong>${d.officer}</strong></td>
-          <td class="num">${d.total}</td>
+          <td class="num"><strong>${d.total}</strong></td>
           <td class="num" style="color:#16a34a; font-weight:600;">${d.gte98} (${pGte}%)</td>
           <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
           <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
@@ -2196,7 +2237,8 @@
     msg += `*Target Benchmark:* ≥${targetPct}% Healthy Sites\n\n`;
 
     escalationData.slice(0, 15).forEach((d, i) => {
-      msg += `${i + 1}. *${d.officer}* (${d.ssa}): ${d.actualPct.toFixed(1)}% (${d.gte98}/${d.total}) | Shortfall: *${d.shortfall > 0 ? '-' + d.shortfall : '0'}*\n`;
+      const rankLabel = d.isRankable ? `Rank #${d.rank}` : `Unranked (<10)`;
+      msg += `${i + 1}. *${d.officer}* (${d.ssa}) [${rankLabel}]: ${d.actualPct.toFixed(1)}% (${d.gte98}/${d.total}) | Shortfall: *${d.shortfall > 0 ? '-' + d.shortfall : '0'}*\n`;
     });
 
     if (escalationData.length > 15) {
@@ -2207,6 +2249,30 @@
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
   window.shareBulkEscalationWhatsApp = shareBulkEscalationWhatsApp;
+
+  function exportEscalationExcel() {
+    if (!escalationData || escalationData.length === 0) return;
+    const rows = escalationData.map((d) => ({
+      "Rank": d.isRankable ? d.rank : "N/A (<10 sites)",
+      "SSA": d.ssa,
+      "L1 Site In-charge": d.officer,
+      "Total Sites": d.total,
+      ">=98% Count": d.gte98,
+      ">=98% Rate %": d.actualPct.toFixed(2) + "%",
+      "94-98% Count": d.mid94,
+      "90-94% Count": d.low90,
+      "<90% Outage Count": d.lt90,
+      "Target Required Sites": d.targetReq,
+      "Shortfall Sites": d.shortfall,
+      "Target Status": d.isTargetMet ? "Target Met" : "Lagging"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Escalation_Matrix");
+    XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
+  }
+  window.exportEscalationExcel = exportEscalationExcel;
 
   // =========================================================================
   // MODULE 2: CNMC SITE INFRA LOGIC
@@ -3282,15 +3348,6 @@
     XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
   }
   window.exportDbnSitesExcel = exportDbnSitesExcel;
-
-  function exportEscalationExcel() {
-    if (!escalationData || escalationData.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(escalationData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Escalation_Matrix");
-    XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
-  }
-  window.exportEscalationExcel = exportEscalationExcel;
 
   function shareDegradedSitesWhatsApp() {
     if (!degradedSitesList || degradedSitesList.length === 0) {
@@ -4480,7 +4537,7 @@
   window.renderNotUpdatedTable = renderNotUpdatedTable;
 
   function shareNotUpdatedDetailedWhatsApp() {
-    const rows = window.currentNotUpdatedRows || [];
+    const rows = window.currentInfoSummaryRows || [];
     const ssaElem = document.getElementById("notupdated-ssa-select");
     const chosenSsa = ssaElem ? ssaElem.value : "ALL";
 
@@ -4488,7 +4545,7 @@
     msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n\n`;
 
     let count = 0;
-    rows.forEach(r => {
+    (window.currentNotUpdatedRows || []).forEach(r => {
       if (r.sitesNotUpdated && r.sitesNotUpdated.length > 0) {
         msg += `👤 *${r.entity}* (${r.ssa}) - ${r.sitesNotUpdated.length} Pending:\n`;
         r.sitesNotUpdated.forEach((s, idx) => {
