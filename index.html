@@ -43,7 +43,7 @@
     .module-btn:hover { background: #cbd5e1; }
     .module-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(0, 51, 102, 0.3); }
 
-    /* Blinking Red Animation for Alerts & Escalations Module */
+    /* Blinking Red Animation for Alerts & Escalations */
     @keyframes pulseRedAlert {
       0% {
         background-color: #dc2626;
@@ -178,7 +178,7 @@
     </div>
   </div>
 
-  <!-- Primary Module Navigation (Alerts is Red & Blinking) -->
+  <!-- Primary Module Navigation -->
   <div class="module-nav">
     <button class="module-btn active" id="btn-mod-alerts" onclick="switchModule('mod-alerts', this)">
       🚨 ALERTS & ESCALATIONS
@@ -1102,6 +1102,19 @@
   // --- END OF PART 1 (DO NOT CLOSE SCRIPT TAG - PASTE PART 2 DIRECTLY BELOW) ---
   // =========================================================================
 // =========================================================================
+  // CANONICAL LOCATION IDENTIFIER & RESOLVER
+  // =========================================================================
+  function getCanonicalNodeKey(ipRaw, siteIdRaw) {
+    const ipKey = normalizeIpKey(ipRaw);
+    const siteKey = normalizeIpKey(siteIdRaw);
+
+    if (ipKey && staticMasterByIp[ipKey]) return ipKey;
+    if (siteKey && siteIdToIpMap[siteKey]) return siteIdToIpMap[siteKey];
+    if (siteKey && staticMasterByIp[siteKey]) return siteKey;
+    return ipKey || siteKey || "";
+  }
+
+  // =========================================================================
   // ADMIN AUTHENTICATION & NAVIGATION
   // =========================================================================
   function applyAdminAccessState() {
@@ -1804,28 +1817,18 @@
   function format4GBandDowntime(ipRaw, siteIdRaw, targetDate) {
     if (!historyAlarmLoaded) return "-";
 
-    const ipKey = normalizeIpKey(ipRaw);
-    const siteKey = normalizeIpKey(siteIdRaw);
-    const node = staticMasterByIp[ipKey] || staticMasterByIp[siteKey] || (siteIdToIpMap[siteKey] ? staticMasterByIp[siteIdToIpMap[siteKey]] : null);
+    const canonicalKey = getCanonicalNodeKey(ipRaw, siteIdRaw);
+    const node = staticMasterByIp[canonicalKey];
 
     const has4G = node && node.installed && (node.installed["B01"] || node.installed["B28"] || node.installed["B41"]);
     if (node && !has4G) return "N/A";
-
-    const canonicalKey = (node && node.btsIp) ? normalizeIpKey(node.btsIp) : (siteIdToIpMap[siteKey] || ipKey || siteKey);
 
     const bandHours = { "B01": 0, "B28": 0, "B41": 0 };
     const normTargetDate = normalizeDateStr(targetDate);
     const datesToScan = (normTargetDate && normTargetDate !== "ALL") ? [normTargetDate] : histDates;
 
     datesToScan.forEach(d => {
-      let rec = master4GDownByDateAndIp[`${d}____${canonicalKey}`];
-      if (!rec && ipKey && ipKey !== canonicalKey) {
-        rec = master4GDownByDateAndIp[`${d}____${ipKey}`];
-      }
-      if (!rec && siteKey && siteKey !== canonicalKey) {
-        rec = master4GDownByDateAndIp[`${d}____${siteKey}`];
-      }
-
+      const rec = master4GDownByDateAndIp[`${d}____${canonicalKey}`];
       if (rec) {
         if (rec["B01"]) bandHours["B01"] += rec["B01"];
         if (rec["B28"]) bandHours["B28"] += rec["B28"];
@@ -2088,6 +2091,7 @@
       else inchargeMap[key].lt90++;
     });
 
+    // Enforce Minimum 10 Sites Threshold
     const parsed = Object.values(inchargeMap)
       .filter(d => d.total >= 10)
       .map(d => {
@@ -3363,12 +3367,13 @@
   window.exportUserDegradedSitesExcel = exportUserDegradedSitesExcel;
 
   // =========================================================================
-  // MODULE 4: HISTORY ALARM TRACKER LOGIC (SINGLE-CANONICAL DEDUPLICATION)
+  // MODULE 4: HISTORY ALARM TRACKER LOGIC (STRICT PHYSICAL LOCATION INGESTION)
   // =========================================================================
   async function loadHistoryAlarmData() {
     const status = document.getElementById("status-bar");
     if (status) status.innerText = "Loading Static Master and History Alarm feeds...";
 
+    // 1. INGEST STATIC MASTER (Strict Single Entry per Physical Tower)
     await new Promise((resolve) => {
       Papa.parse(STATIC_MASTER_URL, {
         download: true,
@@ -3379,6 +3384,19 @@
           staticMasterByIp = {};
           siteIdToIpMap = {};
 
+          // Pass 1: Build bidirectional IP <-> Site ID map
+          res.data.forEach(r => {
+            const ip = safeStr(r["BTS IP ID"] || r["bts_ip_id"] || r["BTS_IP_ID"]);
+            const siteId = safeStr(r["bts_site_id"] || r["btsSiteId"] || r["PHY_Site_ID"]);
+            const ipKey = normalizeIpKey(ip);
+            const sKey = normalizeIpKey(siteId);
+
+            if (ipKey && sKey) {
+              siteIdToIpMap[sKey] = ipKey;
+            }
+          });
+
+          // Pass 2: Create ONE node object per physical tower
           res.data.forEach(r => {
             const ip = safeStr(r["BTS IP ID"] || r["bts_ip_id"] || r["BTS_IP_ID"]);
             const siteId = safeStr(r["bts_site_id"] || r["btsSiteId"] || r["PHY_Site_ID"]);
@@ -3389,9 +3407,12 @@
             const rowMedia = safeStr(r["Media"] || r["media"]) || "-";
             const rowL1 = safeStr(r["L1"] || r["l1"]);
 
-            if (!ip && !siteId) return;
+            const ipKey = normalizeIpKey(ip);
+            const sKey = normalizeIpKey(siteId);
+            const nodeKey = ipKey || (sKey && siteIdToIpMap[sKey]) || sKey;
 
-            const ipKey = normalizeIpKey(ip) || normalizeIpKey(siteId);
+            if (!nodeKey) return;
+
             const band = detectBand(btsType, btsName, siteId);
 
             let techPriority = 1;
@@ -3401,10 +3422,11 @@
               techPriority = 2;
             }
 
-            const resolvedL1 = cleanL1(rowL1, masterInchargeByIp[ipKey] || masterInchargeByIp[normalizeIpKey(siteId)] || "Unassigned");
+            const resolvedL1 = cleanL1(rowL1, masterInchargeByIp[nodeKey] || (sKey ? masterInchargeByIp[sKey] : "") || "Unassigned");
 
-            if (!staticMasterByIp[ipKey]) {
-              staticMasterByIp[ipKey] = {
+            if (!staticMasterByIp[nodeKey]) {
+              staticMasterByIp[nodeKey] = {
+                nodeKey: nodeKey,
                 btsIp: ip || siteId,
                 siteName: siteName,
                 ssa: ssa,
@@ -3414,23 +3436,17 @@
                 installed: { "2G": false, "3G": false, "B01": false, "B28": false, "B41": false }
               };
             } else {
-              if (techPriority > staticMasterByIp[ipKey].mediaPriority && rowMedia && rowMedia !== "-") {
-                staticMasterByIp[ipKey].media = rowMedia;
-                staticMasterByIp[ipKey].mediaPriority = techPriority;
+              if (techPriority > staticMasterByIp[nodeKey].mediaPriority && rowMedia && rowMedia !== "-") {
+                staticMasterByIp[nodeKey].media = rowMedia;
+                staticMasterByIp[nodeKey].mediaPriority = techPriority;
               }
-              if ((staticMasterByIp[ipKey].l1 === "Unassigned" || staticMasterByIp[ipKey].l1.toLowerCase().includes("error")) && resolvedL1 !== "Unassigned") {
-                staticMasterByIp[ipKey].l1 = resolvedL1;
+              if ((staticMasterByIp[nodeKey].l1 === "Unassigned" || staticMasterByIp[nodeKey].l1.toLowerCase().includes("error")) && resolvedL1 !== "Unassigned") {
+                staticMasterByIp[nodeKey].l1 = resolvedL1;
               }
             }
 
-            if (staticMasterByIp[ipKey].installed[band] !== undefined) {
-              staticMasterByIp[ipKey].installed[band] = true;
-            }
-
-            if (siteId) {
-              const sKey = normalizeIpKey(siteId);
-              siteIdToIpMap[sKey] = ipKey;
-              if (!staticMasterByIp[sKey]) staticMasterByIp[sKey] = staticMasterByIp[ipKey];
+            if (staticMasterByIp[nodeKey].installed[band] !== undefined) {
+              staticMasterByIp[nodeKey].installed[band] = true;
             }
           });
 
@@ -3443,6 +3459,7 @@
       });
     });
 
+    // 2. INGEST HISTORY ALARM DATA (Strict Single Canonical Map)
     await new Promise((resolve) => {
       Papa.parse(HISTORY_ALARM_URL, {
         download: true,
@@ -3452,6 +3469,10 @@
         complete: function(res) {
           alarmEvents = [];
           const dateSet = new Set();
+
+          for (let k in masterHistoryDownHoursByIp) delete masterHistoryDownHoursByIp[k];
+          for (let k in masterHistoryDownHoursByDateAndIp) delete masterHistoryDownHoursByDateAndIp[k];
+          for (let k in master4GDownByDateAndIp) delete master4GDownByDateAndIp[k];
 
           res.data.forEach(r => {
             const rawDate = safeStr(r["Down_Date"] || r["Down Date"] || r["Date"] || r["down_date"]);
@@ -3468,34 +3489,21 @@
 
             if (date) dateSet.add(date);
 
-            const ipKey = normalizeIpKey(ipRaw);
-            const sKey = normalizeIpKey(siteId);
-
-            // Determine SINGLE canonical physical node key to prevent doubling
-            let canonicalKey = ipKey;
-            if (ipKey && staticMasterByIp[ipKey] && staticMasterByIp[ipKey].btsIp) {
-              canonicalKey = normalizeIpKey(staticMasterByIp[ipKey].btsIp);
-            } else if (sKey && siteIdToIpMap[sKey]) {
-              canonicalKey = siteIdToIpMap[sKey];
-            } else if (sKey && staticMasterByIp[sKey] && staticMasterByIp[sKey].btsIp) {
-              canonicalKey = normalizeIpKey(staticMasterByIp[sKey].btsIp);
-            } else {
-              canonicalKey = ipKey || sKey;
-            }
+            const canonicalKey = getCanonicalNodeKey(ipRaw, siteId);
+            if (!canonicalKey) return;
 
             const band = detectBand(btsType, btsName, siteId);
             alarmEvents.push({ date, ipKey: canonicalKey, band, flap, major, downTimes, downHours });
 
-            if (canonicalKey) {
-              masterHistoryDownHoursByIp[canonicalKey] = (masterHistoryDownHoursByIp[canonicalKey] || 0) + downHours;
-              if (date) {
-                const dateKey = `${date}____${canonicalKey}`;
-                masterHistoryDownHoursByDateAndIp[dateKey] = (masterHistoryDownHoursByDateAndIp[dateKey] || 0) + downHours;
+            masterHistoryDownHoursByIp[canonicalKey] = (masterHistoryDownHoursByIp[canonicalKey] || 0) + downHours;
 
-                if (band === "B01" || band === "B28" || band === "B41") {
-                  if (!master4GDownByDateAndIp[dateKey]) master4GDownByDateAndIp[dateKey] = {};
-                  master4GDownByDateAndIp[dateKey][band] = (master4GDownByDateAndIp[dateKey][band] || 0) + downHours;
-                }
+            if (date) {
+              const dateKey = `${date}____${canonicalKey}`;
+              masterHistoryDownHoursByDateAndIp[dateKey] = (masterHistoryDownHoursByDateAndIp[dateKey] || 0) + downHours;
+
+              if (band === "B01" || band === "B28" || band === "B41") {
+                if (!master4GDownByDateAndIp[dateKey]) master4GDownByDateAndIp[dateKey] = {};
+                master4GDownByDateAndIp[dateKey][band] = (master4GDownByDateAndIp[dateKey][band] || 0) + downHours;
               }
             }
           });
@@ -3532,7 +3540,7 @@
       renderDbnDetailTable(dbnFilteredRecords);
     }
 
-    if (status) status.innerText = `History Alarm Feed Active • Loaded ${Object.keys(staticMasterByIp).length} nodes • ${new Date().toLocaleTimeString()}`;
+    if (status) status.innerText = `History Alarm Feed Active • Loaded ${Object.keys(staticMasterByIp).length} physical nodes • ${new Date().toLocaleTimeString()}`;
   }
   window.loadHistoryAlarmData = loadHistoryAlarmData;
 
@@ -4464,7 +4472,8 @@
       <tr class="circle-row">
         <td>TOTAL DOWN SITES</td><td>SUMMARY</td>
         <td class="num">${totAll}</td><td class="num" style="color:#16a34a;">${totUpdated}</td>
-        <td class="num" style="color:#dc2626;">${totNotUpdated}</td><td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
+        <td class="num" style="color:#dc2626;">${totNotUpdated}</td>
+        <td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
       </tr>`;
     tbody.innerHTML = htmlBuffer;
   }
