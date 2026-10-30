@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Operations Portal & Alarm Analytics</title>
 
-  <!-- PWA Metadata & Standards-Compliant Encoded Manifest -->
+  <!-- PWA Metadata & Standards-Compliant Encoded Manifest (No Syntax Errors) -->
   <meta name="theme-color" content="#003366">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1626,7 +1626,7 @@
     const searchElem = document.getElementById("zerodata-search-input");
     const searchVal = safeStr(searchElem ? searchElem.value : "").toLowerCase();
 
-    // 1. Filter matching 4G cohort based on active SSA, L1, L2, and Search criteria first
+    // Filter cohort based on active SSA, L1, L2, and Search criteria first
     const filteredCohort = dbnRawRecords.filter(r => {
       if (r.reportDate !== targetDate) return false;
       if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
@@ -1642,7 +1642,6 @@
       return true;
     });
 
-    // 2. Derive dynamic totals based on the active filtered scope
     const total4GSites = (chosenCat === "ALL") 
       ? filteredCohort.length 
       : filteredCohort.filter(r => r.category === chosenCat).length;
@@ -1666,7 +1665,7 @@
     zeroDataCandidates.sort((a, b) => b.avail - a.avail);
     zeroDataDisplayRecords = zeroDataCandidates;
 
-    // Dynamically update KPI card counters based on user selections
+    // Dynamically update KPI cards
     const elTot = document.getElementById("zerodata-kpi-total"); if (elTot) elTot.innerText = total4GSites.toLocaleString();
     const elCnt = document.getElementById("zerodata-kpi-count"); if (elCnt) elCnt.innerText = totalZeroFiltered.toLocaleString();
     const elDbn = document.getElementById("zerodata-kpi-dbn"); if (elDbn) elDbn.innerText = zeroDbn.toLocaleString();
@@ -1940,85 +1939,1326 @@
   window.exportTop10FlapExcel = exportTop10FlapExcel;
 
   // =========================================================================
-  // MODULE 3: ANALYSIS ENGINES (DEGRADED, USER DEGRADED, ESCALATION)
+  // MODULE 3: PRE-DECLARED ANALYSIS ENGINES (PREVENTS REFERENCEERRORS)
   // =========================================================================
-  function shareDegradedSitesWhatsApp() {
-    if (!degradedSitesList || degradedSitesList.length === 0) {
-      alert("No degraded sites to share.");
+  function runDegradedAnalysis() {
+    const prevDateElem = document.getElementById("deg-prev-date");
+    const nextDateElem = document.getElementById("deg-next-date");
+    const ssaElem = document.getElementById("deg-ssa-select");
+    const catElem = document.getElementById("deg-cat-select");
+    const l1Elem = document.getElementById("deg-l1-select");
+
+    const prevDate = prevDateElem ? prevDateElem.value : "";
+    const nextDate = nextDateElem ? nextDateElem.value : "";
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const chosenCat = catElem ? catElem.value : "ALL";
+    const chosenL1 = l1Elem ? l1Elem.value : "ALL";
+
+    if (!prevDate || !nextDate || !dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const prevMap = {};
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        prevMap[r.siteId] = r;
+      }
+    });
+
+    let baseHealthyCount = 0;
+    const degraded = [];
+
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate !== nextDate) return;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+      if (chosenL1 !== "ALL" && r.l1 !== chosenL1) return;
+
+      const base = prevMap[r.siteId];
+      if (base && base.avail >= 98.0) {
+        baseHealthyCount++;
+        if (r.avail < 98.0) {
+          const dropDelta = (base.avail - r.avail).toFixed(2);
+          degraded.push({
+            siteId: r.siteId,
+            btsIp: r.btsIp,
+            siteName: r.siteName,
+            ssa: r.ssa,
+            category: r.category,
+            prevAvail: base.avail,
+            nextAvail: r.avail,
+            dropDelta: dropDelta,
+            currentBucket: r.bucket,
+            l1: r.l1,
+            media: r.media
+          });
+        }
+      }
+    });
+
+    degraded.sort((a, b) => parseFloat(b.dropDelta) - parseFloat(a.dropDelta));
+    degradedSitesList = degraded;
+
+    const elBase = document.getElementById("deg-kpi-base"); if (elBase) elBase.innerText = baseHealthyCount.toLocaleString();
+    const elCnt = document.getElementById("deg-kpi-count"); if (elCnt) elCnt.innerText = degraded.length.toLocaleString();
+    const elRate = document.getElementById("deg-kpi-rate");
+    if (elRate) {
+      const rate = baseHealthyCount > 0 ? ((degraded.length / baseHealthyCount) * 100).toFixed(1) : "0.0";
+      elRate.innerText = rate + "%";
+    }
+
+    const tbody = document.getElementById("degraded-sites-tbody");
+    if (!tbody) return;
+
+    if (degraded.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
       return;
     }
-    const prevDate = document.getElementById("deg-prev-date").value;
-    const nextDate = document.getElementById("deg-next-date").value;
-    const chosenSsa = document.getElementById("deg-ssa-select").value;
-    const chosenL1 = document.getElementById("deg-l1-select").value;
 
-    let title = `*⚠️ J&K CM Availability Degraded Sites Alert*\n`;
-    title += `*Period:* ${prevDate} ➔ ${nextDate}\n`;
-    title += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
-    title += `*Total Sites Dropped Below 98%:* ${degradedSitesList.length}\n\n`;
-
-    let body = "";
-    degradedSitesList.slice(0, 30).forEach((s, i) => {
-      body += `${i + 1}. *${s.siteName}* (${s.prevAvail.toFixed(1)}% ➔ ${s.nextAvail.toFixed(1)}%, Drop: ${s.dropDelta}%) [L1: ${s.l1}]\n`;
+    let html = "";
+    degraded.forEach(s => {
+      html += `
+        <tr>
+          <td><strong>${s.siteId}</strong></td>
+          <td>${s.btsIp || "-"}</td>
+          <td>${s.siteName}</td>
+          <td>${s.ssa}</td>
+          <td><span class="${s.category === 'DBN' ? 'badge-dbn' : 'badge-ndbn'}">${s.category}</span></td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${s.prevAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${s.nextAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.dropDelta}%</td>
+          <td><span class="badge-fault">${s.currentBucket}</span></td>
+          <td><strong>${s.l1}</strong></td>
+          <td>${s.media}</td>
+        </tr>`;
     });
-    if (degradedSitesList.length > 30) {
-      body += `\n_...and ${degradedSitesList.length - 30} more degraded sites._\n`;
+    tbody.innerHTML = html;
+  }
+  window.runDegradedAnalysis = runDegradedAnalysis;
+
+  function runUserDegradedAnalysis() {
+    const prevDateElem = document.getElementById("user-deg-prev-date");
+    const nextDateElem = document.getElementById("user-deg-next-date");
+    const threshElem = document.getElementById("user-deg-threshold");
+    const ssaElem = document.getElementById("user-deg-ssa-select");
+    const catElem = document.getElementById("user-deg-cat-select");
+    const l1Elem = document.getElementById("user-deg-l1-select");
+
+    const prevDate = prevDateElem ? prevDateElem.value : "";
+    const nextDate = nextDateElem ? nextDateElem.value : "";
+    const threshold = parseFloat(threshElem ? threshElem.value : "0") || 0;
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const chosenCat = catElem ? catElem.value : "ALL";
+    const chosenL1 = l1Elem ? l1Elem.value : "ALL";
+
+    if (!prevDate || !nextDate || !dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const prevMap = {};
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) {
+        prevMap[r.siteId] = r;
+      }
+    });
+
+    let totalCompared = 0, totalLostUsers = 0, dropSumPct = 0;
+    const degraded = [];
+
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate !== nextDate) return;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+      if (chosenL1 !== "ALL" && r.l1 !== chosenL1) return;
+
+      const base = prevMap[r.siteId];
+      if (base) {
+        totalCompared++;
+        if (base.maxActiveUser > 0 && r.maxActiveUser < base.maxActiveUser) {
+          const userDrop = base.maxActiveUser - r.maxActiveUser;
+          const dropPct = (userDrop / base.maxActiveUser) * 100;
+
+          if (dropPct >= threshold) {
+            totalLostUsers += userDrop;
+            dropSumPct += dropPct;
+            degraded.push({
+              siteId: r.siteId,
+              btsIp: r.btsIp,
+              siteName: r.siteName,
+              ssa: r.ssa,
+              category: r.category,
+              baseUsers: base.maxActiveUser,
+              compareUsers: r.maxActiveUser,
+              userDrop: userDrop,
+              dropPct: dropPct,
+              l1: r.l1,
+              media: r.media
+            });
+          }
+        }
+      }
+    });
+
+    degraded.sort((a, b) => b.userDrop - a.userDrop);
+    userDegradedSitesList = degraded;
+
+    const elTot = document.getElementById("user-deg-kpi-total"); if (elTot) elTot.innerText = totalCompared.toLocaleString();
+    const elCnt = document.getElementById("user-deg-kpi-count"); if (elCnt) elCnt.innerText = degraded.length.toLocaleString();
+    const elLost = document.getElementById("user-deg-kpi-lost"); if (elLost) elLost.innerText = totalLostUsers.toLocaleString();
+    const elDrop = document.getElementById("user-deg-kpi-drop-pct");
+    if (elDrop) {
+      const avg = degraded.length > 0 ? (dropSumPct / degraded.length).toFixed(1) : "0.0";
+      elDrop.innerText = avg + "%";
     }
 
-    body += `\nPlease investigate and restore network availability immediately.\n\n`;
-    body += getClosingSignature(chosenSsa);
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(title + body), "_blank");
-  }
-  window.shareDegradedSitesWhatsApp = shareDegradedSitesWhatsApp;
+    const tbody = document.getElementById("user-degraded-tbody");
+    if (!tbody) return;
 
-  function exportDegradedSitesExcel() {
-    if (!degradedSitesList || degradedSitesList.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(degradedSitesList);
+    if (degraded.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No user degradation detected matching criteria.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    degraded.forEach(s => {
+      html += `
+        <tr>
+          <td><strong>${s.siteId}</strong></td>
+          <td>${s.btsIp || "-"}</td>
+          <td>${s.siteName}</td>
+          <td>${s.ssa}</td>
+          <td><span class="${s.category === 'DBN' ? 'badge-dbn' : 'badge-ndbn'}">${s.category}</span></td>
+          <td class="num">${s.baseUsers}</td>
+          <td class="num">${s.compareUsers}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.userDrop}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.dropPct.toFixed(1)}%</td>
+          <td><strong>${s.l1}</strong></td>
+          <td>${s.media}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runUserDegradedAnalysis = runUserDegradedAnalysis;
+
+  function renderEscalationDashboard() {
+    const dElem = document.getElementById("esc-date-select");
+    const ssaElem = document.getElementById("esc-ssa-select");
+    const catElem = document.getElementById("esc-cat-select");
+    const targetElem = document.getElementById("esc-target-select");
+    const searchElem = document.getElementById("esc-search-input");
+
+    const targetDate = dElem ? dElem.value : (dbnAvailableDates[0] || "");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const chosenCat = catElem ? catElem.value : "ALL";
+    const targetPct = parseFloat(targetElem ? targetElem.value : "80") || 80;
+    const searchVal = safeStr(searchElem ? searchElem.value : "").toLowerCase();
+
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const inchargeMap = {};
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate !== targetDate) return;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+
+      const officer = cleanL1(r.l1, "Unassigned");
+      if (officer === "Unassigned") return;
+
+      const key = r.ssa + "____" + officer;
+      if (!inchargeMap[key]) {
+        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0 };
+      }
+
+      inchargeMap[key].total++;
+      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
+      else if (r.bucket === "94-98%") inchargeMap[key].mid94++;
+      else if (r.bucket === "90-94%") inchargeMap[key].low90++;
+      else inchargeMap[key].lt90++;
+    });
+
+    const parsed = Object.values(inchargeMap)
+      .map(d => {
+        const actualPct = (d.gte98 / d.total) * 100;
+        const targetReq = Math.ceil((targetPct / 100) * d.total);
+        const shortfall = Math.max(0, targetReq - d.gte98);
+        const isTargetMet = actualPct >= targetPct;
+        const isRankable = d.total >= 10;
+        return {
+          ssa: d.ssa,
+          officer: d.officer,
+          total: d.total,
+          gte98: d.gte98,
+          mid94: d.mid94,
+          low90: d.low90,
+          lt90: d.lt90,
+          actualPct: actualPct,
+          targetReq: targetReq,
+          shortfall: shortfall,
+          isTargetMet: isTargetMet,
+          isRankable: isRankable
+        };
+      }).filter(d => {
+        if (searchVal && !d.officer.toLowerCase().includes(searchVal)) return false;
+        return true;
+      });
+
+    parsed.sort((a, b) => {
+      if (a.isRankable && !b.isRankable) return -1;
+      if (!a.isRankable && b.isRankable) return 1;
+      return b.actualPct - a.actualPct || a.shortfall - b.shortfall || b.total - a.total;
+    });
+
+    let currentRank = 1;
+    parsed.forEach(d => {
+      if (d.isRankable) {
+        d.rank = currentRank++;
+      } else {
+        d.rank = null;
+      }
+    });
+
+    escalationData = parsed;
+
+    const tbody = document.getElementById("escalation-tbody");
+    if (!tbody) return;
+
+    if (parsed.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No matching officers found for active criteria.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    parsed.forEach((d, idx) => {
+      const pGte = ((d.gte98 / d.total) * 100).toFixed(1);
+      const pMid = ((d.mid94 / d.total) * 100).toFixed(1);
+      const pLow = ((d.low90 / d.total) * 100).toFixed(1);
+      const pLt  = ((d.lt90  / d.total) * 100).toFixed(1);
+
+      const rankBadge = d.isRankable
+        ? `<span class="badge-rank">#${d.rank}</span>`
+        : `<span class="badge-rank-na" title="Minimum 10 sites required for ranking">N/A (&lt;10)</span>`;
+
+      html += `
+        <tr style="${!d.isRankable ? 'background-color: #fafafa;' : ''}">
+          <td style="text-align:center;">${rankBadge}</td>
+          <td>${d.ssa}</td>
+          <td><strong>${d.officer}</strong></td>
+          <td class="num"><strong>${d.total}</strong></td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${d.gte98} (${pGte}%)</td>
+          <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
+          <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90} (${pLt}%)</td>
+          <td class="num" style="color:${d.actualPct >= targetPct ? '#16a34a' : '#dc2626'}; font-weight:bold;">${d.actualPct.toFixed(1)}%</td>
+          <td class="num">${d.targetReq} sites</td>
+          <td class="num" style="color:${d.shortfall > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${d.shortfall > 0 ? '-' + d.shortfall : '0'}</td>
+          <td style="text-align:center;"><span class="${d.isTargetMet ? 'badge-ok' : 'badge-lag'}">${d.isTargetMet ? 'Met' : 'Lagging'}</span></td>
+          <td style="text-align:center;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSingleEscalationWhatsApp(${idx})">💬 Alert</button>
+          </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.renderEscalationDashboard = renderEscalationDashboard;
+
+  function runWorst5L1Analysis() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const dElem = document.getElementById("worst-date-select");
+    const targetDate = dElem ? dElem.value : (dbnAvailableDates[0] || "");
+    const catElem = document.getElementById("worst-cat-select");
+    const chosenCat = catElem ? catElem.value : "ALL";
+
+    const inchargeMap = {};
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate !== targetDate) return;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+
+      const officer = cleanL1(r.l1, "Unassigned");
+      if (officer === "Unassigned") return;
+
+      const key = r.ssa + "____" + officer;
+      if (!inchargeMap[key]) {
+        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, lt90: 0 };
+      }
+      inchargeMap[key].total++;
+      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
+      else if (r.bucket === "<90%") inchargeMap[key].lt90++;
+    });
+
+    const parsed = Object.values(inchargeMap)
+      .filter(d => d.total >= 10)
+      .map(d => {
+        const actualPct = (d.gte98 / d.total) * 100;
+        const targetReq = Math.ceil(0.80 * d.total);
+        const shortfall = Math.max(0, targetReq - d.gte98);
+        return {
+          ssa: d.ssa,
+          officer: d.officer,
+          total: d.total,
+          gte98: d.gte98,
+          lt90: d.lt90,
+          actualPct: actualPct,
+          targetReq: targetReq,
+          shortfall: shortfall
+        };
+      });
+
+    parsed.sort((a, b) => a.actualPct - b.actualPct || b.shortfall - a.shortfall);
+    worst5L1Records = parsed.slice(0, 5);
+
+    const tbody = document.getElementById("worst-l1-tbody");
+    if (!tbody) return;
+
+    if (worst5L1Records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">All officers have high availability performance or insufficient data.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    worst5L1Records.forEach((d, idx) => {
+      html += `
+        <tr>
+          <td style="text-align:center;"><span class="badge-lag">Bottom #${idx + 1}</span></td>
+          <td>${d.ssa}</td>
+          <td><strong>${d.officer}</strong></td>
+          <td class="num">${d.total}</td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${d.gte98}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.actualPct.toFixed(1)}%</td>
+          <td class="num">${d.targetReq} sites</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${d.shortfall} sites</td>
+          <td style="text-align:center;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSingleWorstL1WhatsApp(${idx})">💬 Alert L1</button>
+          </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runWorst5L1Analysis = runWorst5L1Analysis;
+
+  function shareSingleWorstL1WhatsApp(idx) {
+    if (!worst5L1Records || !worst5L1Records[idx]) return;
+    const d = worst5L1Records[idx];
+    const dElem = document.getElementById("worst-date-select");
+    const selectedDate = dElem ? dElem.value : "";
+
+    let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
+    msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
+    msg += `*Performance Standing:* Bottom Performer (Lagging)\n`;
+    msg += `*Total Sites Managed:* ${d.total}\n`;
+    msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
+    msg += `*Corporate Target:* 80.0% (${d.targetReq} sites)\n\n`;
+    msg += `👉 You have a shortfall of *${d.shortfall} sites* to meet the 80% threshold. Furthermore, ${d.lt90} of your sites are currently in critical breakdown (<90%).\n\n`;
+    msg += `Please initiate immediate corrective action and expedite field restoration.\n\n`;
+    msg += getClosingSignature(d.ssa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareSingleWorstL1WhatsApp = shareSingleWorstL1WhatsApp;
+
+  function shareWorst5L1WhatsApp() {
+    if (!worst5L1Records || worst5L1Records.length === 0) {
+      alert("No worst performers to share.");
+      return;
+    }
+
+    const dElem = document.getElementById("worst-date-select");
+    const d = dElem ? dElem.value : "";
+
+    let msg = `*📉 J&K CM Bottom 5 In-Charge Availability Escalation (${d})*\n`;
+    msg += `_L1 officers with lowest % sites achieving ≥98% availability (Min 10 sites)_\n\n`;
+
+    worst5L1Records.forEach((r, idx) => {
+      msg += `${idx + 1}. *${r.officer}* (${r.ssa})\n`;
+      msg += `   • Managed: ${r.total} Sites | *≥98% Rate: ${r.actualPct.toFixed(1)}%* (${r.gte98} Sites)\n`;
+      msg += `   • Target Shortfall: *-${r.shortfall} Sites* | <90% Outages: ${r.lt90}\n\n`;
+    });
+
+    msg += `All concerned officers are requested to review down/flapping sites immediately.\n\n`;
+    msg += getClosingSignature("ALL");
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareWorst5L1WhatsApp = shareWorst5L1WhatsApp;
+
+  function captureWorst5Screenshot() {
+    const elem = document.getElementById("alert-worst-section");
+    if (!elem) return;
+    html2canvas(elem, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `Worst_Availability_L1_Performers_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureWorst5Screenshot = captureWorst5Screenshot;
+
+  function exportWorst5L1Excel() {
+    if (!worst5L1Records || worst5L1Records.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(worst5L1Records.map((r, i) => ({
+      "Rank (Lowest)": i + 1,
+      "SSA": r.ssa,
+      "Site In-charge (L1)": r.officer,
+      "Total Sites": r.total,
+      ">=98% Healthy Sites": r.gte98,
+      "<90% Outage Sites": r.lt90,
+      "Actual >=98% Rate %": r.actualPct.toFixed(2) + "%",
+      "Target Required (80%)": r.targetReq,
+      "Shortfall Sites": r.shortfall
+    })));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Degraded_Avail_Sites");
-    XLSX.writeFile(wb, "Degraded_Avail_Sites.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Worst_L1_Availability");
+    XLSX.writeFile(wb, "Worst_5_L1_Availability.xlsx");
   }
-  window.exportDegradedSitesExcel = exportDegradedSitesExcel;
+  window.exportWorst5L1Excel = exportWorst5L1Excel;
 
-  function shareUserDegSummaryWhatsApp() {
-    const prevDate = document.getElementById("user-deg-prev-date").value;
-    const nextDate = document.getElementById("user-deg-next-date").value;
-    const threshold = document.getElementById("user-deg-threshold").value;
-    const chosenSsa = document.getElementById("user-deg-ssa-select").value;
-    const chosenL1 = document.getElementById("user-deg-l1-select").value;
+  function shareSingleEscalationWhatsApp(idx) {
+    if (!escalationData || !escalationData[idx]) return;
+    const d = escalationData[idx];
+    const dElem = document.getElementById("esc-date-select");
+    const targetElem = document.getElementById("esc-target-select");
+    const selectedDate = dElem ? dElem.value : "";
+    const targetPct = targetElem ? targetElem.value : "80";
 
-    const totalCompared = document.getElementById("user-deg-kpi-total").innerText;
-    const degradedCount = document.getElementById("user-deg-kpi-count").innerText;
-    const usersLost = document.getElementById("user-deg-kpi-lost").innerText;
-    const avgDrop = document.getElementById("user-deg-kpi-drop-pct").innerText;
+    let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
+    msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
+    msg += `*Total Sites Managed:* ${d.total}\n`;
+    msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
+    msg += `*Corporate Target:* ${targetPct}% (${d.targetReq} sites)\n\n`;
 
-    let msg = `*👥 J&K CM Max Active User Degradation Summary*\n`;
-    msg += `*Comparison:* ${prevDate} (Base) ➔ ${nextDate} (Compare)\n`;
-    msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n`;
-    msg += `*Threshold:* ≥ ${threshold}% User Drop\n\n`;
-    msg += `📊 *Summary Metrics:*\n`;
-    msg += `• Total Compared Sites: ${totalCompared}\n`;
-    msg += `• Sites with User Degradation: *${degradedCount}*\n`;
-    msg += `• Total Active Users Lost: *${usersLost}*\n`;
-    msg += `• Average % User Drop: *${avgDrop}*\n\n`;
+    if (d.shortfall > 0) {
+      msg += `👉 You have a shortfall of *${d.shortfall} sites* to achieve the ${targetPct}% benchmark. ${d.lt90} of your sites are currently <90%.\n\n`;
+      msg += `Please prioritize rectification on priority.\n\n`;
+    } else {
+      msg += `✅ Congratulations! Target met successfully.\n\n`;
+    }
+    msg += getClosingSignature(d.ssa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareSingleEscalationWhatsApp = shareSingleEscalationWhatsApp;
+
+  function shareBulkEscalationWhatsApp() {
+    if (!escalationData || escalationData.length === 0) return;
+    const dElem = document.getElementById("esc-date-select");
+    const targetElem = document.getElementById("esc-target-select");
+    const selectedDate = dElem ? dElem.value : "";
+    const targetPct = targetElem ? targetElem.value : "80";
+
+    let msg = `*📊 J&K CM Availability Escalation Summary (${selectedDate})*\n`;
+    msg += `*Target Benchmark:* ≥${targetPct}% Healthy Sites\n\n`;
+
+    escalationData.slice(0, 15).forEach((d, i) => {
+      const rankLabel = d.isRankable ? `Rank #${d.rank}` : `Unranked (<10)`;
+      msg += `${i + 1}. *${d.officer}* (${d.ssa}) [${rankLabel}]: ${d.actualPct.toFixed(1)}% (${d.gte98}/${d.total}) | Shortfall: *${d.shortfall > 0 ? '-' + d.shortfall : '0'}*\n`;
+    });
+
+    if (escalationData.length > 15) {
+      msg += `\n_...and ${escalationData.length - 15} more officers._\n`;
+    }
+
+    msg += `\n${getClosingSignature("ALL")}`;
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareBulkEscalationWhatsApp = shareBulkEscalationWhatsApp;
+
+  function exportEscalationExcel() {
+    if (!escalationData || escalationData.length === 0) return;
+    const rows = escalationData.map((d) => ({
+      "Rank": d.isRankable ? d.rank : "N/A (<10 sites)",
+      "SSA": d.ssa,
+      "L1 Site In-charge": d.officer,
+      "Total Sites": d.total,
+      ">=98% Count": d.gte98,
+      ">=98% Rate %": d.actualPct.toFixed(2) + "%",
+      "94-98% Count": d.mid94,
+      "90-94% Count": d.low90,
+      "<90% Outage Count": d.lt90,
+      "Target Required Sites": d.targetReq,
+      "Shortfall Sites": d.shortfall,
+      "Target Status": d.isTargetMet ? "Target Met" : "Lagging"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Escalation_Matrix");
+    XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
+  }
+  window.exportEscalationExcel = exportEscalationExcel;
+
+  // =========================================================================
+  // MODULE 3: DBN_NDBN DATA RETRIEVAL PIPELINE
+  // =========================================================================
+  async function fetchAndRenderDbn() {
+    const status = document.getElementById("status-bar");
+    if (status) status.innerText = "Downloading DBN_NDBN master dataset (61k rows)...";
+
+    let csvText = null;
+    try {
+      const res = await fetch(SHEET_DBN_URL);
+      if (res.ok) csvText = await res.text();
+    } catch (e) {
+      console.warn("Direct DBN fetch failed, trying proxy gateway...", e);
+    }
+
+    if (!csvText || csvText.trim().startsWith("<!DOCTYPE html>")) {
+      const proxies = [
+        "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_DBN_URL),
+        "https://corsproxy.io/?" + encodeURIComponent(SHEET_DBN_URL)
+      ];
+
+      for (let pUrl of proxies) {
+        try {
+          const pRes = await fetch(pUrl);
+          if (pRes.ok) {
+            const txt = await pRes.text();
+            if (txt && !txt.trim().startsWith("<!DOCTYPE html>")) {
+              csvText = txt;
+              break;
+            }
+          }
+        } catch (err) {
+          console.warn("Proxy attempt failed:", err);
+        }
+      }
+    }
+
+    if (!csvText) {
+      if (status) status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error loading DBN dataset. Please verify network connection or sheet link.</span>`;
+      return;
+    }
+
+    if (status) status.innerText = "Parsing 61k DBN records in browser memory...";
+    Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: h => h.trim(),
+      complete: function(results) {
+        processDbnData(results.data);
+      }
+    });
+  }
+  window.fetchAndRenderDbn = fetchAndRenderDbn;
+
+  function processDbnData(data) {
+    const status = document.getElementById("status-bar");
+    if (!data || data.length === 0) {
+      if (status) status.innerText = "⚠️ DBN Dataset empty.";
+      return;
+    }
+
+    try {
+      const dateSet = new Set();
+      dbnRawRecords = data.map(r => {
+        const ssa = safeStr(r["Circle SSA"] || r["SSA"]);
+        const ba = safeStr(r["BA"]);
+        const siteId = safeStr(r["Static_Site_Hierarchy.PHY_Site_ID"] || r["Site IDs"] || r["PHY_Site_ID"]);
+        const siteName = safeStr(r["Static_Site_Hierarchy.Site Name"] || r["Site Name"]);
+        const btsIp = safeStr(r["BTS_IP_ID_Clean"] || r["BTS IP ID"]);
+        const cat = safeStr(r["CATEGORY"]).toUpperCase();
+        const availStr = safeStr(r["Max NW avail (%)"] || r["Max NW avail"] || "0").replace("%", "").trim();
+        const avail = parseFloat(availStr) || 0;
+        const bucket = getAvailabilityBucket(avail);
+        const reportDate = normalizeDateStr(r["Report Date"]);
+        const maxActiveUser = parseInt(r["Max active User"] || r["Max active user"] || 0) || 0;
+        const l1 = cleanL1(r["Static_Site_Hierarchy.CM L1_Name_number"], "Unassigned");
+        const l2 = safeStr(r["Static_Site_Hierarchy.CM L2_Name_number"] || r["L2 Incharge"]) || "-";
+        const media = safeStr(r["Static_Site_Hierarchy.Media"]) || "-";
+        const voiceErl = parseFloat(r["avg Voice_erl"]) || 0;
+        const dataGb = parseFloat(r["avg DATA(GB)"]) || 0;
+
+        if (reportDate) dateSet.add(reportDate);
+
+        const ipKey = normalizeIpKey(btsIp);
+        const siteKey = normalizeIpKey(siteId);
+
+        [ipKey, siteKey].forEach(k => {
+          if (k) {
+            masterAvailByIp[k] = avail;
+            if (cat) masterCategoryByIp[k] = cat;
+            if (reportDate) masterAvailByDateAndIp[`${reportDate}____${k}`] = avail;
+            if (l1 !== "Unassigned") masterInchargeByIp[k] = l1;
+            if (l2 !== "-") masterL2ByIp[k] = l2;
+            if (media !== "-") masterMediaByIp[k] = media;
+          }
+        });
+
+        return { ssa, ba, siteId, siteName, btsIp, category: cat, avail, bucket, reportDate, maxActiveUser, l1, l2, media, voiceErl, dataGb };
+      }).filter(r => r.ssa !== "" && r.siteId !== "");
+
+      dbnAvailableDates = Array.from(dateSet).sort().reverse();
+      populateDbnControls();
+      populateAlertControls();
+      populateDownCommonReportDateControl();
+      dbnDataLoaded = true;
+
+      if (!historyAlarmLoaded) {
+        loadHistoryAlarmData();
+      }
+
+      applyDbnFilters();
+      if (typeof runDegradedAnalysis === 'function') runDegradedAnalysis();
+      if (typeof runUserDegradedAnalysis === 'function') runUserDegradedAnalysis();
+      if (typeof renderEscalationDashboard === 'function') renderEscalationDashboard();
+      if (typeof runZeroDataAnalysis === 'function') runZeroDataAnalysis();
+      if (typeof runWorst5L1Analysis === 'function') runWorst5L1Analysis();
+
+      if (downDataLoaded && typeof applyDownSitesFilters === 'function') applyDownSitesFilters();
+
+      if (status) status.innerText = `DBN Connected • Loaded ${dbnRawRecords.length.toLocaleString()} rows • ${new Date().toLocaleTimeString()}`;
+    } catch (err) {
+      console.error("Critical error in processDbnData:", err);
+      if (status) status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Error processing DBN records: ${err.message}</span>`;
+    }
+  }
+
+  function populateDbnControls() {
+    const dateSelect = document.getElementById("dbn-date-select");
+    if (dateSelect) {
+      dateSelect.innerHTML = "";
+      dbnAvailableDates.forEach(d => { dateSelect.innerHTML += `<option value="${d}">${d}</option>`; });
+      dateSelect.innerHTML += `<option value="ALL">All Available Dates</option>`;
+      if (dbnAvailableDates.length > 0) dateSelect.value = dbnAvailableDates[0];
+    }
+
+    const ssaSelect = document.getElementById("dbn-ssa-select");
+    const ssaSet = new Set();
+    dbnRawRecords.forEach(r => { if (r.ssa) ssaSet.add(r.ssa); });
+    if (ssaSelect) {
+      ssaSelect.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
+      Array.from(ssaSet).sort().forEach(s => { ssaSelect.innerHTML += `<option value="${s}">${s}</option>`; });
+    }
+
+    const degPrev = document.getElementById("deg-prev-date");
+    const degNext = document.getElementById("deg-next-date");
+    const degSsa = document.getElementById("deg-ssa-select");
+    if (degPrev && degNext) {
+      degPrev.innerHTML = ""; degNext.innerHTML = "";
+      dbnAvailableDates.forEach(d => {
+        degPrev.innerHTML += `<option value="${d}">${d}</option>`;
+        degNext.innerHTML += `<option value="${d}">${d}</option>`;
+      });
+      degNext.value = dbnAvailableDates[0] || "";
+      degPrev.value = dbnAvailableDates.length > 1 ? dbnAvailableDates[1] : (dbnAvailableDates[0] || "");
+    }
+    if (degSsa) {
+      degSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
+      Array.from(ssaSet).sort().forEach(s => { degSsa.innerHTML += `<option value="${s}">${s}</option>`; });
+    }
+
+    const userPrev = document.getElementById("user-deg-prev-date");
+    const userNext = document.getElementById("user-deg-next-date");
+    const userSsa = document.getElementById("user-deg-ssa-select");
+    if (userPrev && userNext) {
+      userPrev.innerHTML = ""; userNext.innerHTML = "";
+      dbnAvailableDates.forEach(d => {
+        userPrev.innerHTML += `<option value="${d}">${d}</option>`;
+        userNext.innerHTML += `<option value="${d}">${d}</option>`;
+      });
+      userNext.value = dbnAvailableDates[0] || "";
+      userPrev.value = dbnAvailableDates.length > 1 ? dbnAvailableDates[1] : (dbnAvailableDates[0] || "");
+    }
+    if (userSsa) {
+      userSsa.innerHTML = `<option value="ALL">All SSAs</option>`;
+      Array.from(ssaSet).sort().forEach(s => { userSsa.innerHTML += `<option value="${s}">${s}</option>`; });
+    }
+
+    const escDate = document.getElementById("esc-date-select");
+    if (escDate) {
+      escDate.innerHTML = "";
+      dbnAvailableDates.forEach(d => { escDate.innerHTML += `<option value="${d}">${d}</option>`; });
+      if (dbnAvailableDates.length > 0) escDate.value = dbnAvailableDates[0];
+    }
+
+    const escSsa = document.getElementById("esc-ssa-select");
+    if (escSsa) {
+      escSsa.innerHTML = `<option value="ALL">All SSAs (Circle)</option>`;
+      Array.from(ssaSet).sort().forEach(s => { escSsa.innerHTML += `<option value="${s}">${s}</option>`; });
+    }
+
+    handleDegradedSsaChange();
+    handleUserDegSsaChange();
+  }
+
+  function handleDegradedSsaChange() {
+    const ssaElem = document.getElementById("deg-ssa-select");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const l1Select = document.getElementById("deg-l1-select");
+    if (l1Select) {
+      const currentVal = l1Select.value;
+      const l1Set = new Set();
+      dbnRawRecords.forEach(r => {
+        if ((chosenSsa === "ALL" || r.ssa === chosenSsa) && r.l1 && r.l1 !== "Unassigned") {
+          l1Set.add(r.l1);
+        }
+      });
+      l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+      Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
+      if (currentVal && Array.from(l1Select.options).some(o => o.value === currentVal)) l1Select.value = currentVal;
+    }
+    if (typeof runDegradedAnalysis === 'function') runDegradedAnalysis();
+  }
+  window.handleDegradedSsaChange = handleDegradedSsaChange;
+
+  function handleUserDegSsaChange() {
+    const ssaElem = document.getElementById("user-deg-ssa-select");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const l1Select = document.getElementById("user-deg-l1-select");
+    if (l1Select) {
+      const currentVal = l1Select.value;
+      const l1Set = new Set();
+      dbnRawRecords.forEach(r => {
+        if ((chosenSsa === "ALL" || r.ssa === chosenSsa) && r.l1 && r.l1 !== "Unassigned") {
+          l1Set.add(r.l1);
+        }
+      });
+      l1Select.innerHTML = `<option value="ALL">All L1 Officers</option>`;
+      Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
+      if (currentVal && Array.from(l1Select.options).some(o => o.value === currentVal)) l1Select.value = currentVal;
+    }
+    if (typeof runUserDegradedAnalysis === 'function') runUserDegradedAnalysis();
+  }
+  window.handleUserDegSsaChange = handleUserDegSsaChange;
+
+  function populateDownCommonReportDateControl() {
+    const reportSelect = document.getElementById("down-report-date-select");
+    if (!reportSelect) return;
+    const currentVal = reportSelect.value;
+    reportSelect.innerHTML = "";
+    if (Array.isArray(dbnAvailableDates) && dbnAvailableDates.length > 0) {
+      dbnAvailableDates.forEach(d => { reportSelect.innerHTML += `<option value="${d}">${d}</option>`; });
+      reportSelect.value = (currentVal && dbnAvailableDates.includes(currentVal)) ? currentVal : dbnAvailableDates[0];
+    } else {
+      reportSelect.innerHTML = `<option value="">Latest Master Avail</option>`;
+    }
+  }
+
+  function setCategorySlicer(cat, btn) {
+    selectedCategory = cat;
+    document.querySelectorAll("#slicer-category .slicer-btn").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    applyDbnFilters();
+  }
+  window.setCategorySlicer = setCategorySlicer;
+
+  function setBucketSlicer(bucket, btn) {
+    selectedBucket = bucket;
+    document.querySelectorAll("#slicer-bucket .slicer-btn").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    applyDbnFilters();
+  }
+  window.setBucketSlicer = setBucketSlicer;
+
+  function applyDbnFilters() {
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+    const dateElem = document.getElementById("dbn-date-select");
+    const chosenDate = dateElem ? dateElem.value : "ALL";
+    const ssaElem = document.getElementById("dbn-ssa-select");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const searchElem = document.getElementById("dbn-search-input");
+    const searchVal = safeStr(searchElem ? searchElem.value : "").toLowerCase();
+
+    dbnFilteredRecords = dbnRawRecords.filter(r => {
+      if (chosenDate !== "ALL" && r.reportDate !== chosenDate) return false;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
+      if (selectedCategory !== "ALL" && r.category !== selectedCategory) return false;
+      if (selectedBucket !== "ALL" && r.bucket !== selectedBucket) return false;
+      if (searchVal) {
+        const matches = r.siteId.toLowerCase().includes(searchVal) ||
+                        r.siteName.toLowerCase().includes(searchVal) ||
+                        r.btsIp.toLowerCase().includes(searchVal) ||
+                        r.l1.toLowerCase().includes(searchVal);
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    renderDbnDashboard();
+  }
+  window.applyDbnFilters = applyDbnFilters;
+
+  function renderDbnDashboard() {
+    const total = dbnFilteredRecords.length;
+    let dbnCount = 0, ndbnCount = 0, availSum = 0;
+    let bGte98 = 0, b94to98 = 0, b90to94 = 0, bLt90 = 0;
+    const ssaAgg = {};
+
+    dbnFilteredRecords.forEach(r => {
+      availSum += r.avail;
+      if (r.category === "DBN") dbnCount++;
+      else if (r.category === "NDBN") ndbnCount++;
+
+      if (r.bucket === ">=98%") bGte98++;
+      else if (r.bucket === "94-98%") b94to98++;
+      else if (r.bucket === "90-94%") b90to94++;
+      else bLt90++;
+
+      if (!ssaAgg[r.ssa]) {
+        ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
+      }
+      ssaAgg[r.ssa].total++;
+      ssaAgg[r.ssa].availSum += r.avail;
+      if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
+      else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
+
+      if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
+      else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
+      else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
+      else ssaAgg[r.ssa].lt90++;
+    });
+
+    const avgAvail = total > 0 ? (availSum / total).toFixed(2) : "0.00";
+
+    const elTot = document.getElementById("dbn-kpi-total"); if (elTot) elTot.innerText = total.toLocaleString();
+    const elAv = document.getElementById("dbn-kpi-avail"); if (elAv) elAv.innerText = avgAvail + "%";
+    const elDbn = document.getElementById("dbn-kpi-dbn"); if (elDbn) elDbn.innerText = dbnCount.toLocaleString();
+    const elNdbn = document.getElementById("dbn-kpi-ndbn"); if (elNdbn) elNdbn.innerText = ndbnCount.toLocaleString();
+    const elCrit = document.getElementById("dbn-kpi-critical"); if (elCrit) elCrit.innerText = bLt90.toLocaleString();
+
+    cachedSsaAgg = ssaAgg;
+    renderDbnCharts(bGte98, b94to98, b90to94, bLt90, ssaAgg);
+    renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, bGte98, b94to98, b90to94, bLt90, avgAvail);
+    renderDbnDetailTable(dbnFilteredRecords);
+  }
+
+  function toggleSsaChartMode() {
+    ssaChartMode = ssaChartMode === "pct" ? "count" : "pct";
+    const btn = document.getElementById("btn-toggle-ssa-chart");
+    if (btn) btn.innerText = ssaChartMode === "pct" ? "Switch to Count" : "Switch to %";
+    if (cachedSsaAgg) renderStackedSsaChart(cachedSsaAgg);
+  }
+  window.toggleSsaChartMode = toggleSsaChartMode;
+
+  function captureSsaChartScreenshot() {
+    const card = document.getElementById("dbn-ssa-chart-card");
+    if (!card) return;
+    html2canvas(card, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `SSA_Availability_Stacked_Chart_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureSsaChartScreenshot = captureSsaChartScreenshot;
+
+  function renderDbnCharts(gte98, mid94, low90, lt90, ssaAgg) {
+    const canvas = document.getElementById("dbnBucketChart");
+    if (!canvas) return;
+    const ctxBucket = canvas.getContext("2d");
+    if (dbnBucketChartInstance) dbnBucketChartInstance.destroy();
+    dbnBucketChartInstance = new Chart(ctxBucket, {
+      type: "doughnut",
+      data: {
+        labels: ["≥98%", "94-98%", "90-94%", "<90%"],
+        datasets: [{
+          data: [gte98, mid94, low90, lt90],
+          backgroundColor: ["#22c55e", "#f59e0b", "#f97316", "#ef4444"],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          datalabels: {
+            formatter: (value, ctx) => {
+              let sum = 0;
+              let dataArr = ctx.chart.data.datasets[0].data;
+              dataArr.forEach(data => { sum += data; });
+              if (sum === 0 || value === 0) return "";
+              return ((value * 100) / sum).toFixed(1) + "%";
+            },
+            color: "#fff", font: { weight: "bold", size: 11 }
+          }
+        }
+      }
+    });
+
+    renderStackedSsaChart(ssaAgg);
+  }
+
+  function renderStackedSsaChart(ssaAgg) {
+    const ssaLabels = Object.keys(ssaAgg).sort();
+    const dataGte98 = [], dataMid94 = [], dataLow90 = [], dataLt90 = [];
+
+    ssaLabels.forEach(s => {
+      const a = ssaAgg[s];
+      const tot = a.total > 0 ? a.total : 1;
+      if (ssaChartMode === "pct") {
+        dataGte98.push(parseFloat(((a.gte98 / tot) * 100).toFixed(1)));
+        dataMid94.push(parseFloat(((a.mid94 / tot) * 100).toFixed(1)));
+        dataLow90.push(parseFloat(((a.low90 / tot) * 100).toFixed(1)));
+        dataLt90.push(parseFloat(((a.lt90  / tot) * 100).toFixed(1)));
+      } else {
+        dataGte98.push(a.gte98);
+        dataMid94.push(a.mid94);
+        dataLow90.push(a.low90);
+        dataLt90.push(a.lt90);
+      }
+    });
+
+    const canvas = document.getElementById("dbnSsaChart");
+    if (!canvas) return;
+    const ctxSsa = canvas.getContext("2d");
+    if (dbnSsaChartInstance) dbnSsaChartInstance.destroy();
+    dbnSsaChartInstance = new Chart(ctxSsa, {
+      type: "bar",
+      data: {
+        labels: ssaLabels,
+        datasets: [
+          { label: "≥98%", data: dataGte98, backgroundColor: "#22c55e", stack: "Stack 0" },
+          { label: "94-98%", data: dataMid94, backgroundColor: "#f59e0b", stack: "Stack 0" },
+          { label: "90-94%", data: dataLow90, backgroundColor: "#ea580c", stack: "Stack 0" },
+          { label: "<90%", data: dataLt90, backgroundColor: "#ef4444", stack: "Stack 0" }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true },
+          y: {
+            stacked: true,
+            max: ssaChartMode === "pct" ? 100 : undefined,
+            ticks: { callback: v => ssaChartMode === "pct" ? v + "%" : v }
+          }
+        },
+        plugins: {
+          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+          datalabels: {
+            formatter: (v) => {
+              if (v === 0) return "";
+              return ssaChartMode === "pct" ? (v >= 5 ? v + "%" : "") : (v >= 3 ? v : "");
+            },
+            color: "#fff", font: { weight: "bold", size: 10 }
+          }
+        }
+      }
+    });
+  }
+
+  function renderDbnSummaryTable(ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail) {
+    const tbody = document.getElementById("dbn-summary-tbody");
+    if (!tbody) return;
+    window.currentSsaSummaryCache = { ssaAgg, total, dbnCount, ndbnCount, gte98, mid94, low90, lt90, avgAvail };
+    let html = "";
+
+    Object.keys(ssaAgg).sort().forEach(s => {
+      const a = ssaAgg[s];
+      const ssaAvg = a.total > 0 ? (a.availSum / a.total).toFixed(2) : "0.00";
+      const pGte = a.total > 0 ? ((a.gte98 / a.total) * 100).toFixed(1) : 0;
+      const pMid = a.total > 0 ? ((a.mid94 / a.total) * 100).toFixed(1) : 0;
+      const pLow = a.total > 0 ? ((a.low90 / a.total) * 100).toFixed(1) : 0;
+      const pLt  = a.total > 0 ? ((a.lt90  / a.total) * 100).toFixed(1) : 0;
+
+      html += `
+        <tr>
+          <td><strong>${s}</strong></td>
+          <td class="num">${a.total}</td>
+          <td class="num"><span class="badge-dbn">${a.dbn}</span></td>
+          <td class="num"><span class="badge-ndbn">${a.ndbn}</span></td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${a.gte98} (${pGte}%)</td>
+          <td class="num" style="color:#d97706; font-weight:600;">${a.mid94} (${pMid}%)</td>
+          <td class="num" style="color:#ea580c; font-weight:600;">${a.low90} (${pLow}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${a.lt90} (${pLt}%)</td>
+          <td class="num"><strong>${ssaAvg}%</strong></td>
+        </tr>`;
+    });
+
+    const cpGte = total > 0 ? ((gte98 / total) * 100).toFixed(1) : 0;
+    const cpMid = total > 0 ? ((mid94 / total) * 100).toFixed(1) : 0;
+    const cpLow = total > 0 ? ((low90 / total) * 100).toFixed(1) : 0;
+    const cpLt  = total > 0 ? ((lt90  / total) * 100).toFixed(1) : 0;
+
+    html += `
+      <tr class="circle-row">
+        <td>TOTAL / CIRCLE</td>
+        <td class="num">${total.toLocaleString()}</td>
+        <td class="num">${dbnCount.toLocaleString()}</td>
+        <td class="num">${ndbnCount.toLocaleString()}</td>
+        <td class="num" style="color:#16a34a;">${gte98.toLocaleString()} (${cpGte}%)</td>
+        <td class="num" style="color:#d97706;">${mid94.toLocaleString()} (${cpMid}%)</td>
+        <td class="num" style="color:#ea580c;">${low90.toLocaleString()} (${cpLow}%)</td>
+        <td class="num" style="color:#dc2626;">${lt90.toLocaleString()} (${cpLt}%)</td>
+        <td class="num">${avgAvail}%</td>
+      </tr>`;
+    tbody.innerHTML = html;
+  }
+
+  function shareSsaSummaryWhatsApp() {
+    if (!window.currentSsaSummaryCache) return;
+    const { ssaAgg, total, gte98, mid94, low90, lt90, avgAvail } = window.currentSsaSummaryCache;
+    const dateElem = document.getElementById("dbn-date-select");
+    const selectedDate = dateElem ? dateElem.value : "";
+    const ssaElem = document.getElementById("dbn-ssa-select");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+
+    let catHeading = "DBN+NDBN";
+    if (selectedCategory === "DBN") catHeading = "DBN";
+    else if (selectedCategory === "NDBN") catHeading = "NDBN";
+
+    let msg = `*📊 J&K CM ${catHeading} Availability Summary (${selectedDate})*\n`;
+    msg += `_Rolling 30 Days Network Availability_\n\n`;
+
+    Object.keys(ssaAgg).sort().forEach(s => {
+      const a = ssaAgg[s];
+      const pGte = a.total > 0 ? ((a.gte98 / a.total) * 100).toFixed(1) : 0;
+      const ssaAvg = a.total > 0 ? (a.availSum / a.total).toFixed(1) : 0;
+      msg += `*${s}*: Total: ${a.total} | *≥98%: ${a.gte98} (${pGte}%)* | <90%: ${a.lt90} | Avg: ${ssaAvg}%\n`;
+    });
+
+    const cpGte = total > 0 ? ((gte98 / total) * 100).toFixed(1) : 0;
+    msg += `\n*🇮🇳 Circle Total*: ${total.toLocaleString()} Sites\n`;
+    msg += `*≥98% Healthy*: ${gte98.toLocaleString()} (${cpGte}%)\n`;
+    msg += `*94-98% Degraded*: ${mid94.toLocaleString()}\n`;
+    msg += `*90-94% Low*: ${low90.toLocaleString()}\n`;
+    msg += `*<90% Outage*: ${lt90.toLocaleString()}\n`;
+    msg += `*Circle Avg Availability*: ${avgAvail}%\n\n`;
     msg += getClosingSignature(chosenSsa);
 
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
-  window.shareUserDegSummaryWhatsApp = shareUserDegSummaryWhatsApp;
+  window.shareSsaSummaryWhatsApp = shareSsaSummaryWhatsApp;
 
-  function exportUserDegradedSitesExcel() {
-    if (!userDegradedSitesList || userDegradedSitesList.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(userDegradedSitesList);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "User_Degradation");
-    XLSX.writeFile(wb, "Max_Active_User_Degradation.xlsx");
+  function renderDbnDetailTable(records) {
+    const tbody = document.getElementById("dbn-detail-tbody");
+    const countBadge = document.getElementById("dbn-site-count-badge");
+    if (!tbody) return;
+
+    const displayLimit = 150;
+    if (countBadge) countBadge.innerText = `Showing ${Math.min(records.length, displayLimit)} of ${records.length.toLocaleString()} matching sites`;
+
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No sites found for the active filter set.</td></tr>`;
+      return;
+    }
+
+    const chosenDate = document.getElementById("dbn-date-select") ? document.getElementById("dbn-date-select").value : "ALL";
+    let html = "";
+    const limit = Math.min(records.length, displayLimit);
+
+    for (let i = 0; i < limit; i++) {
+      const r = records[i];
+      const catBadge = r.category === "DBN" ? '<span class="badge-dbn">DBN</span>' : '<span class="badge-ndbn">NDBN</span>';
+      const availColor = r.avail >= 98 ? "#16a34a" : (r.avail >= 94 ? "#d97706" : (r.avail >= 90 ? "#ea580c" : "#dc2626"));
+
+      const targetDate = (chosenDate && chosenDate !== "ALL") ? chosenDate : r.reportDate;
+      const downHrs = format4GBandDowntime(r.btsIp, r.siteId, targetDate);
+      const isDown = downHrs.includes(".") && downHrs !== "0.0 + 0.0 + 0.0" && downHrs !== "0.0 + 0.0 + N/A" && downHrs !== "0.0 + N/A + N/A";
+      const styleColor = isDown ? "color:#dc2626; font-weight:bold;" : "color:#64748b;";
+
+      html += `
+        <tr>
+          <td><strong>${r.siteId}</strong></td>
+          <td>${r.btsIp || "-"}</td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td>${catBadge}</td>
+          <td class="num" style="color:${availColor}; font-weight:bold;">${r.avail.toFixed(2)}%</td>
+          <td>${r.bucket}</td>
+          <td class="num"><strong>${r.maxActiveUser}</strong></td>
+          <td>${r.l1}</td>
+          <td>${r.media}</td>
+          <td class="num" style="${styleColor}">${downHrs}</td>
+          <td class="num">${r.voiceErl.toFixed(2)}</td>
+          <td class="num">${r.dataGb.toFixed(2)}</td>
+        </tr>`;
+    }
+    tbody.innerHTML = html;
   }
-  window.exportUserDegradedSitesExcel = exportUserDegradedSitesExcel;
+
+  function exportDbnSummaryExcel() {
+    const ssaAgg = {};
+    dbnFilteredRecords.forEach(r => {
+      if (!ssaAgg[r.ssa]) ssaAgg[r.ssa] = { total: 0, dbn: 0, ndbn: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0, availSum: 0 };
+      ssaAgg[r.ssa].total++;
+      ssaAgg[r.ssa].availSum += r.avail;
+      if (r.category === "DBN") ssaAgg[r.ssa].dbn++;
+      else if (r.category === "NDBN") ssaAgg[r.ssa].ndbn++;
+      if (r.bucket === ">=98%") ssaAgg[r.ssa].gte98++;
+      else if (r.bucket === "94-98%") ssaAgg[r.ssa].mid94++;
+      else if (r.bucket === "90-94%") ssaAgg[r.ssa].low90++;
+      else if (r.bucket === "<90%") ssaAgg[r.ssa].lt90++;
+    });
+
+    const rows = Object.keys(ssaAgg).sort().map(s => {
+      const a = ssaAgg[s];
+      return {
+        "SSA": s,
+        "Total Sites": a.total,
+        "DBN Count": a.dbn,
+        "NDBN Count": a.ndbn,
+        ">=98% Count": a.gte98,
+        ">=98% Share %": ((a.gte98 / a.total) * 100).toFixed(1) + "%",
+        "94-98% Count": a.mid94,
+        "94-98% Share %": ((a.mid94 / a.total) * 100).toFixed(1) + "%",
+        "90-94% Count": a.low90,
+        "90-94% Share %": ((a.low90 / a.total) * 100).toFixed(1) + "%",
+        "<90% Count": a.lt90,
+        "<90% Share %": ((a.lt90 / a.total) * 100).toFixed(1) + "%",
+        "Average Avail %": (a.availSum / a.total).toFixed(2) + "%"
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SSA_Summary");
+    XLSX.writeFile(wb, "DBN_NDBN_SSA_Summary_4Buckets.xlsx");
+  }
+  window.exportDbnSummaryExcel = exportDbnSummaryExcel;
+
+  function exportDbnSitesExcel() {
+    const chosenDate = document.getElementById("dbn-date-select") ? document.getElementById("dbn-date-select").value : "ALL";
+
+    const rows = dbnFilteredRecords.map((r, i) => {
+      const targetDate = (chosenDate && chosenDate !== "ALL") ? chosenDate : r.reportDate;
+      const downHrs = format4GBandDowntime(r.btsIp, r.siteId, targetDate);
+
+      return {
+        "S.No": i + 1,
+        "Date": r.reportDate,
+        "SSA": r.ssa,
+        "BA": r.ba,
+        "Site ID": r.siteId,
+        "Site IP ID": r.btsIp,
+        "Site Name": r.siteName,
+        "Category": r.category,
+        "Availability %": r.avail,
+        "Bucket": r.bucket,
+        "Max Active User": r.maxActiveUser,
+        "L1 Officer": r.l1,
+        "Media": r.media,
+        "4G Down Hours (B01+B28+B41)": downHrs,
+        "Voice (Erl)": r.voiceErl,
+        "Data (GB)": r.dataGb
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DBN_Filtered_Sites");
+    XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
+  }
+  window.exportDbnSitesExcel = exportDbnSitesExcel;
 
   // =========================================================================
-  // MODULE 2: CNMC INFRASTRUCTURE L1 & L2 CONTROLS
+  // MODULE 2: CNMC SITE INFRASTRUCTURE PROGRESS PIPELINE
   // =========================================================================
+  function getMandatoryIndices(totalCols) {
+    const indices = [];
+    const maxLimit = Math.min(totalCols - 1, 64);
+    for (let i = 7; i <= maxLimit; i++) {
+      if (!EXCLUDED_INDICES.has(i)) indices.push(i);
+    }
+    return indices;
+  }
+
+  async function fetchAndRenderInfra() {
+    const status = document.getElementById("status-bar");
+    if (status) status.innerText = "Connecting to CNMC live sheet...";
+
+    try {
+      let res = await fetch(SHEET_INFRA_URL);
+      if (!res.ok) throw new Error("Status: " + res.status);
+      let csvText = await res.text();
+      Papa.parse(csvText, {
+        skipEmptyLines: true,
+        complete: function(results) {
+          processRawInfraData(results.data);
+          if (status) status.innerText = "Live Connected • Updated: " + new Date().toLocaleTimeString();
+        }
+      });
+    } catch (err) {
+      console.warn("Direct fetch busy, trying proxy route...", err);
+      try {
+        let proxyRes = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_INFRA_URL));
+        let proxyCsv = await proxyRes.text();
+        Papa.parse(proxyCsv, {
+          skipEmptyLines: true,
+          complete: function(results) {
+            processRawInfraData(results.data);
+            if (status) status.innerText = "Live Connected (Backup) • " + new Date().toLocaleTimeString();
+          }
+        });
+      } catch (backupErr) {
+        if (status) status.innerHTML = `<span style="color:#dc2626; font-weight:bold;">⚠️ Connection failed.</span>`;
+      }
+    }
+  }
+  window.fetchAndRenderInfra = fetchAndRenderInfra;
+
+  function processRawInfraData(rows) {
+    if (!rows || rows.length < 2) return;
+    globalHeaders = rows[0];
+    rawDataRows = rows.slice(1);
+    const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
+
+    let l1Idx = -1, l2Idx = -1;
+    for (let i = 0; i < globalHeaders.length; i++) {
+      const h = safeStr(globalHeaders[i]).toLowerCase();
+      if (l1Idx === -1 && h.includes("l1") && !h.includes("avail") && !h.includes("%")) l1Idx = i;
+      if (l2Idx === -1 && h.includes("l2") && !h.includes("avail") && !h.includes("%")) l2Idx = i;
+    }
+    if (l1Idx === -1) l1Idx = 70;
+    if (l2Idx === -1) l2Idx = 71;
+
+    cachedSites = rawDataRows.map(row => {
+      const ba = safeStr(row[1]);
+      const ssa = safeStr(row[2]);
+      const phyId = safeStr(row[5]);
+      const btsName = safeStr(row[6]);
+      
+      let l1 = safeStr(row[l1Idx]);
+      let l2 = safeStr(row[l2Idx]);
+
+      if (!l1 || l1.endsWith("%") || !isNaN(parseFloat(l1))) l1 = safeStr(row[70]);
+      if (!l2) l2 = safeStr(row[71]);
+
+      l1 = cleanL1(l1, "Unassigned");
+      if (!l2) l2 = "-";
+
+      if (phyId) {
+        const pKey = normalizeIpKey(phyId);
+        if (l1 !== "Unassigned") masterInchargeByIp[pKey] = l1;
+        if (l2 !== "-") masterL2ByIp[pKey] = l2;
+      }
+
+      let filledCount = 0;
+      const missingFields = [];
+      mandatoryIndices.forEach(idx => {
+        const val = row[idx];
+        if (val && val.toString().trim() !== "") filledCount++;
+        else missingFields.push(globalHeaders[idx] || ("Col_" + idx));
+      });
+
+      return { ba, ssa, phyId, btsName, l1, l2, filledCount, missingFields, fillPct: (filledCount / 41) * 100, rawRow: row };
+    }).filter(s => s.ssa !== "");
+
+    populateGlobalBAFilter();
+    applyGlobalFilters();
+  }
+
+  function populateGlobalBAFilter() {
+    const select = document.getElementById("global-ba-filter");
+    if (!select) return;
+    const currentVal = select.value;
+    const filterOptions = new Set();
+    cachedSites.forEach(s => {
+      if (s.ba) filterOptions.add("BA: " + s.ba);
+      if (s.ssa) filterOptions.add("SSA: " + s.ssa);
+    });
+    select.innerHTML = '<option value="ALL">All BAs & SSAs (Circle View)</option>';
+    Array.from(filterOptions).sort().forEach(opt => select.innerHTML += `<option value="${opt}">${opt}</option>`);
+    if (Array.from(select.options).some(o => o.value === currentVal)) select.value = currentVal;
+  }
+
+  function applyGlobalFilters() {
+    const el = document.getElementById("global-ba-filter");
+    const selectedFilter = el ? el.value : "ALL";
+    let filtered = cachedSites;
+    if (selectedFilter.startsWith("BA: ")) filtered = cachedSites.filter(s => s.ba === selectedFilter.replace("BA: ", ""));
+    else if (selectedFilter.startsWith("SSA: ")) filtered = cachedSites.filter(s => s.ssa === selectedFilter.replace("SSA: ", ""));
+    
+    populateOwnerOfficerDropdowns(filtered);
+    renderDashboardWithSites(filtered);
+  }
+  window.applyGlobalFilters = applyGlobalFilters;
+
   function populateOwnerOfficerDropdowns(sites) {
     const l1Select = document.getElementById("owner-l1-select");
     const l2Select = document.getElementById("owner-l2-select");
@@ -2041,6 +3281,96 @@
       Array.from(l2Set).sort().forEach(l => l2Select.innerHTML += `<option value="${l}">${l}</option>`);
       if (curL2 && Array.from(l2Select.options).some(o => o.value === curL2)) l2Select.value = curL2;
     }
+  }
+
+  function renderDashboardWithSites(sites) {
+    const totalSites = sites.length;
+    let notStarted = 0, inProgress = 0, completed = 0, totalFilled = 0;
+    const ssaMap = {}, ownerMap = {};
+    const mandatoryIndices = getMandatoryIndices(globalHeaders.length);
+
+    sites.forEach(s => {
+      totalFilled += s.filledCount;
+      if (s.filledCount === 0) notStarted++;
+      else if (s.filledCount === 41) completed++;
+      else inProgress++;
+
+      if (!ssaMap[s.ssa]) {
+        ssaMap[s.ssa] = { ba: s.ba, total: 0, notStarted: 0, inProgress: 0, completed: 0, filledFieldsSum: 0, fieldCounts: {}, sites: [] };
+        mandatoryIndices.forEach(idx => ssaMap[s.ssa].fieldCounts[idx] = 0);
+      }
+      ssaMap[s.ssa].total++;
+      ssaMap[s.ssa].filledFieldsSum += s.filledCount;
+      ssaMap[s.ssa].sites.push(s);
+      if (s.filledCount === 0) ssaMap[s.ssa].notStarted++;
+      else if (s.filledCount === 41) ssaMap[s.ssa].completed++;
+      else ssaMap[s.ssa].inProgress++;
+
+      mandatoryIndices.forEach(idx => {
+        if (s.rawRow[idx] && s.rawRow[idx].toString().trim() !== "") ssaMap[s.ssa].fieldCounts[idx]++;
+      });
+
+      const ownerKey = s.l1;
+      if (!ownerMap[ownerKey]) {
+        ownerMap[ownerKey] = {
+          ssa: s.ssa,
+          ssas: new Set([s.ssa]),
+          l1: s.l1,
+          l2: s.l2,
+          total: 0,
+          notStarted: 0,
+          inProgress: 0,
+          completed: 0,
+          filledFieldsSum: 0,
+          sites: []
+        };
+      }
+      ownerMap[ownerKey].ssas.add(s.ssa);
+      ownerMap[ownerKey].total++;
+      ownerMap[ownerKey].filledFieldsSum += s.filledCount;
+      ownerMap[ownerKey].sites.push(s);
+      if (s.filledCount === 0) ownerMap[ownerKey].notStarted++;
+      else if (s.filledCount === 41) ownerMap[ownerKey].completed++;
+      else ownerMap[ownerKey].inProgress++;
+    });
+
+    const overallPct = totalSites > 0 ? (totalFilled / (totalSites * 41)) * 100 : 0;
+    const elTot = document.getElementById("kpi-total"); if (elTot) elTot.innerText = totalSites.toLocaleString();
+    const elComp = document.getElementById("kpi-completed"); if (elComp) elComp.innerText = completed.toLocaleString();
+    const elInp = document.getElementById("kpi-inprogress"); if (elInp) elInp.innerText = inProgress.toLocaleString();
+    const elNot = document.getElementById("kpi-notstarted"); if (elNot) elNot.innerText = notStarted.toLocaleString();
+    const elPct = document.getElementById("kpi-circle-pct"); if (elPct) elPct.innerText = overallPct.toFixed(1) + "%";
+
+    renderOATable(ssaMap, totalSites, notStarted, inProgress, completed, overallPct);
+    window.activeOwnerMap = ownerMap;
+    renderOwnerTable();
+    renderHeatmap(ssaMap, sites.length, mandatoryIndices);
+  }
+
+  function renderOATable(ssaMap, totalSites, notStarted, inProgress, completed, overallPct) {
+    const tbody = document.getElementById("oa-tbody");
+    if (!tbody) return;
+    let html = "";
+    Object.keys(ssaMap).sort().forEach(ssa => {
+      const d = ssaMap[ssa];
+      const pct = (d.filledFieldsSum / (d.total * 41)) * 100;
+      const barColor = pct >= 80 ? "high" : pct >= 40 ? "mid" : "low";
+      html += `
+        <tr class="clickable-row" onclick="openDrilldownModal('SSA: ${ssa}', window.cachedSites.filter(s => s.ssa === '${ssa}'))">
+          <td>${d.ba}</td><td><strong>${ssa}</strong> 🔍</td>
+          <td class="num">${d.total}</td><td class="num">${d.notStarted}</td><td class="num">${d.inProgress}</td><td class="num">${d.completed}</td>
+          <td class="num"><div class="progress-track"><div class="progress-fill ${barColor}" style="width:${pct}%"></div></div></td>
+          <td class="num"><strong>${pct.toFixed(1)}%</strong></td>
+        </tr>`;
+    });
+    html += `
+      <tr class="circle-row">
+        <td>TOTAL</td><td>CURRENT SELECTION</td>
+        <td class="num">${totalSites}</td><td class="num">${notStarted}</td><td class="num">${inProgress}</td><td class="num">${completed}</td>
+        <td class="num"><div class="progress-track"><div class="progress-fill ${overallPct >= 80 ? 'high' : 'mid'}" style="width:${overallPct}%"></div></div></td>
+        <td class="num">${overallPct.toFixed(1)}%</td>
+      </tr>`;
+    tbody.innerHTML = html;
   }
 
   function renderOwnerTable() {
@@ -2081,12 +3411,486 @@
   }
   window.renderOwnerTable = renderOwnerTable;
 
+  function shareOwnerProgressWhatsApp() {
+    if (!window.activeOwnerMap) return;
+    const baElem = document.getElementById("global-ba-filter");
+    const chosenSsaFilter = baElem ? baElem.value : "ALL";
+    const l1Elem = document.getElementById("owner-l1-select");
+    const chosenL1 = l1Elem ? l1Elem.value : "ALL";
+    
+    let list = Object.values(window.activeOwnerMap);
+    if (chosenL1 !== "ALL") list = list.filter(d => d.l1 === chosenL1);
+    
+    let msg = `*🏢 J&K CM Site Infra & Power Tracker - In-Charge Progress*\n`;
+    msg += `*Filter:* ${chosenSsaFilter} ${chosenL1 !== 'ALL' ? '| L1: ' + chosenL1 : ''}\n\n`;
+    
+    list.sort((a,b) => (b.filledFieldsSum / (b.total * 41)) - (a.filledFieldsSum / (a.total * 41)));
+    list.forEach((d, i) => {
+      const pct = d.total > 0 ? ((d.filledFieldsSum / (d.total * 41)) * 100).toFixed(1) : "0.0";
+      msg += `${i + 1}. *${d.l1}* (${Array.from(d.ssas).join(", ")}): ${d.completed}/${d.total} Complete (${pct}% Fill)\n`;
+    });
+    
+    msg += `\nPlease expedite updating mandatory infrastructure parameters.\n\n`;
+    msg += getClosingSignature(chosenSsaFilter.replace("SSA: ", "").replace("BA: ", ""));
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareOwnerProgressWhatsApp = shareOwnerProgressWhatsApp;
+
+  function renderHeatmap(ssaMap, totalSitesCount, mandatoryIndices) {
+    const ssaList = Object.keys(ssaMap).sort();
+    const thead = document.getElementById("param-thead");
+    const tbody = document.getElementById("param-tbody");
+    if (!thead || !tbody) return;
+
+    let thHtml = `<tr><th>#</th><th>Parameter Name</th><th class="num">Overall %</th>`;
+    ssaList.forEach(ssa => thHtml += `<th class="num">${ssa}</th>`);
+    thead.innerHTML = thHtml + `</tr>`;
+
+    let rowsHtml = "";
+    mandatoryIndices.forEach((idx, i) => {
+      const paramName = globalHeaders[idx] || ("Col " + idx);
+      let filledTotal = 0;
+      ssaList.forEach(ssa => filledTotal += ssaMap[ssa].fieldCounts[idx]);
+      const paramPct = totalSitesCount > 0 ? (filledTotal / totalSitesCount) * 100 : 0;
+      let rHtml = `<tr><td>${i + 1}</td><td><strong>${paramName}</strong></td><td class="heat-cell" style="background:${getColor(paramPct)}"><strong>${paramPct.toFixed(1)}%</strong></td>`;
+      ssaList.forEach(ssa => {
+        const ssaTotal = ssaMap[ssa].total;
+        const ssaFilled = ssaMap[ssa].fieldCounts[idx];
+        const pct = ssaTotal > 0 ? (ssaFilled / ssaTotal) * 100 : 0;
+        rHtml += `<td class="heat-cell" style="background:${getColor(pct)}">${pct.toFixed(0)}%</td>`;
+      });
+      rowsHtml += rHtml + `</tr>`;
+    });
+    tbody.innerHTML = rowsHtml;
+  }
+
+  function getColor(pct) {
+    if (pct >= 90) return "#dcfce7";
+    if (pct >= 70) return "#fef9c3";
+    if (pct >= 40) return "#ffedd5";
+    return "#fee2e2";
+  }
+
+  function handleInstantSiteSearch(q) {
+    const term = safeStr(q).toLowerCase();
+    const btn = document.getElementById("search-tab-btn");
+    if (!term) {
+      if (btn) btn.style.display = "none";
+      const tabs = document.querySelectorAll("#mod-infra .sub-tab-btn");
+      if (tabs.length > 0) switchSubTab("oa-view", tabs[0]);
+      return;
+    }
+    if (btn) btn.style.display = "inline-block";
+    switchSubTab("search-view", btn);
+
+    const matches = cachedSites.filter(s => s.phyId.toLowerCase().includes(term) || s.btsName.toLowerCase().includes(term));
+    const tbody = document.getElementById("search-tbody");
+    if (!tbody) return;
+    if (matches.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#64748b;">No matching site found.</td></tr>`;
+      return;
+    }
+    let html = "";
+    matches.slice(0, 50).forEach(s => {
+      const missingHtml = s.missingFields.length === 0
+        ? '<span style="color:#16a34a; font-weight:bold;">All Complete</span>'
+        : s.missingFields.map(m => `<span class="missing-tag">${m}</span>`).join(" ");
+      html += `<tr><td><strong>${s.phyId}</strong></td><td>${s.btsName}</td><td>${s.ssa}</td><td>${s.l1}</td><td>${s.l2}</td><td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td><td>${missingHtml}</td></tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.handleInstantSiteSearch = handleInstantSiteSearch;
+
+  function openDrilldownModal(entityName, sites) {
+    currentModalEntityName = entityName;
+    currentModalSites = sites || [];
+    const titleEl = document.getElementById("modal-title"); if (titleEl) titleEl.innerText = "Site Breakdown: " + entityName;
+    const subEl = document.getElementById("modal-subtitle"); if (subEl) subEl.innerText = `Total: ${currentModalSites.length} sites`;
+    const tbody = document.getElementById("modal-tbody");
+    if (tbody) {
+      let html = "";
+      currentModalSites.forEach((s, i) => {
+        const missingHtml = s.missingFields.length === 0
+          ? '<span style="color:#16a34a; font-weight:bold;">All Complete</span>'
+          : s.missingFields.map(m => `<span class="missing-tag">${m}</span>`).join(" ");
+        html += `<tr><td>${i + 1}</td><td><strong>${s.phyId}</strong></td><td>${s.btsName}</td><td>${s.l1}</td><td class="num">${s.filledCount}/41</td><td class="num"><strong>${s.fillPct.toFixed(0)}%</strong></td><td>${missingHtml}</td></tr>`;
+      });
+      tbody.innerHTML = html;
+    }
+    const modal = document.getElementById("drilldown-modal");
+    if (modal) modal.style.display = "flex";
+  }
+  window.openDrilldownModal = openDrilldownModal;
+
+  function closeModal() {
+    const modal = document.getElementById("drilldown-modal");
+    if (modal) modal.style.display = "none";
+  }
+  window.closeModal = closeModal;
+
+  function exportSingleIncharge(k, fmt) {
+    const d = window.activeOwnerMap ? window.activeOwnerMap[k] : null;
+    if (!d || !d.sites) return;
+    if (fmt === 'excel') exportSitesExcel(d.sites, "CNMC_Report_" + d.l1.replace(/[^a-zA-Z0-9]/g, "_"));
+    if (fmt === 'pdf') exportSitesPDF(d.sites, "L1: " + d.l1 + " (" + Array.from(d.ssas).join(", ") + ")");
+  }
+  window.exportSingleIncharge = exportSingleIncharge;
+
+  function exportModalSitesToExcel() { exportSitesExcel(currentModalSites, "CNMC_Sites_" + currentModalEntityName.replace(/[^a-zA-Z0-9]/g, "_")); }
+  window.exportModalSitesToExcel = exportModalSitesToExcel;
+
+  function exportModalSitesToPDF() { exportSitesPDF(currentModalSites, currentModalEntityName); }
+  window.exportModalSitesToPDF = exportModalSitesToPDF;
+
+  function exportSitesExcel(sites, fileName) {
+    const data = sites.map((s, i) => ({
+      "S.No": i + 1, "BA": s.ba, "SSA": s.ssa, "Phy Site ID": s.phyId, "BTS Name": s.btsName,
+      "L1 Owner": s.l1, "L2 Owner": s.l2, "Filled (/41)": s.filledCount, "Fill %": Math.round(s.fillPct) + "%",
+      "Missing Parameters": s.missingFields.join(", ")
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pending_Sites");
+    XLSX.writeFile(wb, (fileName || "CNMC_Sites") + ".xlsx");
+  }
+
+  function exportSitesPDF(sites, title) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'pt', 'a4');
+    doc.setFontSize(14); doc.text("CNMC Pending Parameter Report - " + title, 40, 30);
+    doc.setFontSize(10); doc.text("Generated: " + new Date().toLocaleString(), 40, 46);
+    const rows = sites.map((s, i) => [
+      i + 1, s.phyId, s.btsName, s.l1, s.filledCount + "/41", Math.round(s.fillPct) + "%",
+      s.missingFields.slice(0, 5).join(", ") + (s.missingFields.length > 5 ? ` (+${s.missingFields.length - 5})` : "")
+    ]);
+    doc.autoTable({ startY: 55, head: [['#', 'Site ID', 'BTS Name', 'L1 Owner', 'Filled', 'Fill %', 'Missing Params']], body: rows, theme: 'striped', styles: { fontSize: 8 }, headStyles: { fillColor: [0, 51, 102] } });
+    doc.save("CNMC_Report_" + title.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf");
+  }
+
   // =========================================================================
-  // MODULE 4(i): TOP 5 FLAP ALERT (OMITS BTS IP ID)
+  // MODULE 4: HISTORY ALARM TRACKER LOGIC (MULTI-BAND & CHRONIC)
   // =========================================================================
-  function shareHistoryAlarmAlertWhatsApp() {
+  async function loadHistoryAlarmData() {
+    const status = document.getElementById("status-bar");
+    if (status) status.innerText = "Loading Static Master and History Alarm feeds...";
+
+    // 1. Ingest Static Master (Single Entry per Physical Tower)
+    await new Promise((resolve) => {
+      Papa.parse(STATIC_MASTER_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim(),
+        complete: function(res) {
+          staticMasterByIp = {};
+          siteIdToIpMap = {};
+
+          res.data.forEach(r => {
+            const ip = safeStr(r["BTS IP ID"] || r["bts_ip_id"] || r["BTS_IP_ID"]);
+            const siteId = safeStr(r["bts_site_id"] || r["btsSiteId"] || r["PHY_Site_ID"]);
+            const ipKey = normalizeIpKey(ip);
+            const sKey = normalizeIpKey(siteId);
+
+            if (ipKey && sKey) {
+              siteIdToIpMap[sKey] = ipKey;
+            }
+          });
+
+          res.data.forEach(r => {
+            const ip = safeStr(r["BTS IP ID"] || r["bts_ip_id"] || r["BTS_IP_ID"]);
+            const siteId = safeStr(r["bts_site_id"] || r["btsSiteId"] || r["PHY_Site_ID"]);
+            const btsType = safeStr(r["bts_type"] || r["btsType"]);
+            const btsName = safeStr(r["bts_name"] || r["BTS Name"]);
+            const siteName = safeStr(r["Site Name"] || r["site_name"] || btsName);
+            const ssa = safeStr(r["ssa_id"] || r["SSA"] || r["ssa_name"]);
+            const rowMedia = safeStr(r["Media"] || r["media"]) || "-";
+            const rowL1 = safeStr(r["L1"] || r["l1"]);
+
+            const ipKey = normalizeIpKey(ip);
+            const sKey = normalizeIpKey(siteId);
+            const nodeKey = ipKey || (sKey && siteIdToIpMap[sKey]) || sKey;
+
+            if (!nodeKey) return;
+
+            const band = detectBand(btsType, btsName, siteId);
+
+            let techPriority = 1;
+            if (band === "B01" || band === "B28" || band === "B41" || btsType.toUpperCase().includes("LTE") || btsType.toUpperCase().includes("4G")) {
+              techPriority = 3;
+            } else if (band === "3G" || btsType.toUpperCase().includes("UMTS")) {
+              techPriority = 2;
+            }
+
+            const resolvedL1 = cleanL1(rowL1, masterInchargeByIp[nodeKey] || (sKey ? masterInchargeByIp[sKey] : "") || "Unassigned");
+
+            if (!staticMasterByIp[nodeKey]) {
+              staticMasterByIp[nodeKey] = {
+                nodeKey: nodeKey,
+                btsIp: ip || siteId,
+                siteName: siteName,
+                ssa: ssa,
+                media: rowMedia,
+                mediaPriority: techPriority,
+                l1: resolvedL1,
+                installed: { "2G": false, "3G": false, "B01": false, "B28": false, "B41": false }
+              };
+            } else {
+              if (techPriority > staticMasterByIp[nodeKey].mediaPriority && rowMedia && rowMedia !== "-") {
+                staticMasterByIp[nodeKey].media = rowMedia;
+                staticMasterByIp[nodeKey].mediaPriority = techPriority;
+              }
+              if ((staticMasterByIp[nodeKey].l1 === "Unassigned" || staticMasterByIp[nodeKey].l1.toLowerCase().includes("error")) && resolvedL1 !== "Unassigned") {
+                staticMasterByIp[nodeKey].l1 = resolvedL1;
+              }
+            }
+
+            if (staticMasterByIp[nodeKey].installed[band] !== undefined) {
+              staticMasterByIp[nodeKey].installed[band] = true;
+            }
+          });
+
+          resolve(true);
+        },
+        error: function(err) {
+          console.error("Static master load error:", err);
+          resolve(false);
+        }
+      });
+    });
+
+    // 2. Ingest History Alarm Data
+    await new Promise((resolve) => {
+      Papa.parse(HISTORY_ALARM_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim(),
+        complete: function(res) {
+          alarmEvents = [];
+          const dateSet = new Set();
+
+          for (let k in masterHistoryDownHoursByIp) delete masterHistoryDownHoursByIp[k];
+          for (let k in masterHistoryDownHoursByDateAndIp) delete masterHistoryDownHoursByDateAndIp[k];
+          for (let k in master4GDownByDateAndIp) delete master4GDownByDateAndIp[k];
+
+          res.data.forEach(r => {
+            const rawDate = safeStr(r["Down_Date"] || r["Down Date"] || r["Date"] || r["down_date"]);
+            const date = normalizeDateStr(rawDate);
+            const siteId = safeStr(r["bts_site_id"] || r["btsSiteId"] || r["PHY_Site_ID"]);
+            const ipRaw = safeStr(r["BTS IP ID"] || r["btsIpId"] || r["BTS_IP_ID"]);
+            const btsType = safeStr(r["bts_type"] || r["btsType"]);
+            const btsName = safeStr(r["bts_name"] || r["BTS Name"]);
+
+            const flap = parseInt(r["Flap Count"] || r["FlapCount"] || r["flap_count"] || 0) || 0;
+            const major = parseInt(r["Major_Outage_Count"] || r["Major Outage Count"] || r["major_outage_count"] || 0) || 0;
+            const downTimes = parseInt(r["Total_Down_Times"] || r["Total Down Times"] || (flap + major)) || 0;
+            const downHours = parseFloat(r["Total_Down_Hours"] || r["Total Down Hours"] || r["down_hours"] || 0) || 0;
+
+            if (date) dateSet.add(date);
+
+            const canonicalKey = getCanonicalNodeKey(ipRaw, siteId);
+            if (!canonicalKey) return;
+
+            const band = detectBand(btsType, btsName, siteId);
+            alarmEvents.push({ date, ipKey: canonicalKey, band, flap, major, downTimes, downHours });
+
+            masterHistoryDownHoursByIp[canonicalKey] = (masterHistoryDownHoursByIp[canonicalKey] || 0) + downHours;
+
+            if (date) {
+              const dateKey = `${date}____${canonicalKey}`;
+              masterHistoryDownHoursByDateAndIp[dateKey] = (masterHistoryDownHoursByDateAndIp[dateKey] || 0) + downHours;
+
+              if (band === "B01" || band === "B28" || band === "B41") {
+                if (!master4GDownByDateAndIp[dateKey]) master4GDownByDateAndIp[dateKey] = {};
+                master4GDownByDateAndIp[dateKey][band] = (master4GDownByDateAndIp[dateKey][band] || 0) + downHours;
+              }
+            }
+          });
+
+          histDates = Array.from(dateSet).sort().reverse();
+          resolve(true);
+        },
+        error: function(err) {
+          console.error("History alarm load error:", err);
+          resolve(false);
+        }
+      });
+    });
+
+    const dSel = document.getElementById("hist-date-select");
+    if (dSel) {
+      dSel.innerHTML = "";
+      histDates.forEach(d => { dSel.innerHTML += `<option value="${d}">${d}</option>`; });
+    }
+
+    const sSel = document.getElementById("hist-ssa-select");
+    if (sSel) {
+      const ssaSet = new Set();
+      Object.values(staticMasterByIp).forEach(n => { if (n.ssa) ssaSet.add(n.ssa); });
+      sSel.innerHTML = '<option value="ALL">All SSAs</option>';
+      Array.from(ssaSet).sort().forEach(s => { sSel.innerHTML += `<option value="${s}">${s}</option>`; });
+    }
+
+    populateAlertControls();
+    historyAlarmLoaded = true;
+    renderHistoryAlarmTable();
+
+    if (dbnFilteredRecords && dbnFilteredRecords.length > 0) {
+      renderDbnDetailTable(dbnFilteredRecords);
+    }
+
+    if (status) status.innerText = `History Alarm Feed Active • Loaded ${Object.keys(staticMasterByIp).length} physical nodes • ${new Date().toLocaleTimeString()}`;
+  }
+  window.loadHistoryAlarmData = loadHistoryAlarmData;
+
+  function renderHistoryAlarmTable() {
+    const dElem = document.getElementById("hist-date-select");
+    const targetDate = normalizeDateStr(dElem ? dElem.value : "");
+    const ssaElem = document.getElementById("hist-ssa-select");
+    const targetSsa = ssaElem ? ssaElem.value : "ALL";
+    const techElem = document.getElementById("hist-tech-select");
+    const targetTech = techElem ? techElem.value : "ALL";
+    const flapElem = document.getElementById("hist-flap-filter");
+    const flapFilter = flapElem ? flapElem.value : "ALL";
+    const qElem = document.getElementById("hist-search-input");
+    const q = safeStr(qElem ? qElem.value : "").toLowerCase();
+
+    const alarmsByIp = {};
+    for (let i = 0; i < alarmEvents.length; i++) {
+      const ev = alarmEvents[i];
+      if (ev.date !== targetDate) continue;
+      if (!alarmsByIp[ev.ipKey]) {
+        alarmsByIp[ev.ipKey] = {
+          "2G": { flap: 0, major: 0, hours: 0, times: 0 },
+          "3G": { flap: 0, major: 0, hours: 0, times: 0 },
+          "B01": { flap: 0, major: 0, hours: 0, times: 0 },
+          "B28": { flap: 0, major: 0, hours: 0, times: 0 },
+          "B41": { flap: 0, major: 0, hours: 0, times: 0 }
+        };
+      }
+      if (alarmsByIp[ev.ipKey][ev.band]) {
+        alarmsByIp[ev.ipKey][ev.band].flap += ev.flap;
+        alarmsByIp[ev.ipKey][ev.band].major += ev.major;
+        alarmsByIp[ev.ipKey][ev.band].hours += ev.downHours;
+        alarmsByIp[ev.ipKey][ev.band].times += ev.downTimes;
+      }
+    }
+
+    const rows = [];
+    let kpiFlappers = 0, kpiMajor = 0, kpiHours = 0;
+    const ipKeys = Object.keys(staticMasterByIp);
+
+    for (let i = 0; i < ipKeys.length; i++) {
+      const ipKey = ipKeys[i];
+      const node = staticMasterByIp[ipKey];
+      if (targetSsa !== "ALL" && node.ssa !== targetSsa) continue;
+      if (targetTech !== "ALL" && !node.installed[targetTech]) continue;
+      
+      if (q && !node.btsIp.toLowerCase().includes(q) && !node.siteName.toLowerCase().includes(q) && !node.media.toLowerCase().includes(q) && !node.l1.toLowerCase().includes(q)) continue;
+
+      const alarm = alarmsByIp[ipKey] || null;
+
+      function evalSlot(band, metric, isFloat) {
+        if (!node.installed[band]) return "N/A";
+        if (!alarm || !alarm[band]) return isFloat ? "0.0" : "0";
+        const val = alarm[band][metric];
+        return isFloat ? val.toFixed(1) : String(val);
+      }
+
+      const f2G = evalSlot("2G", "flap", false), f3G = evalSlot("3G", "flap", false), fB01 = evalSlot("B01", "flap", false), fB28 = evalSlot("B28", "flap", false), fB41 = evalSlot("B41", "flap", false);
+      const m2G = evalSlot("2G", "major", false), m3G = evalSlot("3G", "major", false), mB01 = evalSlot("B01", "major", false), mB28 = evalSlot("B28", "major", false), mB41 = evalSlot("B41", "major", false);
+      const h2G = evalSlot("2G", "hours", true), h3G = evalSlot("3G", "hours", true), hB01 = evalSlot("B01", "hours", true), hB28 = evalSlot("B28", "hours", true), hB41 = evalSlot("B41", "hours", true);
+
+      let totFlap = 0, totMajor = 0, totHours = 0, totTimes = 0;
+      if (alarm) {
+        const bands = ["2G", "3G", "B01", "B28", "B41"];
+        for (let b = 0; b < bands.length; b++) {
+          const band = bands[b];
+          if (node.installed[band] && alarm[band]) {
+            totFlap += alarm[band].flap;
+            totMajor += alarm[band].major;
+            totHours += alarm[band].hours;
+            totTimes += alarm[band].times;
+          }
+        }
+      }
+
+      if (flapFilter === "GT0" && totFlap <= 0) continue;
+      if (flapFilter === "GT5" && totFlap <= 5) continue;
+      if (flapFilter === "GT10" && totFlap <= 10) continue;
+      if (flapFilter === "GT20" && totFlap <= 20) continue;
+      if (flapFilter === "GT50" && totFlap <= 50) continue;
+      if (flapFilter === "GT100" && totFlap <= 100) continue;
+      if (flapFilter === "GT150" && totFlap <= 150) continue;
+
+      if (totFlap > 0) kpiFlappers++;
+      if (totMajor > 0) kpiMajor++;
+      kpiHours += totHours;
+
+      const badges = Object.keys(node.installed).filter(b => node.installed[b]).map(b => `<span class="badge-tech">${b}</span>`).join(" ");
+
+      rows.push({
+        btsIp: node.btsIp,
+        siteName: node.siteName,
+        ssa: node.ssa,
+        media: node.media,
+        l1: node.l1,
+        badges: badges,
+        installedList: Object.keys(node.installed).filter(b => node.installed[b]).join(", "),
+        totFlap: totFlap,
+        flapStr: `${totFlap} <span class="band-sub">(${f2G}+${f3G}+${fB01}+${fB28}+${fB41})</span>`,
+        totMajor: totMajor,
+        majorStr: `${totMajor} <span class="band-sub">(${m2G}+${m3G}+${mB01}+${mB28}+${mB41})</span>`,
+        totHours: totHours,
+        hoursStr: `${totHours.toFixed(2)} <span class="band-sub">(${h2G}+${h3G}+${hB01}+${hB28}+${hB41})</span>`,
+        totTimes: totTimes
+      });
+    }
+
+    rows.sort((a,b) => b.totFlap - a.totFlap || b.totHours - a.totHours);
+    currentHistRows = rows;
+
+    const totalNodes = rows.length;
+    const flapPct = totalNodes > 0 ? ((kpiFlappers / totalNodes) * 100).toFixed(1) : "0.0";
+    const majorPct = totalNodes > 0 ? ((kpiMajor / totalNodes) * 100).toFixed(1) : "0.0";
+
+    const elTot = document.getElementById("hist-kpi-total"); if (elTot) elTot.innerText = totalNodes.toLocaleString();
+    const elFlap = document.getElementById("hist-kpi-flappers"); if (elFlap) elFlap.innerText = `${kpiFlappers.toLocaleString()} (${flapPct}%)`;
+    const elMaj = document.getElementById("hist-kpi-major"); if (elMaj) elMaj.innerText = `${kpiMajor.toLocaleString()} (${majorPct}%)`;
+    const elHr = document.getElementById("hist-kpi-hours"); if (elHr) elHr.innerText = kpiHours.toFixed(1) + " Hr";
+
+    const tbody = document.getElementById("hist-alarm-tbody");
+    if (!tbody) return;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">No matching physical nodes found for selected criteria.</td></tr>`;
+      return;
+    }
+
+    const displayLimit = Math.min(rows.length, 150);
+    let htmlBuffer = "";
+    for (let i = 0; i < displayLimit; i++) {
+      const r = rows[i];
+      htmlBuffer += `<tr>
+        <td><strong>${r.btsIp}</strong></td>
+        <td>${r.siteName}</td>
+        <td>${r.ssa}</td>
+        <td>${r.media}</td>
+        <td>${r.badges}</td>
+        <td class="num"><strong>${r.flapStr}</strong></td>
+        <td class="num"><strong>${r.majorStr}</strong></td>
+        <td class="num">${r.totTimes}</td>
+        <td class="num" style="color:${r.totHours > 0 ? '#dc2626' : 'inherit'};"><strong>${r.hoursStr}</strong></td>
+        <td>${r.l1}</td>
+      </tr>`;
+    }
+    tbody.innerHTML = htmlBuffer;
+  }
+  window.renderHistoryAlarmTable = renderHistoryAlarmTable;
+
+  function shareHistoryAlarmWhatsApp() {
     if (!currentHistRows || currentHistRows.length === 0) {
-      alert("No history alarm records available for alert.");
+      alert("No history alarm records available to share.");
       return;
     }
     const dElem = document.getElementById("hist-date-select");
@@ -2094,330 +3898,289 @@
     const ssaElem = document.getElementById("hist-ssa-select");
     const ssa = ssaElem ? ssaElem.value : "ALL";
 
-    const ssaGroups = {};
+    const ssaAgg = {};
+    let totNodes = 0, totFlaps = 0, totMajor = 0, totHours = 0;
+
     currentHistRows.forEach(r => {
       const s = r.ssa || "Unknown";
-      if (!ssaGroups[s]) ssaGroups[s] = [];
-      ssaGroups[s].push(r);
+      if (!ssaAgg[s]) ssaAgg[s] = { count: 0, flaps: 0, major: 0, hours: 0 };
+      ssaAgg[s].count++;
+      ssaAgg[s].flaps += r.totFlap;
+      ssaAgg[s].major += r.totMajor;
+      ssaAgg[s].hours += r.totHours;
+
+      totNodes++;
+      totFlaps += r.totFlap;
+      totMajor += r.totMajor;
+      totHours += r.totHours;
     });
 
-    let msg = `*🚨 Critical Flapping Sites Alert (${d})*\n`;
+    let msg = `*⏱️ J&K CM History Alarm OA-Wise Summary (${d})*\n`;
     msg += `*Scope:* ${ssa === 'ALL' ? 'Circle-Wide' : ssa}\n\n`;
 
-    Object.keys(ssaGroups).sort().forEach(s => {
-      const sites = ssaGroups[s].sort((a,b) => b.totFlap - a.totFlap).slice(0, 5);
-      msg += `📍 *${s} OA (Top 5 Chronic Flapping Sites):*\n`;
-      sites.forEach((site, idx) => {
-        // BTS IP ID removed from alert text as requested
-        msg += `   ${idx + 1}. *${site.siteName}* - Flaps: *${site.totFlap}* | Media: *${site.media}* | Down: ${site.totHours.toFixed(1)}h [L1: ${site.l1}]\n`;
-      });
-      msg += `\n`;
+    Object.keys(ssaAgg).sort().forEach(s => {
+      const a = ssaAgg[s];
+      const flapRate = a.count > 0 ? ((a.flaps / a.count)).toFixed(1) : "0.0";
+      const majorRate = a.count > 0 ? ((a.major / a.count) * 100).toFixed(1) : "0.0";
+      msg += `📍 *${s} OA*:\n`;
+      msg += `   • Physical Nodes: *${a.count}*\n`;
+      msg += `   • Flap Count: *${a.flaps}* (Avg ${flapRate}/site)\n`;
+      msg += `   • Major Outages: *${a.major}* (${majorRate}% sites)\n`;
+      msg += `   • Total Outage Duration: *${a.hours.toFixed(1)} Hr*\n\n`;
     });
 
-    msg += `Kindly check Power/Media loss first then BTS/eNB hardware.\n\n`;
+    msg += `*🇮🇳 Circle Total*:\n`;
+    msg += `• Total Sites: ${totNodes.toLocaleString()}\n`;
+    msg += `• Total Flaps: ${totFlaps.toLocaleString()}\n`;
+    msg += `• Total Major Outages: ${totMajor.toLocaleString()}\n`;
+    msg += `• Total Duration: ${totHours.toFixed(1)} Hr\n\n`;
     msg += getClosingSignature(ssa);
 
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
-  window.shareHistoryAlarmAlertWhatsApp = shareHistoryAlarmAlertWhatsApp;
+  window.shareHistoryAlarmWhatsApp = shareHistoryAlarmWhatsApp;
+
+  function exportHistoryAlarmExcel() {
+    if (!currentHistRows || currentHistRows.length === 0) return;
+    const dElem = document.getElementById("hist-date-select");
+    const d = dElem ? dElem.value : "Report";
+    const data = currentHistRows.map((r, i) => ({
+      "S.No": i + 1,
+      "BTS IP ID": r.btsIp,
+      "Site Name": r.siteName,
+      "SSA": r.ssa,
+      "Media": r.media,
+      "Installed Bands": r.installedList,
+      "Total Flaps": r.totFlap,
+      "Flap Breakdown (2G+3G+B01+B28+B41)": r.flapStr.replace(/<[^>]*>/g, ""),
+      "Total Major": r.totMajor,
+      "Major Breakdown (2G+3G+B01+B28+B41)": r.majorStr.replace(/<[^>]*>/g, ""),
+      "Total Down Count": r.totTimes,
+      "Total Down Hours": parseFloat(r.totHours.toFixed(2)),
+      "Duration Breakdown (2G+3G+B01+B28+B41)": r.hoursStr.replace(/<[^>]*>/g, ""),
+      "Site In-Charge (L1)": r.l1
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "History_Alarm");
+    XLSX.writeFile(wb, `History_Alarm_${d}.xlsx`);
+  }
+  window.exportHistoryAlarmExcel = exportHistoryAlarmExcel;
 
   // =========================================================================
-  // MODULE 4(iii): 7-DAY TREND GRAPH & FILTERED SITES VERIFICATION TABLE
+  // MODULE 4(ii): CHRONIC MULTI-DAY PERSISTENT STREAK ENGINE
   // =========================================================================
-  function render7DayHistoryGraphs() {
+  function runChronicStreakAnalysis() {
     if (!historyAlarmLoaded || !alarmEvents || alarmEvents.length === 0) return;
 
-    const ssaSelect = document.getElementById("graph-ssa-select");
+    const mode = document.getElementById("chronic-mode-select") ? document.getElementById("chronic-mode-select").value : "FLAP";
+    const minDays = parseInt(document.getElementById("chronic-days-threshold").value, 10) || 3;
+    const flapThresh = parseInt(document.getElementById("chronic-flap-thresh").value, 10) || 10;
+    const downThresh = parseFloat(document.getElementById("chronic-down-thresh").value) || 2.0;
+    const carrier = document.getElementById("chronic-carrier-select").value;
+    const ssaFilter = document.getElementById("chronic-ssa-select") ? document.getElementById("chronic-ssa-select").value : "ALL";
+    const searchVal = safeStr(document.getElementById("chronic-search-input") ? document.getElementById("chronic-search-input").value : "").toLowerCase();
+
+    const flapGroup = document.getElementById("group-chronic-flap-thresh");
+    const downGroup = document.getElementById("group-chronic-down-thresh");
+    const metricHeader = document.getElementById("chronic-metric-header");
+    if (flapGroup && downGroup) {
+      if (mode === "FLAP") {
+        flapGroup.style.display = "flex";
+        downGroup.style.display = "none";
+        if (metricHeader) metricHeader.innerText = "Total Flaps in Streak";
+      } else {
+        flapGroup.style.display = "none";
+        downGroup.style.display = "flex";
+        if (metricHeader) metricHeader.innerText = "Total Down Hours in Streak";
+      }
+    }
+
+    const ssaSelect = document.getElementById("chronic-ssa-select");
     if (ssaSelect && ssaSelect.options.length <= 1) {
       const ssaSet = new Set();
       Object.values(staticMasterByIp).forEach(n => { if (n.ssa) ssaSet.add(n.ssa); });
-      ssaSelect.innerHTML = `<option value="ALL">All SSAs (Circle View)</option>`;
+      ssaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
       Array.from(ssaSet).sort().forEach(s => ssaSelect.innerHTML += `<option value="${s}">${s}</option>`);
     }
 
-    const ssaFilter = ssaSelect ? ssaSelect.value : "ALL";
-    const carrierFilter = document.getElementById("graph-carrier-filter") ? document.getElementById("graph-carrier-filter").value : "ALL";
-    const q = safeStr(document.getElementById("graph-node-search") ? document.getElementById("graph-node-search").value : "").toLowerCase();
+    const sortedDates = [...histDates].sort();
+    const totalDaysCount = sortedDates.length;
+    const elDays = document.getElementById("chronic-kpi-days");
+    if (elDays) elDays.innerText = totalDaysCount + " Days";
 
-    // Derive the chronological date sequence strictly from alarmEvents
-    const distinctDates = Array.from(new Set(alarmEvents.map(e => e.date).filter(Boolean))).sort();
-    const last7Dates = distinctDates.slice(-7);
+    const nodeDailyStats = {};
+    alarmEvents.forEach(ev => {
+      if (carrier === "4G" && !["B01", "B28", "B41"].includes(ev.band)) return;
+      if (carrier === "2G" && ev.band !== "2G") return;
+      if (carrier === "3G" && ev.band !== "3G") return;
 
-    const dayStats = {};
-    last7Dates.forEach(d => {
-      dayStats[d] = {
-        date: d,
-        "2G": { flap: 0, hours: 0 },
-        "3G": { flap: 0, hours: 0 },
-        "B01": { flap: 0, hours: 0 },
-        "B28": { flap: 0, hours: 0 },
-        "B41": { flap: 0, hours: 0 },
-        "4G_TOT": { flap: 0, hours: 0 },
-        "TOT_FLAP": 0,
-        "TOT_HOURS": 0
-      };
+      const node = staticMasterByIp[ev.ipKey];
+      if (!node) return;
+      if (ssaFilter !== "ALL" && node.ssa !== ssaFilter) return;
+
+      if (!nodeDailyStats[ev.ipKey]) nodeDailyStats[ev.ipKey] = {};
+      if (!nodeDailyStats[ev.ipKey][ev.date]) {
+        nodeDailyStats[ev.ipKey][ev.date] = { flaps: 0, downHours: 0 };
+      }
+      nodeDailyStats[ev.ipKey][ev.date].flaps += ev.flap;
+      nodeDailyStats[ev.ipKey][ev.date].downHours += ev.downHours;
     });
 
-    const matchedSitesMap = {};
+    const candidateNodes = [];
+    let maxStreakFound = 0;
 
-    alarmEvents.forEach(ev => {
-      if (!dayStats[ev.date]) return;
-      const node = staticMasterByIp[ev.ipKey] || { btsIp: ev.ipKey, siteName: ev.ipKey, ssa: "Other", media: "-", l1: "Unassigned" };
+    Object.keys(nodeDailyStats).forEach(nodeKey => {
+      const statsByDate = nodeDailyStats[nodeKey];
+      const node = staticMasterByIp[nodeKey];
 
-      if (ssaFilter !== "ALL" && node.ssa !== ssaFilter) return;
-      // Search matches Site Name, BTS IP ID, or L1 In-Charge
-      if (q && !node.btsIp.toLowerCase().includes(q) && !node.siteName.toLowerCase().includes(q) && !node.l1.toLowerCase().includes(q)) return;
+      let currentStreak = 0;
+      let maxNodeStreak = 0;
+      let streakDetails = [];
+      let tempStreakDetails = [];
+      let streakMetricSum = 0;
+      let tempMetricSum = 0;
 
-      const dObj = dayStats[ev.date];
-      if (dObj[ev.band]) {
-        dObj[ev.band].flap += ev.flap;
-        dObj[ev.band].hours += ev.downHours;
-      }
+      sortedDates.forEach(date => {
+        const dayStat = statsByDate[date] || { flaps: 0, downHours: 0 };
+        const val = mode === "FLAP" ? dayStat.flaps : dayStat.downHours;
+        const targetThresh = mode === "FLAP" ? flapThresh : downThresh;
 
-      if (["B01", "B28", "B41"].includes(ev.band)) {
-        dObj["4G_TOT"].flap += ev.flap;
-        dObj["4G_TOT"].hours += ev.downHours;
-      }
+        if (val >= targetThresh) {
+          currentStreak++;
+          tempMetricSum += val;
+          tempStreakDetails.push(`${date.slice(5)}: ${mode === "FLAP" ? val : val.toFixed(1) + 'h'}`);
+          if (currentStreak > maxNodeStreak) {
+            maxNodeStreak = currentStreak;
+            streakDetails = [...tempStreakDetails];
+            streakMetricSum = tempMetricSum;
+          }
+        } else {
+          currentStreak = 0;
+          tempStreakDetails = [];
+          tempMetricSum = 0;
+        }
+      });
 
-      dObj.TOT_FLAP += ev.flap;
-      dObj.TOT_HOURS += ev.downHours;
+      if (maxNodeStreak >= minDays) {
+        if (maxNodeStreak > maxStreakFound) maxStreakFound = maxNodeStreak;
 
-      if (!matchedSitesMap[ev.ipKey]) {
-        matchedSitesMap[ev.ipKey] = {
+        if (searchVal) {
+          const match = node.btsIp.toLowerCase().includes(searchVal) ||
+                        node.siteName.toLowerCase().includes(searchVal) ||
+                        node.l1.toLowerCase().includes(searchVal);
+          if (!match) return;
+        }
+
+        candidateNodes.push({
           btsIp: node.btsIp,
           siteName: node.siteName,
           ssa: node.ssa,
           media: node.media,
           l1: node.l1,
-          f2G: 0, h2G: 0,
-          f3G: 0, h3G: 0,
-          f4G: 0, h4G: 0,
-          totFlap: 0, totHours: 0
-        };
+          streak: maxNodeStreak,
+          metricSum: streakMetricSum,
+          breakdown: streakDetails.join(" | ")
+        });
       }
-      const sRec = matchedSitesMap[ev.ipKey];
-      if (ev.band === "2G") { sRec.f2G += ev.flap; sRec.h2G += ev.downHours; }
-      else if (ev.band === "3G") { sRec.f3G += ev.flap; sRec.h3G += ev.downHours; }
-      else if (["B01", "B28", "B41"].includes(ev.band)) { sRec.f4G += ev.flap; sRec.h4G += ev.downHours; }
-      sRec.totFlap += ev.flap;
-      sRec.totHours += ev.downHours;
     });
 
-    let sum2GFlap = 0, sum2GHour = 0;
-    let sum3GFlap = 0, sum3GHour = 0;
-    let sum4GFlap = 0, sum4GHour = 0;
-    let sumTotFlap = 0, sumTotHour = 0;
+    candidateNodes.sort((a, b) => b.streak - a.streak || b.metricSum - a.metricSum);
+    chronicRecordsCache = candidateNodes;
 
-    last7Dates.forEach(d => {
-      const s = dayStats[d];
-      sum2GFlap += s["2G"].flap; sum2GHour += s["2G"].hours;
-      sum3GFlap += s["3G"].flap; sum3GHour += s["3G"].hours;
-      sum4GFlap += s["4G_TOT"].flap; sum4GHour += s["4G_TOT"].hours;
-      sumTotFlap += s.TOT_FLAP; sumTotHour += s.TOT_HOURS;
-    });
+    const elCount = document.getElementById("chronic-kpi-count");
+    if (elCount) elCount.innerText = candidateNodes.length.toLocaleString();
+    const elMax = document.getElementById("chronic-kpi-max-streak");
+    if (elMax) elMax.innerText = maxStreakFound > 0 ? `${maxStreakFound} Days` : "0";
 
-    const el2G = document.getElementById("kpi-7d-2g");
-    if (el2G) el2G.innerText = `${sum2GFlap.toLocaleString()} / ${sum2GHour.toFixed(1)}h`;
-    const el3G = document.getElementById("kpi-7d-3g");
-    if (el3G) el3G.innerText = `${sum3GFlap.toLocaleString()} / ${sum3GHour.toFixed(1)}h`;
-    const el4G = document.getElementById("kpi-7d-4g");
-    if (el4G) el4G.innerText = `${sum4GFlap.toLocaleString()} / ${sum4GHour.toFixed(1)}h`;
-    const elFlaps = document.getElementById("kpi-7d-flaps");
-    if (elFlaps) elFlaps.innerText = sumTotFlap.toLocaleString();
-    const elHours = document.getElementById("kpi-7d-hours");
-    if (elHours) elHours.innerText = `${sumTotHour.toFixed(1)} Hr`;
+    const tbody = document.getElementById("chronic-tbody");
+    if (!tbody) return;
 
-    cached7DayAgg = last7Dates.map(d => dayStats[d]);
-
-    const labels = last7Dates.map(d => d.slice(5));
-
-    let flapDatasets = [];
-    let hourDatasets = [];
-
-    if (carrierFilter === "ALL") {
-      flapDatasets = [
-        { label: "2G Flaps", data: last7Dates.map(d => dayStats[d]["2G"].flap), borderColor: "#64748b", backgroundColor: "#64748b", tension: 0.2 },
-        { label: "3G Flaps", data: last7Dates.map(d => dayStats[d]["3G"].flap), borderColor: "#0284c7", backgroundColor: "#0284c7", tension: 0.2 },
-        { label: "4G Total Flaps", data: last7Dates.map(d => dayStats[d]["4G_TOT"].flap), borderColor: "#16a34a", backgroundColor: "#16a34a", tension: 0.2 }
-      ];
-      hourDatasets = [
-        { label: "2G Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["2G"].hours.toFixed(1))), borderColor: "#64748b", backgroundColor: "#64748b", tension: 0.2 },
-        { label: "3G Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["3G"].hours.toFixed(1))), borderColor: "#0284c7", backgroundColor: "#0284c7", tension: 0.2 },
-        { label: "4G Total Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["4G_TOT"].hours.toFixed(1))), borderColor: "#16a34a", backgroundColor: "#16a34a", tension: 0.2 }
-      ];
-    } else if (carrierFilter === "SPLIT_4G") {
-      flapDatasets = [
-        { label: "B01 Flaps", data: last7Dates.map(d => dayStats[d]["B01"].flap), borderColor: "#0284c7", backgroundColor: "#0284c7", tension: 0.2 },
-        { label: "B28 Flaps", data: last7Dates.map(d => dayStats[d]["B28"].flap), borderColor: "#16a34a", backgroundColor: "#16a34a", tension: 0.2 },
-        { label: "B41 Flaps", data: last7Dates.map(d => dayStats[d]["B41"].flap), borderColor: "#d97706", backgroundColor: "#d97706", tension: 0.2 }
-      ];
-      hourDatasets = [
-        { label: "B01 Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["B01"].hours.toFixed(1))), borderColor: "#0284c7", backgroundColor: "#0284c7", tension: 0.2 },
-        { label: "B28 Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["B28"].hours.toFixed(1))), borderColor: "#16a34a", backgroundColor: "#16a34a", tension: 0.2 },
-        { label: "B41 Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["B41"].hours.toFixed(1))), borderColor: "#d97706", backgroundColor: "#d97706", tension: 0.2 }
-      ];
-    } else if (carrierFilter === "2G") {
-      flapDatasets = [{ label: "2G Flaps", data: last7Dates.map(d => dayStats[d]["2G"].flap), borderColor: "#64748b", backgroundColor: "#64748b", tension: 0.2 }];
-      hourDatasets = [{ label: "2G Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["2G"].hours.toFixed(1))), borderColor: "#64748b", backgroundColor: "#64748b", tension: 0.2 }];
-    } else if (carrierFilter === "3G") {
-      flapDatasets = [{ label: "3G Flaps", data: last7Dates.map(d => dayStats[d]["3G"].flap), borderColor: "#0284c7", backgroundColor: "#0284c7", tension: 0.2 }];
-      hourDatasets = [{ label: "3G Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["3G"].hours.toFixed(1))), borderColor: "#0284c7", backgroundColor: "#0284c7", tension: 0.2 }];
-    } else if (carrierFilter === "4G") {
-      flapDatasets = [{ label: "4G Combined Flaps", data: last7Dates.map(d => dayStats[d]["4G_TOT"].flap), borderColor: "#16a34a", backgroundColor: "#16a34a", tension: 0.2 }];
-      hourDatasets = [{ label: "4G Combined Hours", data: last7Dates.map(d => parseFloat(dayStats[d]["4G_TOT"].hours.toFixed(1))), borderColor: "#16a34a", backgroundColor: "#16a34a", tension: 0.2 }];
-    } else if (carrierFilter === "B01" || carrierFilter === "B28" || carrierFilter === "B41") {
-      const bColor = carrierFilter === "B01" ? "#0284c7" : (carrierFilter === "B28" ? "#16a34a" : "#d97706");
-      flapDatasets = [{ label: `${carrierFilter} Flaps`, data: last7Dates.map(d => dayStats[d][carrierFilter].flap), borderColor: bColor, backgroundColor: bColor, tension: 0.2 }];
-      hourDatasets = [{ label: `${carrierFilter} Hours`, data: last7Dates.map(d => parseFloat(dayStats[d][carrierFilter].hours.toFixed(1))), borderColor: bColor, backgroundColor: bColor, tension: 0.2 }];
-    }
-
-    const canvasFlap = document.getElementById("hist7DayFlapChart");
-    if (canvasFlap) {
-      if (hist7DayFlapChartInstance) hist7DayFlapChartInstance.destroy();
-      hist7DayFlapChartInstance = new Chart(canvasFlap.getContext("2d"), {
-        type: "line",
-        data: { labels: labels, datasets: flapDatasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: "top" }, datalabels: { display: false } },
-          scales: { y: { beginAtZero: true, title: { display: true, text: "Flap Count (<15m)" } } }
-        }
-      });
-    }
-
-    const canvasHour = document.getElementById("hist7DayHourChart");
-    if (canvasHour) {
-      if (hist7DayHourChartInstance) hist7DayHourChartInstance.destroy();
-      hist7DayHourChartInstance = new Chart(canvasHour.getContext("2d"), {
-        type: "line",
-        data: { labels: labels, datasets: hourDatasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: "top" }, datalabels: { display: false } },
-          scales: { y: { beginAtZero: true, title: { display: true, text: "Downtime (Hours)" } } }
-        }
-      });
-    }
-
-    // Render 7-Day Date Summary Table
-    const tbody = document.getElementById("hist-7day-summary-tbody");
-    if (tbody) {
-      let html = "";
-      last7Dates.forEach(d => {
-        const s = dayStats[d];
-        html += `
-          <tr>
-            <td><strong>${d}</strong></td>
-            <td class="num">${s["2G"].flap} flaps / ${s["2G"].hours.toFixed(1)}h</td>
-            <td class="num">${s["3G"].flap} flaps / ${s["3G"].hours.toFixed(1)}h</td>
-            <td class="num" style="color:#16a34a; font-weight:bold;">${s["4G_TOT"].flap} flaps / ${s["4G_TOT"].hours.toFixed(1)}h</td>
-            <td class="num" style="font-size:11px; color:#475569;">${s["B01"].flap}f/${s["B01"].hours.toFixed(1)}h | ${s["B28"].flap}f/${s["B28"].hours.toFixed(1)}h | ${s["B41"].flap}f/${s["B41"].hours.toFixed(1)}h</td>
-            <td class="num" style="color:var(--secondary); font-weight:bold;">${s.TOT_FLAP.toLocaleString()}</td>
-            <td class="num" style="color:#dc2626; font-weight:bold;">${s.TOT_HOURS.toFixed(1)} Hr</td>
-          </tr>`;
-      });
-      tbody.innerHTML = html;
-    }
-
-    // Render Filtered Sites Verification Table
-    const sitesTbody = document.getElementById("hist-7day-sites-tbody");
-    const countBadge = document.getElementById("graph-sites-count");
-    const matchedSitesList = Object.values(matchedSitesMap).sort((a,b) => b.totFlap - a.totFlap || b.totHours - a.totHours);
-
-    if (countBadge) countBadge.innerText = matchedSitesList.length.toLocaleString();
-    if (sitesTbody) {
-      if (matchedSitesList.length === 0) {
-        sitesTbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:18px; color:#64748b;">No sites matched the active filter or search query.</td></tr>`;
-      } else {
-        let sHtml = "";
-        const displayLimit = Math.min(matchedSitesList.length, 100);
-        for (let i = 0; i < displayLimit; i++) {
-          const s = matchedSitesList[i];
-          sHtml += `
-            <tr>
-              <td><strong>${s.btsIp}</strong></td>
-              <td>${s.siteName}</td>
-              <td>${s.ssa}</td>
-              <td><span class="badge-media">${s.media}</span></td>
-              <td><strong>${s.l1}</strong></td>
-              <td class="num">${s.f2G} / ${s.h2G.toFixed(1)}h</td>
-              <td class="num">${s.f3G} / ${s.h3G.toFixed(1)}h</td>
-              <td class="num" style="color:#16a34a;">${s.f4G} / ${s.h4G.toFixed(1)}h</td>
-              <td class="num" style="color:var(--secondary); font-weight:bold;">${s.totFlap}</td>
-              <td class="num" style="color:#dc2626; font-weight:bold;">${s.totHours.toFixed(1)}h</td>
-            </tr>`;
-        }
-        if (matchedSitesList.length > 100) {
-          sHtml += `<tr><td colspan="10" style="text-align:center; font-size:11px; color:#64748b; padding:8px;">Showing top 100 of ${matchedSitesList.length.toLocaleString()} matching sites.</td></tr>`;
-        }
-        sitesTbody.innerHTML = sHtml;
-      }
-    }
-  }
-  window.render7DayHistoryGraphs = render7DayHistoryGraphs;
-
-  function share7DayTrendWhatsApp() {
-    if (!cached7DayAgg || cached7DayAgg.length === 0) {
-      alert("No 7-day data to share.");
+    if (candidateNodes.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">✅ Excellent! No sites found with ${minDays}+ consecutive days of chronic ${mode.toLowerCase()}.</td></tr>`;
       return;
     }
-    const ssaFilter = document.getElementById("graph-ssa-select").value;
 
-    let msg = `*📈 J&K CM 7-Day History Alarm Trend Summary*\n`;
-    msg += `*Scope:* ${ssaFilter === 'ALL' ? 'Circle-Wide' : ssaFilter}\n\n`;
+    let html = "";
+    candidateNodes.forEach((r, idx) => {
+      html += `
+        <tr>
+          <td style="text-align:center;"><span class="badge-rank">#${idx + 1}</span></td>
+          <td><strong>${r.btsIp}</strong></td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td><span class="badge-media">${r.media}</span></td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.streak} Days</td>
+          <td class="num" style="font-weight:600;">${mode === 'FLAP' ? r.metricSum : r.metricSum.toFixed(1) + 'h'}</td>
+          <td style="font-size:12px; color:#334155; font-family:monospace;">${r.breakdown}</td>
+          <td><strong>${r.l1}</strong></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runChronicStreakAnalysis = runChronicStreakAnalysis;
 
-    cached7DayAgg.forEach(s => {
-      msg += `📅 *${s.date}*:\n`;
-      msg += `   • 2G: ${s["2G"].flap} flaps / ${s["2G"].hours.toFixed(1)}h\n`;
-      msg += `   • 3G: ${s["3G"].flap} flaps / ${s["3G"].hours.toFixed(1)}h\n`;
-      msg += `   • 4G Total: *${s["4G_TOT"].flap} flaps / ${s["4G_TOT"].hours.toFixed(1)}h*\n`;
-      msg += `   • Combined: *${s.TOT_FLAP} flaps | ${s.TOT_HOURS.toFixed(1)}h down*\n\n`;
+  function shareChronicAlertWhatsApp() {
+    if (!chronicRecordsCache || chronicRecordsCache.length === 0) {
+      alert("No chronic records to share.");
+      return;
+    }
+    const mode = document.getElementById("chronic-mode-select").value;
+    const minDays = document.getElementById("chronic-days-threshold").value;
+    const ssaFilter = document.getElementById("chronic-ssa-select").value;
+
+    let msg = `*🔁 J&K CM Chronic Consecutive Outage Alert*\n`;
+    msg += `*Issue Type:* ${mode === 'FLAP' ? 'Chronic Flapping' : 'Chronic Hard Downtime'}\n`;
+    msg += `*Condition:* Consecutive ${minDays}+ Days Failure | *Scope:* ${ssaFilter === 'ALL' ? 'Circle-Wide' : ssaFilter}\n`;
+    msg += `*Total Affected Physical Nodes:* ${chronicRecordsCache.length}\n\n`;
+
+    chronicRecordsCache.slice(0, 15).forEach((r, i) => {
+      msg += `${i + 1}. *${r.btsIp}* [${r.siteName}] (${r.ssa})\n`;
+      msg += `   • Streak: *${r.streak} Days* | Media: ${r.media} | L1: ${r.l1}\n`;
+      msg += `   • History: _${r.breakdown}_\n\n`;
     });
 
+    if (chronicRecordsCache.length > 15) {
+      msg += `_...and ${chronicRecordsCache.length - 15} more chronic sites._\n\n`;
+    }
+
+    msg += `These sites suffer chronic daily recurrence. Immediate field inspection of power, battery autonomy, or transmission is requested.\n\n`;
     msg += getClosingSignature(ssaFilter);
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
-  window.share7DayTrendWhatsApp = share7DayTrendWhatsApp;
+  window.shareChronicAlertWhatsApp = shareChronicAlertWhatsApp;
 
-  function export7DayTrendExcel() {
-    if (!cached7DayAgg || cached7DayAgg.length === 0) return;
-    const ssaFilter = document.getElementById("graph-ssa-select").value;
-    const ws = XLSX.utils.json_to_sheet(cached7DayAgg.map(s => ({
-      "Date": s.date,
-      "2G Flap Count": s["2G"].flap,
-      "2G Down Hours": parseFloat(s["2G"].hours.toFixed(2)),
-      "3G Flap Count": s["3G"].flap,
-      "3G Down Hours": parseFloat(s["3G"].hours.toFixed(2)),
-      "4G Total Flap Count": s["4G_TOT"].flap,
-      "4G Total Down Hours": parseFloat(s["4G_TOT"].hours.toFixed(2)),
-      "4G B01 Flaps": s["B01"].flap,
-      "4G B01 Hours": parseFloat(s["B01"].hours.toFixed(2)),
-      "4G B28 Flaps": s["B28"].flap,
-      "4G B28 Hours": parseFloat(s["B28"].hours.toFixed(2)),
-      "4G B41 Flaps": s["B41"].flap,
-      "4G B41 Hours": parseFloat(s["B41"].hours.toFixed(2)),
-      "Total Combined Flaps": s.TOT_FLAP,
-      "Total Combined Down Hours": parseFloat(s.TOT_HOURS.toFixed(2))
+  function exportChronicExcel() {
+    if (!chronicRecordsCache || chronicRecordsCache.length === 0) return;
+    const mode = document.getElementById("chronic-mode-select").value;
+    const ws = XLSX.utils.json_to_sheet(chronicRecordsCache.map((r, i) => ({
+      "Rank": i + 1,
+      "BTS IP ID": r.btsIp,
+      "Site Name": r.siteName,
+      "SSA": r.ssa,
+      "Media": r.media,
+      "Consecutive Streak (Days)": r.streak,
+      "Metric Sum": r.metricSum,
+      "Daily History": r.breakdown,
+      "Site In-Charge (L1)": r.l1
     })));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "7Day_History_Trends");
-    XLSX.writeFile(wb, `7Day_Alarm_Trend_${ssaFilter}_Report.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Chronic_Streaks");
+    XLSX.writeFile(wb, `Chronic_${mode}_Streak_Sites.xlsx`);
   }
-  window.export7DayTrendExcel = export7DayTrendExcel;
+  window.exportChronicExcel = exportChronicExcel;
 
-  function capture7DayGraphScreenshot() {
-    const elem = document.getElementById("hist-graph-section");
+  function captureChronicScreenshot() {
+    const elem = document.getElementById("hist-chronic-section");
     if (!elem) return;
     html2canvas(elem, { scale: 2 }).then(canvas => {
       const link = document.createElement("a");
-      link.download = `7Day_History_Alarm_Trends_${Date.now()}.png`;
+      link.download = `Chronic_Streak_Sites_${Date.now()}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     });
   }
-  window.capture7DayGraphScreenshot = capture7DayGraphScreenshot;
+  window.captureChronicScreenshot = captureChronicScreenshot;
 
   // =========================================================================
   // MODULE 5: DOWN SITES TRACKER ENGINE
@@ -3125,7 +4888,7 @@
   window.shareNotUpdatedDetailedWhatsApp = shareNotUpdatedDetailedWhatsApp;
 
   function shareNotUpdatedSummaryWhatsApp() {
-    const rows = window.currentNotUpdatedRows || [];
+    const rows = window.currentInfoSummaryRows || [];
     const ssaElem = document.getElementById("notupdated-ssa-select");
     const chosenSsa = ssaElem ? ssaElem.value : "ALL";
     if (rows.length === 0) {
@@ -3134,13 +4897,13 @@
     }
 
     let totAll = 0, totNotUpdated = 0;
-    rows.forEach(r => { totAll += r.total; totNotUpdated += r.notUpdated; });
+    (window.currentNotUpdatedRows || []).forEach(r => { totAll += r.total; totNotUpdated += r.notUpdated; });
 
     let msg = `*J&K CNMC fault_type/Remarks not Updated (Summary Count)*\n`;
     msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n`;
     msg += `*Total Down Sites:* ${totAll} | *Reason Pending:* ${totNotUpdated}\n\n`;
 
-    rows.forEach(r => {
+    (window.currentNotUpdatedRows || []).forEach(r => {
       if (r.notUpdated > 0) {
         msg += `• *${r.entity}* (${r.ssa}): ${r.notUpdated} of ${r.total} Pending\n`;
       }
