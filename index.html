@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J&K CM Operations Portal & Alarm Analytics</title>
 
-  <!-- PWA Metadata & Standards-Compliant Encoded Manifest (No Syntax Errors) -->
+  <!-- PWA Metadata & Standards-Compliant Encoded Manifest -->
   <meta name="theme-color" content="#003366">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -631,7 +631,6 @@
     <div class="sub-tabs">
       <button class="sub-tab-btn active" onclick="switchHistSubTab('hist-daily-view', this)">⏱️ 1. Daily Multi-Band Tracker</button>
       <button class="sub-tab-btn" onclick="switchHistSubTab('hist-chronic-view', this)">🔁 2. Chronic 3+ Days Flap & Outage Tracker</button>
-      <button class="sub-tab-btn" onclick="switchHistSubTab('hist-graph-view', this)">📈 3. 7-Day Trend Graphs (2G / 3G / 4G)</button>
     </div>
 
     <!-- SUB-VIEW 4(i): DAILY MULTI-BAND TRACKER -->
@@ -796,110 +795,6 @@
         </div>
       </div>
     </div>
-
-    <!-- SUB-VIEW 4(iii): 7-DAY TREND GRAPHS -->
-    <div class="hist-sub-section" id="hist-graph-view" style="display: none;">
-      <div class="section" id="hist-graph-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-          <div>
-            <h2 style="margin: 0; color: var(--primary);">📈 7-Day History Alarm Analytics (2G vs. 3G vs. 4G Separate Trends)</h2>
-            <span style="font-size: 12px; color: #64748b;">Daily Flap counts and Down Hours tracked separately per carrier technology</span>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-whatsapp btn-sm admin-only" onclick="share7DayTrendWhatsApp()">💬 Share 7-Day Summary</button>
-            <button class="btn btn-camera btn-sm" onclick="capture7DayGraphScreenshot()">📷 Screenshot</button>
-            <button class="btn btn-green btn-sm" onclick="export7DayTrendExcel()">📥 Export Excel</button>
-          </div>
-        </div>
-
-        <div class="toolbar">
-          <div class="toolbar-group">
-            <label for="graph-ssa-select"><strong>SSA Scope:</strong></label>
-            <select id="graph-ssa-select" onchange="render7DayHistoryGraphs()"><option value="ALL">All SSAs (Circle View)</option></select>
-          </div>
-          <div class="toolbar-group">
-            <label for="graph-carrier-filter"><strong>Display Bands:</strong></label>
-            <select id="graph-carrier-filter" onchange="render7DayHistoryGraphs()">
-              <option value="ALL" selected>All Technologies (2G, 3G, 4G Total)</option>
-              <option value="SPLIT_4G">4G Split (B01, B28, B41 separately)</option>
-              <option value="2G">2G Only</option>
-              <option value="3G">3G Only</option>
-              <option value="4G">4G Total Only</option>
-              <option value="B01">4G B01 Only</option>
-              <option value="B28">4G B28 Only</option>
-              <option value="B41">4G B41 Only</option>
-            </select>
-          </div>
-          <div class="toolbar-group" style="flex: 1; min-width: 220px;">
-            <input type="text" id="graph-node-search" placeholder="Search Site Name / IP / L1 In-charge..." oninput="render7DayHistoryGraphs()" style="width: 100%;">
-          </div>
-        </div>
-
-        <div class="kpi-container" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-          <div class="kpi-card"><div class="title">7-Day Total 2G Flaps / Hours</div><div class="value" id="kpi-7d-2g" style="color: #64748b;">-</div></div>
-          <div class="kpi-card"><div class="title">7-Day Total 3G Flaps / Hours</div><div class="value" id="kpi-7d-3g" style="color: #0284c7;">-</div></div>
-          <div class="kpi-card"><div class="title">7-Day Total 4G Flaps / Hours</div><div class="value" id="kpi-7d-4g" style="color: #16a34a;">-</div></div>
-          <div class="kpi-card"><div class="title">7-Day Cumulative Flaps</div><div class="value" id="kpi-7d-flaps" style="color: var(--secondary);">-</div></div>
-          <div class="kpi-card"><div class="title">7-Day Cumulative Outage</div><div class="value" id="kpi-7d-hours" style="color: #dc2626;">-</div></div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 16px; margin-bottom: 20px;">
-          <div class="section" style="margin-bottom: 0; padding: 14px;">
-            <h2 style="font-size: 15px; color: var(--secondary);">⚡ Daily Flap Count Trend (Last 7 Days)</h2>
-            <div style="position: relative; height: 300px;"><canvas id="hist7DayFlapChart"></canvas></div>
-          </div>
-          <div class="section" style="margin-bottom: 0; padding: 14px;">
-            <h2 style="font-size: 15px; color: #dc2626;">⏱️ Daily Outage Duration Trend (Hours - Last 7 Days)</h2>
-            <div style="position: relative; height: 300px;"><canvas id="hist7DayHourChart"></canvas></div>
-          </div>
-        </div>
-
-        <!-- 7-DAY SUMMARY BREAKDOWN TABLE -->
-        <div class="table-container" style="margin-bottom: 20px;">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th class="num" style="color:#64748b; font-weight:bold;">2G Flap / Hours</th>
-                <th class="num" style="color:#0284c7; font-weight:bold;">3G Flap / Hours</th>
-                <th class="num" style="color:#16a34a; font-weight:bold;">4G Total (B01+B28+B41)</th>
-                <th class="num" style="font-size:11px; color:#64748b;">4G Breakdown (B01 / B28 / B41)</th>
-                <th class="num" style="color:var(--secondary); font-weight:bold;">Combined Daily Flaps</th>
-                <th class="num" style="color:#dc2626; font-weight:bold;">Combined Daily Down Hours</th>
-              </tr>
-            </thead>
-            <tbody id="hist-7day-summary-tbody"></tbody>
-          </table>
-        </div>
-
-        <!-- VERIFICATION TABLE: MATCHED SITES IN 7-DAY SCOPE -->
-        <div style="background: white; border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h3 style="font-size:14px; margin:0; color:var(--primary);">🎯 Filtered Sites in 7-Day Scope (<span id="graph-sites-count">0</span> sites matched)</h3>
-            <span style="font-size:12px; color:#64748b;">Inspect sites actively contributing to graph trends</span>
-          </div>
-          <div class="table-container" style="max-height:340px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>BTS IP ID</th>
-                  <th>Site Name</th>
-                  <th>SSA</th>
-                  <th>Media</th>
-                  <th>Site In-Charge (L1)</th>
-                  <th class="num" style="color:#64748b;">2G Flap / Hours</th>
-                  <th class="num" style="color:#0284c7;">3G Flap / Hours</th>
-                  <th class="num" style="color:#16a34a;">4G Total (Flap/Hr)</th>
-                  <th class="num" style="color:var(--secondary); font-weight:bold;">Total 7D Flaps</th>
-                  <th class="num" style="color:#dc2626; font-weight:bold;">Total 7D Down (Hr)</th>
-                </tr>
-              </thead>
-              <tbody id="hist-7day-sites-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- MODULE 5: DOWN SITES TRACKER -->
@@ -1010,14 +905,15 @@
       </div>
     </div>
 
-    <!-- SUB-VIEW 4: REASON NOT UPDATED TRACKER -->
+    <!-- SUB-VIEW 4: REASON NOT UPDATED TRACKER (WITH RAPID DISPATCH ACTION) -->
     <div class="down-sub-section" id="down-notupdated-view" style="display: none;">
       <div class="section" id="down-notupdated-section">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-          <div><h2 style="margin:0; color:#ea580c;">Reason Not Updated Tracker</h2><span style="font-size:12px; color:#64748b;">Identify sites missing fault causes for urgent follow-up</span></div>
-          <div style="display:flex; gap:8px;">
+          <div><h2 style="margin:0; color:#ea580c;">Reason Not Updated Tracker</h2><span style="font-size:12px; color:#64748b;">Identify sites missing fault causes for urgent follow-up (> 2 Hours)</span></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-alert btn-sm admin-only" onclick="openL1DispatchModal()">⚡ WhatsApp L1 Queue (>2h)</button>
             <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareNotUpdatedDetailedWhatsApp()">💬 Share Details on WhatsApp</button>
-            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareNotUpdatedSummaryWhatsApp()">💬 Share Summary Count on WhatsApp</button>
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareNotUpdatedSummaryWhatsApp()">💬 Share Summary Count</button>
             <button class="btn btn-camera btn-sm" onclick="captureNotUpdatedScreenshot()">📷 Screenshot</button>
             <button class="btn btn-green btn-sm" onclick="exportNotUpdatedExcel()">📥 Export Excel</button>
           </div>
@@ -1028,7 +924,17 @@
         </div>
         <div class="table-container" id="down-notupdated-table-container">
           <table>
-            <thead><tr><th id="notupdated-group-header">Officer / Entity</th><th>SSA</th><th class="num">Total Down Sites</th><th class="num" style="color:#16a34a; font-weight:600;">Reason Updated</th><th class="num" style="color:#dc2626; font-weight:bold;">Reason Not Updated</th><th class="num" style="color:#dc2626; font-weight:bold;">% Not Updated</th></tr></thead>
+            <thead>
+              <tr>
+                <th id="notupdated-group-header">Officer / Entity</th>
+                <th>SSA</th>
+                <th class="num">Total Down Sites</th>
+                <th class="num" style="color:#16a34a; font-weight:600;">Reason Updated</th>
+                <th class="num" style="color:#dc2626; font-weight:bold;">Reason Not Updated</th>
+                <th class="num" style="color:#dc2626; font-weight:bold;">% Not Updated</th>
+                <th style="text-align:center;">WhatsApp Alert</th>
+              </tr>
+            </thead>
             <tbody id="down-notupdated-tbody"></tbody>
           </table>
         </div>
@@ -1117,6 +1023,22 @@
   </div>
 </div>
 
+<!-- L1 RAPID WHATSAPP DISPATCH MODAL -->
+<div class="modal-overlay" id="l1-dispatch-modal">
+  <div class="modal-card" style="max-width: 650px;">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin:0; color:var(--primary);">⚡ L1 CNMC Reason Reminder Queue (> 2 Hrs Down)</h3>
+        <span id="dispatch-progress-label" style="font-size: 12px; color: #64748b;">0 officers pending</span>
+      </div>
+      <button class="close-btn" onclick="closeL1DispatchModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 18px;">
+      <div id="dispatch-queue-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    </div>
+  </div>
+</div>
+
 <script>
   Chart.register(ChartDataLabels);
 
@@ -1155,11 +1077,6 @@
 
   // Module 4 Chronic Streak Cache
   let chronicRecordsCache = [];
-
-  // Module 4(iii) 7-Day Graph Instances & Caches
-  let hist7DayFlapChartInstance = null;
-  let hist7DayHourChartInstance = null;
-  let cached7DayAgg = [];
 
   let downRawRecords = [];
   let downFilteredRecords = [];
@@ -1481,8 +1398,6 @@
 
     if (viewId === "hist-chronic-view") {
       setTimeout(() => runChronicStreakAnalysis(), 50);
-    } else if (viewId === "hist-graph-view") {
-      setTimeout(() => render7DayHistoryGraphs(), 50);
     } else {
       setTimeout(() => renderHistoryAlarmTable(), 50);
     }
@@ -1626,7 +1541,6 @@
     const searchElem = document.getElementById("zerodata-search-input");
     const searchVal = safeStr(searchElem ? searchElem.value : "").toLowerCase();
 
-    // Filter cohort based on active SSA, L1, L2, and Search criteria first
     const filteredCohort = dbnRawRecords.filter(r => {
       if (r.reportDate !== targetDate) return false;
       if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return false;
@@ -1665,7 +1579,6 @@
     zeroDataCandidates.sort((a, b) => b.avail - a.avail);
     zeroDataDisplayRecords = zeroDataCandidates;
 
-    // Dynamically update KPI cards
     const elTot = document.getElementById("zerodata-kpi-total"); if (elTot) elTot.innerText = total4GSites.toLocaleString();
     const elCnt = document.getElementById("zerodata-kpi-count"); if (elCnt) elCnt.innerText = totalZeroFiltered.toLocaleString();
     const elDbn = document.getElementById("zerodata-kpi-dbn"); if (elDbn) elDbn.innerText = zeroDbn.toLocaleString();
@@ -2275,7 +2188,7 @@
 
       const key = r.ssa + "____" + officer;
       if (!inchargeMap[key]) {
-        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, lt90: 0 };
+        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0 };
       }
       inchargeMap[key].total++;
       if (r.bucket === ">=98%") inchargeMap[key].gte98++;
@@ -3274,12 +3187,12 @@
     if (l1Select) {
       l1Select.innerHTML = '<option value="ALL">All L1 Officers</option>';
       Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
-      if (curL1 && Array.from(l1Select.options).some(o => o.value === curL1)) l1Select.value = curL1;
+      if (curL1 && Array.from(l1Select.options).some(o => o.value === currentL1)) l1Select.value = currentL1;
     }
     if (l2Select) {
       l2Select.innerHTML = '<option value="ALL">All L2 Officers</option>';
       Array.from(l2Set).sort().forEach(l => l2Select.innerHTML += `<option value="${l}">${l}</option>`);
-      if (curL2 && Array.from(l2Select.options).some(o => o.value === curL2)) l2Select.value = curL2;
+      if (curL2 && Array.from(l2Select.options).some(o => o.value === currentL2)) l2Select.value = currentL2;
     }
   }
 
@@ -3887,6 +3800,42 @@
     tbody.innerHTML = htmlBuffer;
   }
   window.renderHistoryAlarmTable = renderHistoryAlarmTable;
+
+  function shareHistoryAlarmAlertWhatsApp() {
+    if (!currentHistRows || currentHistRows.length === 0) {
+      alert("No history alarm records available for alert.");
+      return;
+    }
+    const dElem = document.getElementById("hist-date-select");
+    const d = dElem ? dElem.value : "";
+    const ssaElem = document.getElementById("hist-ssa-select");
+    const ssa = ssaElem ? ssaElem.value : "ALL";
+
+    const ssaGroups = {};
+    currentHistRows.forEach(r => {
+      const s = r.ssa || "Unknown";
+      if (!ssaGroups[s]) ssaGroups[s] = [];
+      ssaGroups[s].push(r);
+    });
+
+    let msg = `*🚨 Critical Flapping Sites Alert (${d})*\n`;
+    msg += `*Scope:* ${ssa === 'ALL' ? 'Circle-Wide' : ssa}\n\n`;
+
+    Object.keys(ssaGroups).sort().forEach(s => {
+      const sites = ssaGroups[s].sort((a,b) => b.totFlap - a.totFlap).slice(0, 5);
+      msg += `📍 *${s} OA (Top 5 Chronic Flapping Sites):*\n`;
+      sites.forEach((site, idx) => {
+        msg += `   ${idx + 1}. *${site.siteName}* - Flaps: *${site.totFlap}* | Media: *${site.media}* | Down: ${site.totHours.toFixed(1)}h [L1: ${site.l1}]\n`;
+      });
+      msg += `\n`;
+    });
+
+    msg += `Kindly check Power/Media loss first then BTS/eNB hardware.\n\n`;
+    msg += getClosingSignature(ssa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareHistoryAlarmAlertWhatsApp = shareHistoryAlarmAlertWhatsApp;
 
   function shareHistoryAlarmWhatsApp() {
     if (!currentHistRows || currentHistRows.length === 0) {
@@ -4782,6 +4731,37 @@
   }
   window.shareHealthyDownSummarySsaWhatsApp = shareHealthyDownSummarySsaWhatsApp;
 
+  // =========================================================================
+  // REASON NOT UPDATED ENGINE (TABLE, ALERT BUTTONS & DISPATCH QUEUE)
+  // =========================================================================
+  function getPendingL1ReasonList() {
+    const pendingByL1 = {};
+
+    (downRawRecords || []).forEach(r => {
+      if (r.durationMinutes >= 120 && (r.faultType === "Reason not updated" || !r.faultType || r.faultType === "-")) {
+        const l1Name = cleanL1(r.incharge, "Unassigned");
+        if (l1Name === "Unassigned") return;
+
+        if (!pendingByL1[l1Name]) {
+          pendingByL1[l1Name] = {
+            officer: l1Name,
+            phone: extractPhoneNumber(l1Name),
+            ssa: r.ssa || "-",
+            sites: []
+          };
+        }
+        pendingByL1[l1Name].sites.push({
+          name: r.btsName,
+          id: r.siteId,
+          duration: r.downPeriod,
+          device: r.deviceType
+        });
+      }
+    });
+
+    return Object.values(pendingByL1).sort((a, b) => b.sites.length - a.sites.length);
+  }
+
   function renderNotUpdatedTable() {
     const tbody = document.getElementById("down-notupdated-tbody");
     const groupHeader = document.getElementById("notupdated-group-header");
@@ -4825,7 +4805,7 @@
     if (!tbody) return;
 
     if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">All down sites have updated fault reasons!</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">All down sites have updated fault reasons!</td></tr>`;
       return;
     }
 
@@ -4836,12 +4816,18 @@
       totAll += r.total; totUpdated += r.updated; totNotUpdated += r.notUpdated;
       const pctNotUpdated = r.total > 0 ? ((r.notUpdated / r.total) * 100).toFixed(1) : "0.0";
 
+      const canAlert = (groupBy === "L1" && r.entity !== "Unassigned" && r.notUpdated > 0);
+      const alertBtn = canAlert
+        ? `<button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSingleNotUpdatedL1WhatsApp('${r.entity.replace(/'/g, "\\'")}', '${r.ssa}')">💬 Alert L1</button>`
+        : `<span style="color:#94a3b8; font-size:11px;">-</span>`;
+
       htmlBuffer += `
         <tr>
           <td><strong>${r.entity}</strong></td><td>${r.ssa}</td><td class="num"><strong>${r.total}</strong></td>
           <td class="num" style="color:#16a34a; font-weight:600;">${r.updated}</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">${r.notUpdated}</td>
           <td class="num" style="color:#dc2626; font-weight:bold;">${pctNotUpdated}%</td>
+          <td style="text-align:center;">${alertBtn}</td>
         </tr>`;
     });
 
@@ -4852,10 +4838,124 @@
         <td class="num">${totAll}</td><td class="num" style="color:#16a34a;">${totUpdated}</td>
         <td class="num" style="color:#dc2626;">${totNotUpdated}</td>
         <td class="num" style="color:#dc2626;">${overallPctNotUpdated}%</td>
+        <td style="text-align:center;">-</td>
       </tr>`;
     tbody.innerHTML = htmlBuffer;
   }
   window.renderNotUpdatedTable = renderNotUpdatedTable;
+
+  function shareSingleNotUpdatedL1WhatsApp(officerName, ssaName) {
+    const sites = (downRawRecords || []).filter(r => {
+      return r.incharge === officerName && (r.faultType === "Reason not updated" || !r.faultType || r.faultType === "-");
+    });
+
+    if (sites.length === 0) {
+      alert(`No pending un-updated sites found for ${officerName}.`);
+      return;
+    }
+
+    let msg = `*⚠️ URGENT: CNMC Fault Reason Update Required*\n\n`;
+    msg += `Dear *${officerName}* (${ssaName}),\n`;
+    msg += `The following *${sites.length} site(s)* under your charge are down without fault reason updated in CNMC:\n\n`;
+
+    sites.forEach((s, idx) => {
+      msg += `${idx + 1}. *${s.btsName}* (${s.siteId})\n   • Outage Duration: *${s.downPeriod}*\n   • Tech: ${s.deviceType}\n`;
+    });
+
+    msg += `\n👉 Kindly log in to CNMC and update the fault category & remarks immediately for sites down > 2 hours.\n\n`;
+    msg += getClosingSignature(ssaName);
+
+    const phone = extractPhoneNumber(officerName);
+    const url = phone 
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+    window.open(url, "_blank");
+  }
+  window.shareSingleNotUpdatedL1WhatsApp = shareSingleNotUpdatedL1WhatsApp;
+
+  function openL1DispatchModal() {
+    const list = getPendingL1ReasonList();
+    const container = document.getElementById("dispatch-queue-container");
+    const progressLabel = document.getElementById("dispatch-progress-label");
+    if (!container) return;
+
+    if (list.length === 0) {
+      alert("All down sites (> 2 hrs) have their reasons updated in CNMC!");
+      return;
+    }
+
+    progressLabel.innerText = `${list.length} Officers Pending (> 2 Hrs Down)`;
+    let html = "";
+
+    list.forEach((item, idx) => {
+      const siteListText = item.sites.map(s => `• ${s.name} (${s.duration})`).join("<br>");
+      const phoneBadge = item.phone ? `<span style="font-size:11px; color:#16a34a; font-weight:600;">📱 ${item.phone}</span>` : `<span style="font-size:11px; color:#dc2626;">No Phone</span>`;
+
+      html += `
+        <div id="dispatch-card-${idx}" style="border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: white; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <strong style="color: var(--primary); font-size: 14px;">${item.officer}</strong>
+              <span style="font-size: 12px; color: #64748b;">(${item.ssa})</span>
+              ${phoneBadge}
+            </div>
+            <div style="font-size: 12px; color: #b91c1c; margin-top: 5px; line-height: 1.4;">${siteListText}</div>
+          </div>
+          <div>
+            <button class="btn btn-whatsapp btn-sm" onclick="sendIndividualL1WhatsApp(${idx})">
+              💬 Alert (${item.sites.length})
+            </button>
+          </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+    window.currentDispatchList = list;
+    const modal = document.getElementById("l1-dispatch-modal");
+    if (modal) modal.style.display = "flex";
+  }
+  window.openL1DispatchModal = openL1DispatchModal;
+
+  function sendIndividualL1WhatsApp(idx) {
+    if (!window.currentDispatchList || !window.currentDispatchList[idx]) return;
+    const item = window.currentDispatchList[idx];
+
+    let msg = `*⚠️ URGENT: CNMC Fault Reason Update Required*\n\n`;
+    msg += `Dear *${item.officer}* (${item.ssa}),\n`;
+    msg += `The following *${item.sites.length} site(s)* under your charge are down for *more than 2 hours* without fault reason updated in CNMC:\n\n`;
+
+    item.sites.forEach((s, i) => {
+      msg += `${i + 1}. *${s.name}* (${s.id})\n   • Outage Duration: *${s.duration}*\n   • Tech: ${s.device}\n`;
+    });
+
+    msg += `\n👉 Kindly log in to CNMC and update the fault category & remarks immediately.\n\n`;
+    msg += getClosingSignature(item.ssa);
+
+    const url = item.phone 
+      ? `https://api.whatsapp.com/send?phone=${item.phone}&text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+    window.open(url, "_blank");
+
+    const card = document.getElementById(`dispatch-card-${idx}`);
+    if (card) {
+      card.style.background = "#f0fdf4";
+      card.style.borderColor = "#86efac";
+      const btn = card.querySelector("button");
+      if (btn) {
+        btn.className = "btn btn-green btn-sm";
+        btn.innerHTML = "✓ Sent";
+      }
+    }
+  }
+  window.sendIndividualL1WhatsApp = sendIndividualL1WhatsApp;
+
+  function closeL1DispatchModal() {
+    const modal = document.getElementById("l1-dispatch-modal");
+    if (modal) modal.style.display = "none";
+  }
+  window.closeL1DispatchModal = closeL1DispatchModal;
 
   function shareNotUpdatedDetailedWhatsApp() {
     const ssaElem = document.getElementById("notupdated-ssa-select");
@@ -4888,7 +4988,7 @@
   window.shareNotUpdatedDetailedWhatsApp = shareNotUpdatedDetailedWhatsApp;
 
   function shareNotUpdatedSummaryWhatsApp() {
-    const rows = window.currentInfoSummaryRows || [];
+    const rows = window.currentNotUpdatedRows || [];
     const ssaElem = document.getElementById("notupdated-ssa-select");
     const chosenSsa = ssaElem ? ssaElem.value : "ALL";
     if (rows.length === 0) {
@@ -4897,13 +4997,13 @@
     }
 
     let totAll = 0, totNotUpdated = 0;
-    (window.currentNotUpdatedRows || []).forEach(r => { totAll += r.total; totNotUpdated += r.notUpdated; });
+    rows.forEach(r => { totAll += r.total; totNotUpdated += r.notUpdated; });
 
     let msg = `*J&K CNMC fault_type/Remarks not Updated (Summary Count)*\n`;
     msg += `*Scope:* ${chosenSsa === 'ALL' ? 'Circle-Wide' : chosenSsa}\n`;
     msg += `*Total Down Sites:* ${totAll} | *Reason Pending:* ${totNotUpdated}\n\n`;
 
-    (window.currentNotUpdatedRows || []).forEach(r => {
+    rows.forEach(r => {
       if (r.notUpdated > 0) {
         msg += `• *${r.entity}* (${r.ssa}): ${r.notUpdated} of ${r.total} Pending\n`;
       }
@@ -4914,6 +5014,18 @@
     window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   }
   window.shareNotUpdatedSummaryWhatsApp = shareNotUpdatedSummaryWhatsApp;
+
+  function captureNotUpdatedScreenshot() {
+    const elem = document.getElementById("down-notupdated-section");
+    if (!elem) return;
+    html2canvas(elem, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `Reason_Not_Updated_Tracker_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureNotUpdatedScreenshot = captureNotUpdatedScreenshot;
 
   function exportNotUpdatedExcel() {
     const rows = window.currentNotUpdatedRows || [];
