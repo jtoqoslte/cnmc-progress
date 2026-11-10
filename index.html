@@ -3461,7 +3461,656 @@
     doc.autoTable({ startY: 55, head: [['#', 'Site ID', 'BTS Name', 'L1 Owner', 'Filled', 'Fill %', 'Missing Params']], body: rows, theme: 'striped', styles: { fontSize: 8 }, headStyles: { fillColor: [0, 51, 102] } });
     doc.save("CNMC_Report_" + title.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf");
   }
+// =========================================================================
+  // MODULE 4: HISTORY ALARM TRACKER LOGIC (MULTI-BAND & CHRONIC)
+  // =========================================================================
+  async function loadHistoryAlarmData() {
+    const status = document.getElementById("status-bar");
+    if (status) status.innerText = "Loading Static Master and History Alarm feeds...";
 
+    // 1. Ingest Static Master (Single Entry per Physical Tower)
+    await new Promise((resolve) => {
+      Papa.parse(STATIC_MASTER_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim(),
+        complete: function(res) {
+          staticMasterByIp = {};
+          siteIdToIpMap = {};
+
+          res.data.forEach(r => {
+            const ip = safeStr(r["BTS IP ID"] || r["bts_ip_id"] || r["BTS_IP_ID"]);
+            const siteId = safeStr(r["bts_site_id"] || r["btsSiteId"] || r["PHY_Site_ID"]);
+            const ipKey = normalizeIpKey(ip);
+            const sKey = normalizeIpKey(siteId);
+
+            if (ipKey && sKey) {
+              siteIdToIpMap[sKey] = ipKey;
+            }
+          });
+
+          res.data.forEach(r => {
+            const ip = safeStr(r["BTS IP ID"] || r["bts_ip_id"] || r["BTS_IP_ID"]);
+            const siteId = safeStr(r["bts_site_id"] || r["btsSiteId"] || r["PHY_Site_ID"]);
+            const btsType = safeStr(r["bts_type"] || r["btsType"]);
+            const btsName = safeStr(r["bts_name"] || r["BTS Name"]);
+            const siteName = safeStr(r["Site Name"] || r["site_name"] || btsName);
+            const ssa = safeStr(r["ssa_id"] || r["SSA"] || r["ssa_name"]);
+            const rowMedia = safeStr(r["Media"] || r["media"]) || "-";
+            const rowL1 = safeStr(r["L1"] || r["l1"]);
+
+            const ipKey = normalizeIpKey(ip);
+            const sKey = normalizeIpKey(siteId);
+            const nodeKey = ipKey || (sKey && siteIdToIpMap[sKey]) || sKey;
+
+            if (!nodeKey) return;
+
+            const band = detectBand(btsType, btsName, siteId);
+
+            let techPriority = 1;
+            if (band === "B01" || band === "B28" || band === "B41" || btsType.toUpperCase().includes("LTE") || btsType.toUpperCase().includes("4G")) {
+              techPriority = 3;
+            } else if (band === "3G" || btsType.toUpperCase().includes("UMTS")) {
+              techPriority = 2;
+            }
+
+            const resolvedL1 = cleanL1(rowL1, masterInchargeByIp[nodeKey] || (sKey ? masterInchargeByIp[sKey] : "") || "Unassigned");
+
+            if (!staticMasterByIp[nodeKey]) {
+              staticMasterByIp[nodeKey] = {
+                nodeKey: nodeKey,
+                btsIp: ip || siteId,
+                siteName: siteName,
+                ssa: ssa,
+                media: rowMedia,
+                mediaPriority: techPriority,
+                l1: resolvedL1,
+                installed: { "2G": false, "3G": false, "B01": false, "B28": false, "B41": false }
+              };
+            } else {
+              if (techPriority > staticMasterByIp[nodeKey].mediaPriority && rowMedia && rowMedia !== "-") {
+                staticMasterByIp[nodeKey].media = rowMedia;
+                staticMasterByIp[nodeKey].mediaPriority = techPriority;
+              }
+              if ((staticMasterByIp[nodeKey].l1 === "Unassigned" || staticMasterByIp[nodeKey].l1.toLowerCase().includes("error")) && resolvedL1 !== "Unassigned") {
+                staticMasterByIp[nodeKey].l1 = resolvedL1;
+              }
+            }
+
+            if (staticMasterByIp[nodeKey].installed[band] !== undefined) {
+              staticMasterByIp[nodeKey].installed[band] = true;
+            }
+          });
+
+          resolve(true);
+        },
+        error: function(err) {
+          console.error("Static master load error:", err);
+          resolve(false);
+        }
+      });
+    });
+
+    // 2. Ingest History Alarm Data
+    await new Promise((resolve) => {
+      Papa.parse(HISTORY_ALARM_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim(),
+        complete: function(res) {
+          alarmEvents = [];
+          const dateSet = new Set();
+
+          for (let k in masterHistoryDownHoursByIp) delete masterHistoryDownHoursByIp[k];
+          for (let k in masterHistoryDownHoursByDateAndIp) delete masterHistoryDownHoursByDateAndIp[k];
+          for (let k in master4GDownByDateAndIp) delete master4GDownByDateAndIp[k];
+
+          res.data.forEach(r => {
+            const rawDate = safeStr(r["Down_Date"] || r["Down Date"] || r["Date"] || r["down_date"]);
+            const date = normalizeDateStr(rawDate);
+            const siteId = safeStr(r["bts_site_id"] || r["btsSiteId"] || r["PHY_Site_ID"]);
+            const ipRaw = safeStr(r["BTS IP ID"] || r["btsIpId"] || r["BTS_IP_ID"]);
+            const btsType = safeStr(r["bts_type"] || r["btsType"]);
+            const btsName = safeStr(r["bts_name"] || r["BTS Name"]);
+
+            const flap = parseInt(r["Flap Count"] || r["FlapCount"] || r["flap_count"] || 0) || 0;
+            const major = parseInt(r["Major_Outage_Count"] || r["Major Outage Count"] || r["major_outage_count"] || 0) || 0;
+            const downTimes = parseInt(r["Total_Down_Times"] || r["Total Down Times"] || (flap + major)) || 0;
+            const downHours = parseFloat(r["Total_Down_Hours"] || r["Total Down Hours"] || r["down_hours"] || 0) || 0;
+
+            if (date) dateSet.add(date);
+
+            const canonicalKey = getCanonicalNodeKey(ipRaw, siteId);
+            if (!canonicalKey) return;
+
+            const band = detectBand(btsType, btsName, siteId);
+            alarmEvents.push({ date, ipKey: canonicalKey, band, flap, major, downTimes, downHours });
+
+            masterHistoryDownHoursByIp[canonicalKey] = (masterHistoryDownHoursByIp[canonicalKey] || 0) + downHours;
+
+            if (date) {
+              const dateKey = `${date}____${canonicalKey}`;
+              masterHistoryDownHoursByDateAndIp[dateKey] = (masterHistoryDownHoursByDateAndIp[dateKey] || 0) + downHours;
+
+              if (band === "B01" || band === "B28" || band === "B41") {
+                if (!master4GDownByDateAndIp[dateKey]) master4GDownByDateAndIp[dateKey] = {};
+                master4GDownByDateAndIp[dateKey][band] = (master4GDownByDateAndIp[dateKey][band] || 0) + downHours;
+              }
+            }
+          });
+
+          histDates = Array.from(dateSet).sort().reverse();
+          resolve(true);
+        },
+        error: function(err) {
+          console.error("History alarm load error:", err);
+          resolve(false);
+        }
+      });
+    });
+
+    const dSel = document.getElementById("hist-date-select");
+    if (dSel) {
+      dSel.innerHTML = "";
+      histDates.forEach(d => { dSel.innerHTML += `<option value="${d}">${d}</option>`; });
+    }
+
+    const sSel = document.getElementById("hist-ssa-select");
+    if (sSel) {
+      const ssaSet = new Set();
+      Object.values(staticMasterByIp).forEach(n => { if (n.ssa) ssaSet.add(n.ssa); });
+      sSel.innerHTML = '<option value="ALL">All SSAs</option>';
+      Array.from(ssaSet).sort().forEach(s => { sSel.innerHTML += `<option value="${s}">${s}</option>`; });
+    }
+
+    populateAlertControls();
+    historyAlarmLoaded = true;
+    renderHistoryAlarmTable();
+
+    if (dbnFilteredRecords && dbnFilteredRecords.length > 0) {
+      renderDbnDetailTable(dbnFilteredRecords);
+    }
+
+    if (status) status.innerText = `History Alarm Feed Active • Loaded ${Object.keys(staticMasterByIp).length} physical nodes • ${new Date().toLocaleTimeString()}`;
+  }
+  window.loadHistoryAlarmData = loadHistoryAlarmData;
+
+  function renderHistoryAlarmTable() {
+    const dElem = document.getElementById("hist-date-select");
+    const targetDate = normalizeDateStr(dElem ? dElem.value : "");
+    const ssaElem = document.getElementById("hist-ssa-select");
+    const targetSsa = ssaElem ? ssaElem.value : "ALL";
+    const techElem = document.getElementById("hist-tech-select");
+    const targetTech = techElem ? techElem.value : "ALL";
+    const flapElem = document.getElementById("hist-flap-filter");
+    const flapFilter = flapElem ? flapElem.value : "ALL";
+    const qElem = document.getElementById("hist-search-input");
+    const q = safeStr(qElem ? qElem.value : "").toLowerCase();
+
+    const alarmsByIp = {};
+    for (let i = 0; i < alarmEvents.length; i++) {
+      const ev = alarmEvents[i];
+      if (ev.date !== targetDate) continue;
+      if (!alarmsByIp[ev.ipKey]) {
+        alarmsByIp[ev.ipKey] = {
+          "2G": { flap: 0, major: 0, hours: 0, times: 0 },
+          "3G": { flap: 0, major: 0, hours: 0, times: 0 },
+          "B01": { flap: 0, major: 0, hours: 0, times: 0 },
+          "B28": { flap: 0, major: 0, hours: 0, times: 0 },
+          "B41": { flap: 0, major: 0, hours: 0, times: 0 }
+        };
+      }
+      if (alarmsByIp[ev.ipKey][ev.band]) {
+        alarmsByIp[ev.ipKey][ev.band].flap += ev.flap;
+        alarmsByIp[ev.ipKey][ev.band].major += ev.major;
+        alarmsByIp[ev.ipKey][ev.band].hours += ev.downHours;
+        alarmsByIp[ev.ipKey][ev.band].times += ev.downTimes;
+      }
+    }
+
+    const rows = [];
+    let kpiFlappers = 0, kpiMajor = 0, kpiHours = 0;
+    const ipKeys = Object.keys(staticMasterByIp);
+
+    for (let i = 0; i < ipKeys.length; i++) {
+      const ipKey = ipKeys[i];
+      const node = staticMasterByIp[ipKey];
+      if (targetSsa !== "ALL" && node.ssa !== targetSsa) continue;
+      if (targetTech !== "ALL" && !node.installed[targetTech]) continue;
+      
+      if (q && !node.btsIp.toLowerCase().includes(q) && !node.siteName.toLowerCase().includes(q) && !node.media.toLowerCase().includes(q) && !node.l1.toLowerCase().includes(q)) continue;
+
+      const alarm = alarmsByIp[ipKey] || null;
+
+      function evalSlot(band, metric, isFloat) {
+        if (!node.installed[band]) return "N/A";
+        if (!alarm || !alarm[band]) return isFloat ? "0.0" : "0";
+        const val = alarm[band][metric];
+        return isFloat ? val.toFixed(1) : String(val);
+      }
+
+      const f2G = evalSlot("2G", "flap", false), f3G = evalSlot("3G", "flap", false), fB01 = evalSlot("B01", "flap", false), fB28 = evalSlot("B28", "flap", false), fB41 = evalSlot("B41", "flap", false);
+      const m2G = evalSlot("2G", "major", false), m3G = evalSlot("3G", "major", false), mB01 = evalSlot("B01", "major", false), mB28 = evalSlot("B28", "major", false), mB41 = evalSlot("B41", "major", false);
+      const h2G = evalSlot("2G", "hours", true), h3G = evalSlot("3G", "hours", true), hB01 = evalSlot("B01", "hours", true), hB28 = evalSlot("B28", "hours", true), hB41 = evalSlot("B41", "hours", true);
+
+      let totFlap = 0, totMajor = 0, totHours = 0, totTimes = 0;
+      if (alarm) {
+        const bands = ["2G", "3G", "B01", "B28", "B41"];
+        for (let b = 0; b < bands.length; b++) {
+          const band = bands[b];
+          if (node.installed[band] && alarm[band]) {
+            totFlap += alarm[band].flap;
+            totMajor += alarm[band].major;
+            totHours += alarm[band].hours;
+            totTimes += alarm[band].times;
+          }
+        }
+      }
+
+      if (flapFilter === "GT0" && totFlap <= 0) continue;
+      if (flapFilter === "GT5" && totFlap <= 5) continue;
+      if (flapFilter === "GT10" && totFlap <= 10) continue;
+      if (flapFilter === "GT20" && totFlap <= 20) continue;
+      if (flapFilter === "GT50" && totFlap <= 50) continue;
+      if (flapFilter === "GT100" && totFlap <= 100) continue;
+      if (flapFilter === "GT150" && totFlap <= 150) continue;
+
+      if (totFlap > 0) kpiFlappers++;
+      if (totMajor > 0) kpiMajor++;
+      kpiHours += totHours;
+
+      const badges = Object.keys(node.installed).filter(b => node.installed[b]).map(b => `<span class="badge-tech">${b}</span>`).join(" ");
+
+      rows.push({
+        btsIp: node.btsIp,
+        siteName: node.siteName,
+        ssa: node.ssa,
+        media: node.media,
+        l1: node.l1,
+        badges: badges,
+        installedList: Object.keys(node.installed).filter(b => node.installed[b]).join(", "),
+        totFlap: totFlap,
+        flapStr: `${totFlap} <span class="band-sub">(${f2G}+${f3G}+${fB01}+${fB28}+${fB41})</span>`,
+        totMajor: totMajor,
+        majorStr: `${totMajor} <span class="band-sub">(${m2G}+${m3G}+${mB01}+${mB28}+${mB41})</span>`,
+        totHours: totHours,
+        hoursStr: `${totHours.toFixed(2)} <span class="band-sub">(${h2G}+${h3G}+${hB01}+${hB28}+${hB41})</span>`,
+        totTimes: totTimes
+      });
+    }
+
+    rows.sort((a,b) => b.totFlap - a.totFlap || b.totHours - a.totHours);
+    currentHistRows = rows;
+
+    const totalNodes = rows.length;
+    const flapPct = totalNodes > 0 ? ((kpiFlappers / totalNodes) * 100).toFixed(1) : "0.0";
+    const majorPct = totalNodes > 0 ? ((kpiMajor / totalNodes) * 100).toFixed(1) : "0.0";
+
+    const elTot = document.getElementById("hist-kpi-total"); if (elTot) elTot.innerText = totalNodes.toLocaleString();
+    const elFlap = document.getElementById("hist-kpi-flappers"); if (elFlap) elFlap.innerText = `${kpiFlappers.toLocaleString()} (${flapPct}%)`;
+    const elMaj = document.getElementById("hist-kpi-major"); if (elMaj) elMaj.innerText = `${kpiMajor.toLocaleString()} (${majorPct}%)`;
+    const elHr = document.getElementById("hist-kpi-hours"); if (elHr) elHr.innerText = kpiHours.toFixed(1) + " Hr";
+
+    const tbody = document.getElementById("hist-alarm-tbody");
+    if (!tbody) return;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">No matching physical nodes found for selected criteria.</td></tr>`;
+      return;
+    }
+
+    const displayLimit = Math.min(rows.length, 150);
+    let htmlBuffer = "";
+    for (let i = 0; i < displayLimit; i++) {
+      const r = rows[i];
+      htmlBuffer += `<tr>
+        <td><strong>${r.btsIp}</strong></td>
+        <td>${r.siteName}</td>
+        <td>${r.ssa}</td>
+        <td>${r.media}</td>
+        <td>${r.badges}</td>
+        <td class="num"><strong>${r.flapStr}</strong></td>
+        <td class="num"><strong>${r.majorStr}</strong></td>
+        <td class="num">${r.totTimes}</td>
+        <td class="num" style="color:${r.totHours > 0 ? '#dc2626' : 'inherit'};"><strong>${r.hoursStr}</strong></td>
+        <td>${r.l1}</td>
+      </tr>`;
+    }
+    tbody.innerHTML = htmlBuffer;
+  }
+  window.renderHistoryAlarmTable = renderHistoryAlarmTable;
+
+  function shareHistoryAlarmAlertWhatsApp() {
+    if (!currentHistRows || currentHistRows.length === 0) {
+      alert("No history alarm records available for alert.");
+      return;
+    }
+    const dElem = document.getElementById("hist-date-select");
+    const d = dElem ? dElem.value : "";
+    const ssaElem = document.getElementById("hist-ssa-select");
+    const ssa = ssaElem ? ssaElem.value : "ALL";
+
+    const ssaGroups = {};
+    currentHistRows.forEach(r => {
+      const s = r.ssa || "Unknown";
+      if (!ssaGroups[s]) ssaGroups[s] = [];
+      ssaGroups[s].push(r);
+    });
+
+    let msg = `*🚨 Critical Flapping Sites Alert (${d})*\n`;
+    msg += `*Scope:* ${ssa === 'ALL' ? 'Circle-Wide' : ssa}\n\n`;
+
+    Object.keys(ssaGroups).sort().forEach(s => {
+      const sites = ssaGroups[s].sort((a,b) => b.totFlap - a.totFlap).slice(0, 5);
+      msg += `📍 *${s} OA (Top 5 Chronic Flapping Sites):*\n`;
+      sites.forEach((site, idx) => {
+        msg += `   ${idx + 1}. *${site.siteName}* - Flaps: *${site.totFlap}* | Media: *${site.media}* | Down: ${site.totHours.toFixed(1)}h [L1: ${site.l1}]\n`;
+      });
+      msg += `\n`;
+    });
+
+    msg += `Kindly check Power/Media loss first then BTS/eNB hardware.\n\n`;
+    msg += getClosingSignature(ssa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareHistoryAlarmAlertWhatsApp = shareHistoryAlarmAlertWhatsApp;
+
+  function shareHistoryAlarmWhatsApp() {
+    if (!currentHistRows || currentHistRows.length === 0) {
+      alert("No history alarm records available to share.");
+      return;
+    }
+    const dElem = document.getElementById("hist-date-select");
+    const d = dElem ? dElem.value : "";
+    const ssaElem = document.getElementById("hist-ssa-select");
+    const ssa = ssaElem ? ssaElem.value : "ALL";
+
+    const ssaAgg = {};
+    let totNodes = 0, totFlaps = 0, totMajor = 0, totHours = 0;
+
+    currentHistRows.forEach(r => {
+      const s = r.ssa || "Unknown";
+      if (!ssaAgg[s]) ssaAgg[s] = { count: 0, flaps: 0, major: 0, hours: 0 };
+      ssaAgg[s].count++;
+      ssaAgg[s].flaps += r.totFlap;
+      ssaAgg[s].major += r.totMajor;
+      ssaAgg[s].hours += r.totHours;
+
+      totNodes++;
+      totFlaps += r.totFlap;
+      totMajor += r.totMajor;
+      totHours += r.totHours;
+    });
+
+    let msg = `*⏱️ J&K CM History Alarm OA-Wise Summary (${d})*\n`;
+    msg += `*Scope:* ${ssa === 'ALL' ? 'Circle-Wide' : ssa}\n\n`;
+
+    Object.keys(ssaAgg).sort().forEach(s => {
+      const a = ssaAgg[s];
+      const flapRate = a.count > 0 ? ((a.flaps / a.count)).toFixed(1) : "0.0";
+      const majorRate = a.count > 0 ? ((a.major / a.count) * 100).toFixed(1) : "0.0";
+      msg += `📍 *${s} OA*:\n`;
+      msg += `   • Physical Nodes: *${a.count}*\n`;
+      msg += `   • Flap Count: *${a.flaps}* (Avg ${flapRate}/site)\n`;
+      msg += `   • Major Outages: *${a.major}* (${majorRate}% sites)\n`;
+      msg += `   • Total Outage Duration: *${a.hours.toFixed(1)} Hr*\n\n`;
+    });
+
+    msg += `*🇮🇳 Circle Total*:\n`;
+    msg += `• Total Sites: ${totNodes.toLocaleString()}\n`;
+    msg += `• Total Flaps: ${totFlaps.toLocaleString()}\n`;
+    msg += `• Total Major Outages: ${totMajor.toLocaleString()}\n`;
+    msg += `• Total Duration: ${totHours.toFixed(1)} Hr\n\n`;
+    msg += getClosingSignature(ssa);
+
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareHistoryAlarmWhatsApp = shareHistoryAlarmWhatsApp;
+
+  function exportHistoryAlarmExcel() {
+    if (!currentHistRows || currentHistRows.length === 0) return;
+    const dElem = document.getElementById("hist-date-select");
+    const d = dElem ? dElem.value : "Report";
+    const data = currentHistRows.map((r, i) => ({
+      "S.No": i + 1,
+      "BTS IP ID": r.btsIp,
+      "Site Name": r.siteName,
+      "SSA": r.ssa,
+      "Media": r.media,
+      "Installed Bands": r.installedList,
+      "Total Flaps": r.totFlap,
+      "Flap Breakdown (2G+3G+B01+B28+B41)": r.flapStr.replace(/<[^>]*>/g, ""),
+      "Total Major": r.totMajor,
+      "Major Breakdown (2G+3G+B01+B28+B41)": r.majorStr.replace(/<[^>]*>/g, ""),
+      "Total Down Count": r.totTimes,
+      "Total Down Hours": parseFloat(r.totHours.toFixed(2)),
+      "Duration Breakdown (2G+3G+B01+B28+B41)": r.hoursStr.replace(/<[^>]*>/g, ""),
+      "Site In-Charge (L1)": r.l1
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "History_Alarm");
+    XLSX.writeFile(wb, `History_Alarm_${d}.xlsx`);
+  }
+  window.exportHistoryAlarmExcel = exportHistoryAlarmExcel;
+
+  // =========================================================================
+  // MODULE 4(ii): CHRONIC MULTI-DAY PERSISTENT STREAK ENGINE
+  // =========================================================================
+  function runChronicStreakAnalysis() {
+    if (!historyAlarmLoaded || !alarmEvents || alarmEvents.length === 0) return;
+
+    const mode = document.getElementById("chronic-mode-select") ? document.getElementById("chronic-mode-select").value : "FLAP";
+    const minDays = parseInt(document.getElementById("chronic-days-threshold").value, 10) || 3;
+    const flapThresh = parseInt(document.getElementById("chronic-flap-thresh").value, 10) || 10;
+    const downThresh = parseFloat(document.getElementById("chronic-down-thresh").value) || 2.0;
+    const carrier = document.getElementById("chronic-carrier-select").value;
+    const ssaFilter = document.getElementById("chronic-ssa-select") ? document.getElementById("chronic-ssa-select").value : "ALL";
+    const searchVal = safeStr(document.getElementById("chronic-search-input") ? document.getElementById("chronic-search-input").value : "").toLowerCase();
+
+    const flapGroup = document.getElementById("group-chronic-flap-thresh");
+    const downGroup = document.getElementById("group-chronic-down-thresh");
+    const metricHeader = document.getElementById("chronic-metric-header");
+    if (flapGroup && downGroup) {
+      if (mode === "FLAP") {
+        flapGroup.style.display = "flex";
+        downGroup.style.display = "none";
+        if (metricHeader) metricHeader.innerText = "Total Flaps in Streak";
+      } else {
+        flapGroup.style.display = "none";
+        downGroup.style.display = "flex";
+        if (metricHeader) metricHeader.innerText = "Total Down Hours in Streak";
+      }
+    }
+
+    const ssaSelect = document.getElementById("chronic-ssa-select");
+    if (ssaSelect && ssaSelect.options.length <= 1) {
+      const ssaSet = new Set();
+      Object.values(staticMasterByIp).forEach(n => { if (n.ssa) ssaSet.add(n.ssa); });
+      ssaSelect.innerHTML = `<option value="ALL">All SSAs</option>`;
+      Array.from(ssaSet).sort().forEach(s => ssaSelect.innerHTML += `<option value="${s}">${s}</option>`);
+    }
+
+    const sortedDates = [...histDates].sort();
+    const totalDaysCount = sortedDates.length;
+    const elDays = document.getElementById("chronic-kpi-days");
+    if (elDays) elDays.innerText = totalDaysCount + " Days";
+
+    const nodeDailyStats = {};
+    alarmEvents.forEach(ev => {
+      if (carrier === "4G" && !["B01", "B28", "B41"].includes(ev.band)) return;
+      if (carrier === "2G" && ev.band !== "2G") return;
+      if (carrier === "3G" && ev.band !== "3G") return;
+
+      const node = staticMasterByIp[ev.ipKey];
+      if (!node) return;
+      if (ssaFilter !== "ALL" && node.ssa !== ssaFilter) return;
+
+      if (!nodeDailyStats[ev.ipKey]) nodeDailyStats[ev.ipKey] = {};
+      if (!nodeDailyStats[ev.ipKey][ev.date]) {
+        nodeDailyStats[ev.ipKey][ev.date] = { flaps: 0, downHours: 0 };
+      }
+      nodeDailyStats[ev.ipKey][ev.date].flaps += ev.flap;
+      nodeDailyStats[ev.ipKey][ev.date].downHours += ev.downHours;
+    });
+
+    const candidateNodes = [];
+    let maxStreakFound = 0;
+
+    Object.keys(nodeDailyStats).forEach(nodeKey => {
+      const statsByDate = nodeDailyStats[nodeKey];
+      const node = staticMasterByIp[nodeKey];
+
+      let currentStreak = 0;
+      let maxNodeStreak = 0;
+      let streakDetails = [];
+      let tempStreakDetails = [];
+      let streakMetricSum = 0;
+      let tempMetricSum = 0;
+
+      sortedDates.forEach(date => {
+        const dayStat = statsByDate[date] || { flaps: 0, downHours: 0 };
+        const val = mode === "FLAP" ? dayStat.flaps : dayStat.downHours;
+        const targetThresh = mode === "FLAP" ? flapThresh : downThresh;
+
+        if (val >= targetThresh) {
+          currentStreak++;
+          tempMetricSum += val;
+          tempStreakDetails.push(`${date.slice(5)}: ${mode === "FLAP" ? val : val.toFixed(1) + 'h'}`);
+          if (currentStreak > maxNodeStreak) {
+            maxNodeStreak = currentStreak;
+            streakDetails = [...tempStreakDetails];
+            streakMetricSum = tempMetricSum;
+          }
+        } else {
+          currentStreak = 0;
+          tempStreakDetails = [];
+          tempMetricSum = 0;
+        }
+      });
+
+      if (maxNodeStreak >= minDays) {
+        if (maxNodeStreak > maxStreakFound) maxStreakFound = maxNodeStreak;
+
+        if (searchVal) {
+          const match = node.btsIp.toLowerCase().includes(searchVal) ||
+                        node.siteName.toLowerCase().includes(searchVal) ||
+                        node.l1.toLowerCase().includes(searchVal);
+          if (!match) return;
+        }
+
+        candidateNodes.push({
+          btsIp: node.btsIp,
+          siteName: node.siteName,
+          ssa: node.ssa,
+          media: node.media,
+          l1: node.l1,
+          streak: maxNodeStreak,
+          metricSum: streakMetricSum,
+          breakdown: streakDetails.join(" | ")
+        });
+      }
+    });
+
+    candidateNodes.sort((a, b) => b.streak - a.streak || b.metricSum - a.metricSum);
+    chronicRecordsCache = candidateNodes;
+
+    const elCount = document.getElementById("chronic-kpi-count");
+    if (elCount) elCount.innerText = candidateNodes.length.toLocaleString();
+    const elMax = document.getElementById("chronic-kpi-max-streak");
+    if (elMax) elMax.innerText = maxStreakFound > 0 ? `${maxStreakFound} Days` : "0";
+
+    const tbody = document.getElementById("chronic-tbody");
+    if (!tbody) return;
+
+    if (candidateNodes.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">✅ Excellent! No sites found with ${minDays}+ consecutive days of chronic ${mode.toLowerCase()}.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    candidateNodes.forEach((r, idx) => {
+      html += `
+        <tr>
+          <td style="text-align:center;"><span class="badge-rank">#${idx + 1}</span></td>
+          <td><strong>${r.btsIp}</strong></td>
+          <td>${r.siteName}</td>
+          <td>${r.ssa}</td>
+          <td><span class="badge-media">${r.media}</span></td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${r.streak} Days</td>
+          <td class="num" style="font-weight:600;">${mode === 'FLAP' ? r.metricSum : r.metricSum.toFixed(1) + 'h'}</td>
+          <td style="font-size:12px; color:#334155; font-family:monospace;">${r.breakdown}</td>
+          <td><strong>${r.l1}</strong></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runChronicStreakAnalysis = runChronicStreakAnalysis;
+
+  function shareChronicAlertWhatsApp() {
+    if (!chronicRecordsCache || chronicRecordsCache.length === 0) {
+      alert("No chronic records to share.");
+      return;
+    }
+    const mode = document.getElementById("chronic-mode-select").value;
+    const minDays = document.getElementById("chronic-days-threshold").value;
+    const ssaFilter = document.getElementById("chronic-ssa-select").value;
+
+    let msg = `*🔁 J&K CM Chronic Consecutive Outage Alert*\n`;
+    msg += `*Issue Type:* ${mode === 'FLAP' ? 'Chronic Flapping' : 'Chronic Hard Downtime'}\n`;
+    msg += `*Condition:* Consecutive ${minDays}+ Days Failure | *Scope:* ${ssaFilter === 'ALL' ? 'Circle-Wide' : ssaFilter}\n`;
+    msg += `*Total Affected Physical Nodes:* ${chronicRecordsCache.length}\n\n`;
+
+    chronicRecordsCache.slice(0, 15).forEach((r, i) => {
+      msg += `${i + 1}. *${r.btsIp}* [${r.siteName}] (${r.ssa})\n`;
+      msg += `   • Streak: *${r.streak} Days* | Media: ${r.media} | L1: ${r.l1}\n`;
+      msg += `   • History: _${r.breakdown}_\n\n`;
+    });
+
+    if (chronicRecordsCache.length > 15) {
+      msg += `_...and ${chronicRecordsCache.length - 15} more chronic sites._\n\n`;
+    }
+
+    msg += `These sites suffer chronic daily recurrence. Immediate field inspection of power, battery autonomy, or transmission is requested.\n\n`;
+    msg += getClosingSignature(ssaFilter);
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareChronicAlertWhatsApp = shareChronicAlertWhatsApp;
+
+  function exportChronicExcel() {
+    if (!chronicRecordsCache || chronicRecordsCache.length === 0) return;
+    const mode = document.getElementById("chronic-mode-select").value;
+    const ws = XLSX.utils.json_to_sheet(chronicRecordsCache.map((r, i) => ({
+      "Rank": i + 1,
+      "BTS IP ID": r.btsIp,
+      "Site Name": r.siteName,
+      "SSA": r.ssa,
+      "Media": r.media,
+      "Consecutive Streak (Days)": r.streak,
+      "Metric Sum": r.metricSum,
+      "Daily History": r.breakdown,
+      "Site In-Charge (L1)": r.l1
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Chronic_Streaks");
+    XLSX.writeFile(wb, `Chronic_${mode}_Streak_Sites.xlsx`);
+  }
+  window.exportChronicExcel = exportChronicExcel;
+
+  function captureChronicScreenshot() {
+    const elem = document.getElementById("hist-chronic-section");
+    if (!elem) return;
+    html2canvas(elem, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `Chronic_Streak_Sites_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureChronicScreenshot = captureChronicScreenshot;
   // =========================================================================
   // MODULE 5: DOWN SITES TRACKER ENGINE
   // =========================================================================
