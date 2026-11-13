@@ -4,43 +4,52 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BSNL J&K 4G KPI NOC Portal</title>
-  <!-- Tailwind CSS & Lucide Icons CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
 
   <!-- ================= TOP NAVBAR ================= -->
-  <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md">
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-30 shadow-md">
     <div class="flex items-center gap-3">
       <div class="bg-blue-600 p-2 rounded-lg text-white font-bold flex items-center gap-2">
         <i data-lucide="radio" class="w-5 h-5"></i>
         <span>BSNL J&K</span>
       </div>
       <div>
-        <h1 class="text-base font-semibold leading-none">4G LTE Operational Quality & SLA Portal</h1>
-        <p class="text-xs text-slate-400 mt-1">Multi-Tier Role Scoped Dashboard</p>
+        <h1 class="text-base font-semibold leading-none">4G LTE Operational Quality & Zero-GB Portal</h1>
+        <p class="text-xs text-slate-400 mt-1">Latest Report Date: <span id="lblLatestDate" class="text-emerald-400 font-mono">--</span></p>
       </div>
     </div>
 
+    <!-- Navigation Module Tabs -->
+    <div class="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-700">
+      <button id="tabHomeBtn" onclick="switchMainTab('HOME')" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5">
+        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> KPI Overview & Trends
+      </button>
+      <button id="tabZeroBtn" onclick="switchMainTab('ZEROGB')" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5">
+        <i data-lucide="zap-off" class="w-3.5 h-3.5 text-amber-400"></i> Zero GB Cells (&le;5 MB)
+        <span id="zeroGbTabBadge" class="ml-1 px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-[10px]">0</span>
+      </button>
+    </div>
+
     <!-- Active User Context & Controls -->
-    <div id="userProfileBar" class="hidden flex items-center gap-4">
+    <div id="userProfileBar" class="hidden flex items-center gap-3">
       <div class="text-right">
-        <div id="profileName" class="text-xs font-semibold text-white">Officer Name</div>
-        <div id="profileRoleBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 border border-blue-700">ROLE: SCOPE</div>
+        <div id="profileName" class="text-xs font-semibold text-white">Officer</div>
+        <div id="profileRoleBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 border border-blue-700">ROLE</div>
       </div>
-      <button onclick="refreshData()" title="Refresh Latest Data" class="p-2 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition">
+      <button onclick="applyGlobalFilters()" title="Reload Data" class="p-2 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition">
         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
       </button>
-      <button onclick="logout()" class="px-3 py-1.5 rounded bg-red-600/80 hover:bg-red-600 text-white text-xs font-medium transition flex items-center gap-1.5">
+      <button onclick="logout()" class="px-3 py-1.5 rounded bg-red-600/80 hover:bg-red-600 text-white text-xs font-medium transition flex items-center gap-1">
         <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Logout
       </button>
     </div>
@@ -49,18 +58,70 @@
   <!-- ================= MAIN CONTAINER ================= -->
   <main class="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
 
+    <!-- GLOBAL FILTER BAR (Affects Trends, Volumes, and Zero-GB Module) -->
+    <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <i data-lucide="sliders" class="w-3.5 h-3.5 text-blue-400"></i> Dynamic Network Filter (Updates Charts & Tables)
+        </span>
+        <span id="filterStatusText" class="text-[11px] text-emerald-400 hidden">Applying filters...</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <!-- SSA Filter -->
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase mb-1">SSA</label>
+          <select id="filterSSA" onchange="onFilterDropdownChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+            <option value="">All Permitted SSAs</option>
+          </select>
+        </div>
+
+        <!-- L1 Filter -->
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase mb-1">L1 In-Charge</label>
+          <select id="filterL1" onchange="onFilterDropdownChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+            <option value="">All L1 Officers</option>
+          </select>
+        </div>
+
+        <!-- L2 Filter -->
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase mb-1">L2 In-Charge</label>
+          <select id="filterL2" onchange="onFilterDropdownChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+            <option value="">All L2 Officers</option>
+          </select>
+        </div>
+
+        <!-- Site Search Input -->
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase mb-1">Site ID / Name / BTS IP Search</label>
+          <input type="text" id="filterSearch" onkeydown="if(event.key==='Enter') applyGlobalFilters()" placeholder="e.g. T4JK01, 1372, Udeywala..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <!-- Search & Reset Buttons -->
+        <div class="flex items-end gap-2">
+          <button onclick="applyGlobalFilters()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-1.5 px-3 rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow">
+            <i data-lucide="search" class="w-3.5 h-3.5"></i> Search / Apply
+          </button>
+          <button onclick="resetGlobalFilters()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 px-3 rounded-lg text-xs transition">
+            Reset
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- KPI Summary Metric Cards -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
         <div class="flex items-center justify-between text-slate-400 text-xs">
-          <span>Overall Availability</span>
+          <span>Scoped Availability</span>
           <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
           <span id="metricAvail" class="text-2xl font-bold text-white">-- %</span>
           <span class="text-xs text-emerald-400 font-medium">Target &gt;99.5%</span>
         </div>
-        <div class="text-[11px] text-slate-400 mt-1">Average across scoped sites</div>
+        <div class="text-[11px] text-slate-400 mt-1">Latest day filtered average</div>
       </div>
 
       <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
@@ -72,104 +133,145 @@
           <span id="metricDrop" class="text-2xl font-bold text-white">-- %</span>
           <span class="text-xs text-rose-400 font-medium">Benchmark &lt;1.5%</span>
         </div>
-        <div class="text-[11px] text-slate-400 mt-1">VoLTE & CS drop combined</div>
+        <div class="text-[11px] text-slate-400 mt-1">Latest day filtered average</div>
       </div>
 
       <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
         <div class="flex items-center justify-between text-slate-400 text-xs">
-          <span>Payload (Total Data)</span>
+          <span>Filtered Payload (GB)</span>
           <i data-lucide="database" class="w-4 h-4 text-cyan-400"></i>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
           <span id="metricVol" class="text-2xl font-bold text-white">-- GB</span>
           <span class="text-xs text-cyan-400 font-medium">Daily DL + UL</span>
         </div>
-        <div class="text-[11px] text-slate-400 mt-1">Aggregated scoped volume</div>
+        <div class="text-[11px] text-slate-400 mt-1">Latest day total volume</div>
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
-        <div class="flex items-center justify-between text-slate-400 text-xs">
-          <span>Priority Alert Cells</span>
-          <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i>
+      <div onclick="switchMainTab('ZEROGB')" class="bg-slate-800 border border-amber-500/40 hover:border-amber-400 cursor-pointer p-4 rounded-xl shadow-sm transition">
+        <div class="flex items-center justify-between text-amber-300 text-xs font-medium">
+          <span>Zero GB Cells (&le;5 MB)</span>
+          <i data-lucide="zap-off" class="w-4 h-4 text-amber-400"></i>
         </div>
         <div class="mt-2 flex items-baseline gap-2">
-          <span id="metricDown" class="text-2xl font-bold text-amber-400">--</span>
-          <span class="text-xs text-slate-400 font-medium">Sites need action</span>
+          <span id="metricZeroCount" class="text-2xl font-bold text-amber-400">--</span>
+          <span class="text-xs text-slate-400 font-medium">Click to inspect &rarr;</span>
         </div>
-        <div class="text-[11px] text-slate-400 mt-1">Sleeping / Zero-GB / Degraded</div>
+        <div class="text-[11px] text-slate-400 mt-1">Cells carrying &le;5 MB traffic</div>
       </div>
     </section>
 
-    <!-- Trend Charts Section (Historical Trends) -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
-            <i data-lucide="trending-up" class="w-4 h-4 text-blue-400"></i> Availability & Drop Rate Trend
-          </h2>
-          <span class="text-xs text-slate-400">Daily Average</span>
-        </div>
-        <div class="h-64 relative">
-          <canvas id="availDropChart"></canvas>
-        </div>
-      </div>
-
-      <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
-            <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i> Data Volume Profile (GB)
-          </h2>
-          <span class="text-xs text-slate-400">Payload Consumption</span>
-        </div>
-        <div class="h-64 relative">
-          <canvas id="payloadChart"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- Degraded Sites / Priority Watchlist Table -->
-    <section class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
-      <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-            <i data-lucide="list-filter" class="w-4 h-4 text-amber-400"></i>
-            Chronic Degraded & Outage Watchlist
-          </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Cells with Avail &lt; 95%, Drop &gt; 2%, or 0 GB Traffic</p>
+    <!-- ================= TAB 1: HOME OVERVIEW & TRENDS ================= -->
+    <div id="viewHome" class="space-y-6">
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <i data-lucide="trending-up" class="w-4 h-4 text-blue-400"></i> Availability & Drop Rate Trend
+            </h2>
+            <span class="text-xs text-slate-400">Dynamic Filtered Trend</span>
+          </div>
+          <div class="h-64 relative">
+            <canvas id="availDropChart"></canvas>
+          </div>
         </div>
 
-        <div class="flex items-center gap-3">
-          <input type="text" id="tableFilterInput" onkeyup="filterSiteTable()" placeholder="Search Site ID, L1, Name..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 w-52 sm:w-64">
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i> Data Volume Profile (GB)
+            </h2>
+            <span class="text-xs text-slate-400">Dynamic Filtered Volume</span>
+          </div>
+          <div class="h-64 relative">
+            <canvas id="payloadChart"></canvas>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="overflow-x-auto custom-scrollbar">
-        <table class="w-full text-left text-xs text-slate-300">
-          <thead class="bg-slate-900/60 uppercase text-[10px] text-slate-400 font-semibold border-b border-slate-700">
-            <tr>
-              <th class="py-3 px-4">Site ID & Name</th>
-              <th class="py-3 px-3">SSA</th>
-              <th class="py-3 px-3">Media</th>
-              <th class="py-3 px-3 text-right">Avail (%)</th>
-              <th class="py-3 px-3 text-right">Drop (%)</th>
-              <th class="py-3 px-3 text-right">Volume (GB)</th>
-              <th class="py-3 px-3">L1 In-Charge</th>
-              <th class="py-3 px-4 text-center">Dispatch Action</th>
-            </tr>
-          </thead>
-          <tbody id="siteTableBody" class="divide-y divide-slate-700/60 font-mono">
-            <tr>
-              <td colspan="8" class="text-center py-8 text-slate-400 font-sans">
-                Authenticating and querying secure backend...
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <!-- Degraded Sites Watchlist -->
+      <section class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+        <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i data-lucide="alert-circle" class="w-4 h-4 text-rose-400"></i>
+              Degraded Cells Watchlist (Avail &lt; 95% or Drop &gt; 2%)
+            </h2>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/60 uppercase text-[10px] text-slate-400 font-semibold border-b border-slate-700">
+              <tr>
+                <th class="py-3 px-4">Site ID & Cell</th>
+                <th class="py-3 px-3">Site Name</th>
+                <th class="py-3 px-3">SSA</th>
+                <th class="py-3 px-3 text-right">Avail (%)</th>
+                <th class="py-3 px-3 text-right">Drop (%)</th>
+                <th class="py-3 px-3 text-right">Data (MB)</th>
+                <th class="py-3 px-3">L1 In-Charge</th>
+                <th class="py-3 px-4 text-center">Alert L1</th>
+              </tr>
+            </thead>
+            <tbody id="siteTableBody" class="divide-y divide-slate-700/60 font-mono"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= TAB 2: ZERO GB CELLS MODULE (<= 5 MB) ================= -->
+    <div id="viewZeroGb" class="hidden space-y-5">
+      <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <!-- Grouping Mode Selector -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-slate-400 mr-1">View Mode:</span>
+          <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-700">
+            <button id="btnModeLocation" onclick="setZeroGbViewMode('LOCATION')" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-600 text-white transition">
+              Locationwise (BTS IP ID)
+            </button>
+            <button id="btnModeSite" onclick="setZeroGbViewMode('SITE')" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">
+              Sitewise (Site ID)
+            </button>
+            <button id="btnModeCell" onclick="setZeroGbViewMode('CELL')" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">
+              Cellwise (Consecutive Days)
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary WhatsApp & Detailed Email Share Buttons -->
+        <div class="flex items-center gap-2.5">
+          <button onclick="shareZeroGbWhatsAppSummary()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
+            <i data-lucide="message-circle" class="w-4 h-4"></i> WhatsApp Summary
+          </button>
+          <button onclick="shareZeroGbDetailedEmail()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
+            <i data-lucide="mail" class="w-4 h-4"></i> Mail Detailed List
+          </button>
+        </div>
+      </section>
+
+      <!-- Zero GB Dynamic Table Container -->
+      <section class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+        <div class="p-4 border-b border-slate-700 flex items-center justify-between">
+          <div>
+            <h2 id="zeroGbTableTitle" class="text-sm font-semibold text-white">Zero GB Cells (&le; 5 MB Data Volume)</h2>
+            <p id="zeroGbTableSubtitle" class="text-xs text-slate-400 mt-0.5">Filtered list based on current SSA, L1, L2 and Search selection</p>
+          </div>
+          <span id="zeroGbCountSummary" class="text-xs font-mono px-2.5 py-1 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">0 Records</span>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead id="zeroGbThead" class="bg-slate-900/60 uppercase text-[10px] text-slate-400 font-semibold border-b border-slate-700"></thead>
+            <tbody id="zeroGbTbody" class="divide-y divide-slate-700/60 font-mono"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
   </main>
 
-  <!-- ================= LOGIN MODAL (SECURE) ================= -->
+  <!-- ================= LOGIN MODAL ================= -->
   <div id="loginModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
       <div class="text-center">
@@ -183,11 +285,11 @@
       <div class="space-y-3">
         <div>
           <label class="block text-[11px] font-medium text-slate-300 mb-1">Username</label>
-          <input type="text" id="loginUsername" placeholder="e.g. circle_admin, jammu_nodal" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500">
+          <input type="text" id="loginUsername" placeholder="Enter username" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500">
         </div>
         <div>
           <label class="block text-[11px] font-medium text-slate-300 mb-1">Password</label>
-          <input type="password" id="loginPassword" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500">
+          <input type="password" id="loginPassword" onkeydown="if(event.key==='Enter') performLogin()" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500">
         </div>
         <div id="loginError" class="text-[11px] text-rose-400 hidden"></div>
       </div>
@@ -195,10 +297,6 @@
       <button onclick="performLogin()" id="btnLogin" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-xs transition flex items-center justify-center gap-2">
         <span>Sign In</span>
       </button>
-
-      <p class="text-[10px] text-center text-slate-500">
-        Access is logged and strictly role-bound to Circle/SSA/L1 scope.
-      </p>
     </div>
   </div>
 
@@ -211,24 +309,45 @@
 
     let availDropChartInst = null;
     let payloadChartInst = null;
-    let cachedSites = [];
+    let cachedZeroGbCells = [];
+    let cachedWorstSites = [];
+    let currentZeroGbMode = "LOCATION"; // LOCATION | SITE | CELL
+    let dropdownsInitialized = false;
 
     lucide.createIcons();
 
-    // Check existing session on boot
     window.addEventListener("DOMContentLoaded", () => {
       const savedToken = sessionStorage.getItem("bsnl_token");
       const savedUser = sessionStorage.getItem("bsnl_user");
 
       if (savedToken && savedUser) {
         showDashboardView(JSON.parse(savedUser));
-        fetchKpiMetrics(savedToken);
+        fetchKpiMetrics(savedToken, {});
       } else {
         document.getElementById("loginModal").classList.remove("hidden");
       }
     });
 
-    // 1. Authenticate with Apps Script Backend
+    function switchMainTab(tab) {
+      const homeView = document.getElementById("viewHome");
+      const zeroView = document.getElementById("viewZeroGb");
+      const btnHome = document.getElementById("tabHomeBtn");
+      const btnZero = document.getElementById("tabZeroBtn");
+
+      if (tab === "HOME") {
+        homeView.classList.remove("hidden");
+        zeroView.classList.add("hidden");
+        btnHome.className = "px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5";
+        btnZero.className = "px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
+      } else {
+        homeView.classList.add("hidden");
+        zeroView.classList.remove("hidden");
+        btnZero.className = "px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5";
+        btnHome.className = "px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
+        renderZeroGbModule();
+      }
+    }
+
     async function performLogin() {
       const user = document.getElementById("loginUsername").value.trim();
       const pass = document.getElementById("loginPassword").value.trim();
@@ -249,13 +368,8 @@
         const response = await fetch(API_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: "LOGIN",
-            username: user,
-            password: pass
-          })
+          body: JSON.stringify({ action: "LOGIN", username: user, password: pass })
         });
-
         const res = await response.json();
 
         if (res.status === "SUCCESS") {
@@ -263,7 +377,7 @@
           sessionStorage.setItem("bsnl_user", JSON.stringify(res.user));
           showDashboardView(res.user);
           document.getElementById("loginModal").classList.add("hidden");
-          fetchKpiMetrics(res.sessionToken);
+          fetchKpiMetrics(res.sessionToken, {});
         } else {
           errBox.textContent = res.message || "Invalid credentials.";
           errBox.classList.remove("hidden");
@@ -283,52 +397,109 @@
       document.getElementById("profileRoleBadge").textContent = `${user.role}: ${user.scope}`;
     }
 
-    // 2. Fetch Scoped KPI Data (Server does all role filtering)
-    async function fetchKpiMetrics(token) {
+    function getActiveFilters() {
+      return {
+        ssa: document.getElementById("filterSSA").value,
+        l1: document.getElementById("filterL1").value,
+        l2: document.getElementById("filterL2").value,
+        search: document.getElementById("filterSearch").value.trim()
+      };
+    }
+
+    function onFilterDropdownChange() {
+      applyGlobalFilters();
+    }
+
+    function applyGlobalFilters() {
+      const token = sessionStorage.getItem("bsnl_token");
+      if (!token) return;
+      fetchKpiMetrics(token, getActiveFilters());
+    }
+
+    function resetGlobalFilters() {
+      document.getElementById("filterSSA").value = "";
+      document.getElementById("filterL1").value = "";
+      document.getElementById("filterL2").value = "";
+      document.getElementById("filterSearch").value = "";
+      applyGlobalFilters();
+    }
+
+    async function fetchKpiMetrics(token, filters) {
+      const statusTxt = document.getElementById("filterStatusText");
+      statusTxt.classList.remove("hidden");
+
       try {
         const response = await fetch(API_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({
             action: "FETCH_DASHBOARD",
-            sessionToken: token
+            sessionToken: token,
+            filters: filters
           })
         });
 
         const res = await response.json();
 
         if (res.status === "SESSION_EXPIRED") {
-          alert("Your session has expired. Please sign in again.");
+          alert("Session expired. Please sign in again.");
           logout();
           return;
         }
 
         if (res.status === "SUCCESS") {
+          if (!dropdownsInitialized && res.data.filterOptions) {
+            populateFilterDropdowns(res.data.filterOptions);
+            dropdownsInitialized = true;
+          }
           renderDashboard(res.data);
-        } else {
-          alert(res.message || "Failed to load KPI metrics.");
         }
       } catch (e) {
         console.error("Failed to fetch KPI data:", e);
+      } finally {
+        statusTxt.classList.add("hidden");
       }
     }
 
-    // 3. Render Metric Cards, Charts & Degraded Table
+    function populateFilterDropdowns(opts) {
+      const ssaSel = document.getElementById("filterSSA");
+      const l1Sel = document.getElementById("filterL1");
+      const l2Sel = document.getElementById("filterL2");
+
+      (opts.ssa || []).forEach(v => {
+        ssaSel.innerHTML += `<option value="${v}">${v}</option>`;
+      });
+      (opts.l1 || []).forEach(v => {
+        const label = v.replace(/\t/g, " ");
+        l1Sel.innerHTML += `<option value="${v}">${label}</option>`;
+      });
+      (opts.l2 || []).forEach(v => {
+        const label = v.replace(/\t/g, " ");
+        l2Sel.innerHTML += `<option value="${v}">${label}</option>`;
+      });
+    }
+
     function renderDashboard(apiData) {
       const trend = apiData.trend || [];
-      const worstSites = apiData.worstSites || [];
-      cachedSites = worstSites;
+      cachedWorstSites = apiData.worstSites || [];
+      cachedZeroGbCells = apiData.zeroGbCells || [];
 
-      // Top Metric Cards (latest day)
+      document.getElementById("lblLatestDate").textContent = apiData.latestDate || "--";
+      document.getElementById("metricZeroCount").textContent = cachedZeroGbCells.length;
+      document.getElementById("zeroGbTabBadge").textContent = cachedZeroGbCells.length;
+
       if (trend.length > 0) {
         const latest = trend[trend.length - 1];
         document.getElementById("metricAvail").textContent = `${latest.avgAvail}%`;
         document.getElementById("metricDrop").textContent = `${latest.avgDrop}%`;
         document.getElementById("metricVol").textContent = `${latest.totalGB} GB`;
+      } else {
+        document.getElementById("metricAvail").textContent = "-- %";
+        document.getElementById("metricDrop").textContent = "-- %";
+        document.getElementById("metricVol").textContent = "0 GB";
       }
-      document.getElementById("metricDown").textContent = worstSites.length;
 
-      // Trend Chart 1: Availability & Drop Rate Dual-Axis
+      // Render Trend Chart 1: Availability & Drop Rate
       const labels = trend.map(t => t.date);
       const availVals = trend.map(t => t.avgAvail);
       const dropVals = trend.map(t => t.avgDrop);
@@ -365,13 +536,13 @@
           plugins: { legend: { labels: { color: "#94a3b8", font: { size: 11 } } } },
           scales: {
             x: { ticks: { color: "#64748b" }, grid: { color: "#334155" } },
-            yAvail: { type: "linear", position: "left", min: 80, max: 100, ticks: { color: "#10b981" }, grid: { color: "#334155" } },
+            yAvail: { type: "linear", position: "left", min: 75, max: 100, ticks: { color: "#10b981" }, grid: { color: "#334155" } },
             yDrop: { type: "linear", position: "right", min: 0, max: 5, ticks: { color: "#f43f5e" }, grid: { display: false } }
           }
         }
       });
 
-      // Trend Chart 2: Payload (GB)
+      // Render Trend Chart 2: Payload (GB)
       const volVals = trend.map(t => t.totalGB);
       if (payloadChartInst) payloadChartInst.destroy();
       const ctx2 = document.getElementById("payloadChart").getContext("2d");
@@ -397,69 +568,288 @@
         }
       });
 
-      // Populate Table
-      renderTableRows(worstSites);
+      renderDegradedTable(cachedWorstSites);
+      renderZeroGbModule();
     }
 
-    function renderTableRows(sites) {
+    function formatL1Display(rawL1) {
+      const parts = (rawL1 || "").split("_");
+      const name = (parts[0] || "Unassigned").trim();
+      const phone = (parts[1] || "").replace(/\D/g, "");
+      return { name, phone };
+    }
+
+    function renderDegradedTable(sites) {
       const tbody = document.getElementById("siteTableBody");
       if (!sites || sites.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400 font-sans">No chronic degraded sites in this operational scope.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400 font-sans">No degraded cells matching current filter.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = sites.map(s => {
-        const l1Parts = (s.l1 || "").split("_");
-        const l1Name = l1Parts[0] || "Unassigned";
-        const l1Phone = (l1Parts[1] || "").replace(/\D/g, "");
-
-        const waMsg = encodeURIComponent(`*BSNL 4G OUTAGE ALERT*\nSite ID: ${s.siteId}\nName: ${s.siteName}\nSSA: ${s.ssa}\nAvailability: ${s.avail}%\nDrop Rate: ${s.drop}%\nPayload: ${s.vol} GB\nPlease check and restore immediately.`);
-
+        const l1 = formatL1Display(s.l1);
+        const waMsg = encodeURIComponent(`*BSNL 4G CELL ALERT*\nSite ID: ${s.siteId} (Cell ${s.cellId})\nName: ${s.siteName}\nAvail: ${s.avail}%\nDrop: ${s.drop}%\nData: ${s.dataMb} MB\nPlease check and restore.`);
         return `
           <tr class="hover:bg-slate-700/40 transition">
             <td class="py-2.5 px-4">
               <div class="font-bold text-white">${s.siteId}</div>
-              <div class="text-[11px] text-slate-400">${s.siteName || "N/A"}</div>
+              <div class="text-[10px] text-slate-400">Cell ID: ${s.cellId}</div>
             </td>
+            <td class="py-2.5 px-3 font-sans text-slate-200">${s.siteName || "-"}</td>
             <td class="py-2.5 px-3 font-sans">${s.ssa}</td>
+            <td class="py-2.5 px-3 text-right ${s.avail < 95 ? 'text-rose-400 font-bold' : ''}">${s.avail}%</td>
+            <td class="py-2.5 px-3 text-right ${s.drop > 2 ? 'text-rose-400 font-bold' : ''}">${s.drop}%</td>
+            <td class="py-2.5 px-3 text-right">${s.dataMb} MB</td>
             <td class="py-2.5 px-3 font-sans">
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${s.media === 'OF' ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700' : 'bg-amber-900/40 text-amber-300 border border-amber-700'}">${s.media}</span>
-            </td>
-            <td class="py-2.5 px-3 text-right ${s.avail < 90 ? 'text-rose-400 font-bold' : 'text-slate-200'}">${s.avail}%</td>
-            <td class="py-2.5 px-3 text-right ${s.drop > 2 ? 'text-rose-400 font-bold' : 'text-slate-200'}">${s.drop}%</td>
-            <td class="py-2.5 px-3 text-right">${s.vol}</td>
-            <td class="py-2.5 px-3 font-sans">
-              <div class="text-white">${l1Name}</div>
-              <div class="text-[10px] text-slate-400">${l1Phone || "-"}</div>
+              <div class="text-white">${l1.name}</div>
+              <div class="text-[10px] text-slate-400">${l1.phone}</div>
             </td>
             <td class="py-2.5 px-4 text-center font-sans">
-              ${l1Phone ? `
-                <a href="https://wa.me/91${l1Phone}?text=${waMsg}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded text-[11px] transition">
-                  <i data-lucide="message-square" class="w-3 h-3"></i> Alert L1
-                </a>
-              ` : `<span class="text-slate-500 text-[10px]">No Phone</span>`}
+              ${l1.phone ? `<a href="https://wa.me/91${l1.phone}?text=${waMsg}" target="_blank" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px]">WhatsApp</a>` : `-`}
             </td>
           </tr>
         `;
       }).join("");
-
-      lucide.createIcons();
     }
 
-    function filterSiteTable() {
-      const q = document.getElementById("tableFilterInput").value.toLowerCase();
-      const filtered = cachedSites.filter(s => 
-        s.siteId.toLowerCase().includes(q) ||
-        (s.siteName && s.siteName.toLowerCase().includes(q)) ||
-        (s.l1 && s.l1.toLowerCase().includes(q)) ||
-        (s.ssa && s.ssa.toLowerCase().includes(q))
-      );
-      renderTableRows(filtered);
+    // ================= ZERO GB MODULE LOGIC (3 MODES) =================
+    function setZeroGbViewMode(mode) {
+      currentZeroGbMode = mode;
+      const btnLoc = document.getElementById("btnModeLocation");
+      const btnSite = document.getElementById("btnModeSite");
+      const btnCell = document.getElementById("btnModeCell");
+
+      const activeCls = "px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-600 text-white transition";
+      const inactiveCls = "px-3 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition";
+
+      btnLoc.className = mode === "LOCATION" ? activeCls : inactiveCls;
+      btnSite.className = mode === "SITE" ? activeCls : inactiveCls;
+      btnCell.className = mode === "CELL" ? activeCls : inactiveCls;
+
+      renderZeroGbModule();
     }
 
-    function refreshData() {
-      const token = sessionStorage.getItem("bsnl_token");
-      if (token) fetchKpiMetrics(token);
+    function renderZeroGbModule() {
+      const thead = document.getElementById("zeroGbThead");
+      const tbody = document.getElementById("zeroGbTbody");
+      const countLbl = document.getElementById("zeroGbCountSummary");
+
+      if (!cachedZeroGbCells || cachedZeroGbCells.length === 0) {
+        thead.innerHTML = "";
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 font-sans">No Zero-GB (&le; 5 MB) cells found for the selected filter.</td></tr>`;
+        countLbl.textContent = "0 Records";
+        return;
+      }
+
+      if (currentZeroGbMode === "LOCATION") {
+        // Group by BTS IP ID
+        const locMap = {};
+        cachedZeroGbCells.forEach(c => {
+          const key = c.btsIpId || "UNMAPPED_BTS_IP";
+          if (!locMap[key]) {
+            locMap[key] = {
+              btsIpId: key,
+              siteName: c.siteName,
+              ssa: c.ssa,
+              l1: c.l1,
+              cells: []
+            };
+          }
+          locMap[key].cells.push(`${c.siteId} (Cell ${c.cellId}: ${c.dataMb}MB, ${c.consecutiveDays}d)`);
+        });
+
+        const groups = Object.values(locMap).sort((a, b) => b.cells.length - a.cells.length);
+        countLbl.textContent = `${groups.length} Locations (${cachedZeroGbCells.length} Zero-GB Cells)`;
+
+        thead.innerHTML = `
+          <tr>
+            <th class="py-3 px-4">Location (BTS IP ID)</th>
+            <th class="py-3 px-3">Site Name</th>
+            <th class="py-3 px-3">SSA</th>
+            <th class="py-3 px-3 text-center">Zero-GB Cells Count</th>
+            <th class="py-3 px-3">Affected Cells at Location</th>
+            <th class="py-3 px-3">L1 In-Charge</th>
+          </tr>
+        `;
+
+        tbody.innerHTML = groups.map(g => {
+          const l1 = formatL1Display(g.l1);
+          return `
+            <tr class="hover:bg-slate-700/40 transition">
+              <td class="py-3 px-4 font-bold text-amber-300">${g.btsIpId}</td>
+              <td class="py-3 px-3 font-sans text-white">${g.siteName || "-"}</td>
+              <td class="py-3 px-3 font-sans">${g.ssa}</td>
+              <td class="py-3 px-3 text-center">
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">${g.cells.length}</span>
+              </td>
+              <td class="py-3 px-3 text-[11px] text-slate-300 max-w-md break-words">${g.cells.join(", ")}</td>
+              <td class="py-3 px-3 font-sans">
+                <div class="text-white">${l1.name}</div>
+                <div class="text-[10px] text-slate-400">${l1.phone}</div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+      } else if (currentZeroGbMode === "SITE") {
+        // Group by Site ID
+        const siteMap = {};
+        cachedZeroGbCells.forEach(c => {
+          if (!siteMap[c.siteId]) {
+            siteMap[c.siteId] = {
+              siteId: c.siteId,
+              btsIpId: c.btsIpId,
+              siteName: c.siteName,
+              ssa: c.ssa,
+              l1: c.l1,
+              cells: []
+            };
+          }
+          siteMap[c.siteId].cells.push(`Cell ${c.cellId} (${c.dataMb} MB, ${c.consecutiveDays}d)`);
+        });
+
+        const groups = Object.values(siteMap).sort((a, b) => b.cells.length - a.cells.length);
+        countLbl.textContent = `${groups.length} Sites (${cachedZeroGbCells.length} Zero-GB Cells)`;
+
+        thead.innerHTML = `
+          <tr>
+            <th class="py-3 px-4">Site ID</th>
+            <th class="py-3 px-3">Site Name</th>
+            <th class="py-3 px-3">Location (BTS IP ID)</th>
+            <th class="py-3 px-3 text-center">Zero-GB Cells Count</th>
+            <th class="py-3 px-3">Cells with Zero GB at Site</th>
+            <th class="py-3 px-3">L1 In-Charge</th>
+          </tr>
+        `;
+
+        tbody.innerHTML = groups.map(g => {
+          const l1 = formatL1Display(g.l1);
+          return `
+            <tr class="hover:bg-slate-700/40 transition">
+              <td class="py-3 px-4 font-bold text-white">${g.siteId}</td>
+              <td class="py-3 px-3 font-sans text-slate-200">${g.siteName || "-"}</td>
+              <td class="py-3 px-3 text-amber-300">${g.btsIpId}</td>
+              <td class="py-3 px-3 text-center">
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">${g.cells.length}</span>
+              </td>
+              <td class="py-3 px-3 text-[11px] text-slate-300">${g.cells.join(" | ")}</td>
+              <td class="py-3 px-3 font-sans">
+                <div class="text-white">${l1.name}</div>
+                <div class="text-[10px] text-slate-400">${l1.phone}</div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+      } else {
+        // CELLWISE Mode (with Consecutive Days column)
+        countLbl.textContent = `${cachedZeroGbCells.length} Zero-GB Cells`;
+
+        thead.innerHTML = `
+          <tr>
+            <th class="py-3 px-4">Site ID</th>
+            <th class="py-3 px-3">Cell ID</th>
+            <th class="py-3 px-3">Site Name</th>
+            <th class="py-3 px-3">BTS IP ID</th>
+            <th class="py-3 px-3 text-right">Data (MB)</th>
+            <th class="py-3 px-3 text-center">Consecutive Days (&le;5MB)</th>
+            <th class="py-3 px-3">L1 In-Charge</th>
+          </tr>
+        `;
+
+        tbody.innerHTML = cachedZeroGbCells.map(c => {
+          const l1 = formatL1Display(c.l1);
+          const badgeColor = c.consecutiveDays >= 5
+            ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+            : c.consecutiveDays >= 3
+              ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+              : "bg-slate-700 text-slate-200 border-slate-600";
+
+          return `
+            <tr class="hover:bg-slate-700/40 transition">
+              <td class="py-2.5 px-4 font-bold text-white">${c.siteId}</td>
+              <td class="py-2.5 px-3 text-cyan-400 font-bold">Cell ${c.cellId}</td>
+              <td class="py-2.5 px-3 font-sans text-slate-200">${c.siteName || "-"}</td>
+              <td class="py-2.5 px-3 text-amber-300">${c.btsIpId}</td>
+              <td class="py-2.5 px-3 text-right">${c.dataMb} MB</td>
+              <td class="py-2.5 px-3 text-center">
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${badgeColor}">
+                  ${c.consecutiveDays} ${c.consecutiveDays === 1 ? 'Day' : 'Days'}
+                </span>
+              </td>
+              <td class="py-2.5 px-3 font-sans">
+                <div class="text-white">${l1.name}</div>
+                <div class="text-[10px] text-slate-400">${l1.phone}</div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+    }
+
+    // ================= SHARE WHATSAPP SUMMARY & DETAILED EMAIL =================
+    function shareZeroGbWhatsAppSummary() {
+      if (!cachedZeroGbCells || cachedZeroGbCells.length === 0) {
+        alert("No Zero-GB cells to share.");
+        return;
+      }
+
+      const uniqueSites = new Set(cachedZeroGbCells.map(c => c.siteId)).size;
+      const uniqueLocs = new Set(cachedZeroGbCells.map(c => c.btsIpId)).size;
+      const chronic5Days = cachedZeroGbCells.filter(c => c.consecutiveDays >= 5).length;
+
+      const f = getActiveFilters();
+      const scopeDesc = f.ssa || "All Permitted SSAs";
+
+      let topList = cachedZeroGbCells.slice(0, 12).map((c, idx) =>
+        `${idx + 1}. ${c.siteId} (C-${c.cellId}) | ${c.siteName} | ${c.consecutiveDays}d | L1: ${formatL1Display(c.l1).name}`
+      ).join("\n");
+
+      const msg = `*BSNL 4G ZERO-GB CELLS SUMMARY (<=5 MB)*\n` +
+        `📅 Date: ${document.getElementById("lblLatestDate").textContent}\n` +
+        `📍 Scope: ${scopeDesc}\n` +
+        `--------------------------------\n` +
+        `🔴 Total Zero-GB Cells: *${cachedZeroGbCells.length}*\n` +
+        `🗼 Affected Sites: *${uniqueSites}*\n` +
+        `🖧 Affected Locations (BTS IP): *${uniqueLocs}*\n` +
+        `⚠️ Chronic (>=5 Days): *${chronic5Days} Cells*\n` +
+        `--------------------------------\n` +
+        `*Top Priority Cells:*\n${topList}\n` +
+        (cachedZeroGbCells.length > 12 ? `\n...and ${cachedZeroGbCells.length - 12} more cells.` : "");
+
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+
+    function shareZeroGbDetailedEmail() {
+      if (!cachedZeroGbCells || cachedZeroGbCells.length === 0) {
+        alert("No Zero-GB cells to share.");
+        return;
+      }
+
+      const reportDate = document.getElementById("lblLatestDate").textContent;
+      const subject = `BSNL 4G Zero-GB Cells (<=5 MB) Detailed Report - ${reportDate} (${cachedZeroGbCells.length} Cells)`;
+
+      let header = `BSNL J&K 4G Zero-GB Cells Detailed List (Data Volume <= 5 MB)\nReport Date: ${reportDate}\nTotal Zero-GB Cells: ${cachedZeroGbCells.length}\n\n`;
+      header += `S.No | Site ID | Cell ID | BTS IP ID | Site Name | SSA | Data (MB) | Consecutive Days | L1 In-Charge\n`;
+      header += `---------------------------------------------------------------------------------------------------------\n`;
+
+      const rowsText = cachedZeroGbCells.map((c, i) => {
+        const l1 = formatL1Display(c.l1);
+        return `${i + 1} | ${c.siteId} | Cell ${c.cellId} | ${c.btsIpId} | ${c.siteName} | ${c.ssa} | ${c.dataMb} MB | ${c.consecutiveDays} Days | ${l1.name} (${l1.phone})`;
+      }).join("\n");
+
+      const fullBody = header + rowsText;
+
+      // Copy full detailed table to clipboard automatically in case mailto truncates long lists
+      navigator.clipboard.writeText(fullBody).catch(() => {});
+
+      // Mailto URLs have a ~2000 char browser limit; include top 25 in direct body + clipboard notice
+      const mailBodyPreview = header + cachedZeroGbCells.slice(0, 25).map((c, i) => {
+        const l1 = formatL1Display(c.l1);
+        return `${i + 1} | ${c.siteId} | Cell ${c.cellId} | ${c.btsIpId} | ${c.siteName} | ${c.dataMb} MB | ${c.consecutiveDays}d | ${l1.name}`;
+      }).join("\n") + (cachedZeroGbCells.length > 25 ? `\n\n[Full list of ${cachedZeroGbCells.length} cells has been automatically COPIED to your clipboard — press Ctrl+V here to paste all rows]` : "");
+
+      window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBodyPreview)}`;
     }
 
     function logout() {
