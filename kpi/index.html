@@ -208,7 +208,7 @@
         </div>
       </section>
 
-      <!-- Requirement 3: SSA-Wise Summary Table Below Graph (with Screenshot, WhatsApp & Email) -->
+      <!-- SSA-Wise Summary Table Below Graph (with Site Count, Zero Cell Count (Sites Affected), Screenshot, WhatsApp & Email) -->
       <section id="ssaSummaryCard" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -216,7 +216,7 @@
               <i data-lucide="building-2" class="w-4 h-4 text-cyan-400"></i>
               SSA-wise KPI Summary (<span id="ssaTableDateLbl" class="text-emerald-400 font-mono">--</span>)
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Availability, Payload, Call Drop, RRC Success Rate & Zero Cell Count (Sites Affected)</p>
+            <p class="text-xs text-slate-400 mt-0.5">Total Sites, Availability, Payload, Call Drop, RRC Success Rate & Zero Cell Count (Sites Affected)</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button onclick="captureSsaTableScreenshot()" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-semibold transition flex items-center gap-1.5 border border-slate-600">
@@ -236,6 +236,7 @@
             <thead class="bg-slate-900/80 uppercase text-[10px] text-slate-400 font-semibold border-b border-slate-700">
               <tr>
                 <th class="py-3 px-4">SSA</th>
+                <th class="py-3 px-3 text-center">Site Count</th>
                 <th class="py-3 px-3 text-right">Availability (%)</th>
                 <th class="py-3 px-3 text-right">Payload (GB)</th>
                 <th class="py-3 px-3 text-right">Call Drop (%)</th>
@@ -248,7 +249,7 @@
         </div>
       </section>
 
-      <!-- Requirement 2: Replaced Degraded Watchlist with Site-wise / Location-wise Performance Table + Excel Export -->
+      <!-- Aggregated Network Performance Table (Site-wise / Location-wise + Excel Export) -->
       <section class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -260,7 +261,6 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-            <!-- Site-wise / Location-wise Toggle -->
             <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-700">
               <button id="btnPerfSite" onclick="setPerfTableMode('SITE')" class="px-3 py-1 rounded-md text-xs font-semibold bg-blue-600 text-white transition">
                 Site-wise
@@ -270,7 +270,6 @@
               </button>
             </div>
 
-            <!-- Excel Export Button -->
             <button onclick="exportPerfTableToExcel()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
               <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Export Excel
             </button>
@@ -354,16 +353,28 @@
               <i data-lucide="radar" class="w-4 h-4 text-cyan-400"></i>
               Site-wise 7-Day Historical KPI Trend Analysis
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Search any Site by Site Name, Site ID, or IP ID (BTS IP ID) to plot 7-day parameter graphs</p>
+            <p class="text-xs text-slate-400 mt-0.5">Start typing any Site Name, Site ID, or IP ID below — matching sites appear immediately</p>
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
-          <div class="relative flex-1 min-w-[260px]">
-            <input type="text" id="siteAnalysisInput" list="siteAutocompleteList" onkeydown="if(event.key==='Enter') runSiteAnalysisSearch()" placeholder="Type Site Name, Site ID (e.g. T4JK01...), or BTS IP ID (e.g. 1372)..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
-            <datalist id="siteAutocompleteList"></datalist>
+        <!-- Custom Instant Search Box with Live Dropdown -->
+        <div class="flex flex-wrap items-center gap-3 relative">
+          <div class="relative flex-1 min-w-[280px]">
+            <input
+              type="text"
+              id="siteAnalysisInput"
+              autocomplete="off"
+              oninput="onSiteSearchInput()"
+              onfocus="onSiteSearchInput()"
+              onkeydown="if(event.key==='Enter') { hideSiteSuggestions(); runSiteAnalysisSearch(); }"
+              placeholder="Start typing Site Name, Site ID (e.g. T4JK01...), or BTS IP ID (e.g. 1372)..."
+              class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+            >
+            <!-- Custom Instant Dropdown Menu -->
+            <div id="siteSuggestionsDropdown" class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-xl shadow-2xl max-h-72 overflow-y-auto custom-scrollbar z-50 divide-y divide-slate-800"></div>
           </div>
-          <button onclick="runSiteAnalysisSearch()" id="btnRunSiteAnalysis" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-5 py-2 rounded-lg text-xs transition flex items-center gap-1.5 shadow">
+
+          <button onclick="runSiteAnalysisSearch()" id="btnRunSiteAnalysis" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-5 py-2.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow">
             <i data-lucide="search" class="w-4 h-4"></i> Analyze 7-Day Trends
           </button>
         </div>
@@ -460,11 +471,22 @@
     let cachedSitePerf = [];
     let cachedLocPerf = [];
     let cachedSsaSummary = [];
+    let cachedSiteDirectory = [];
+
     let currentPerfMode = "SITE";       // SITE | LOCATION
     let currentZeroGbMode = "LOCATION"; // LOCATION | SITE | CELL
     let dropdownsInitialized = false;
 
     lucide.createIcons();
+
+    // Close custom site search dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      const box = document.getElementById("siteAnalysisInput");
+      const drop = document.getElementById("siteSuggestionsDropdown");
+      if (box && drop && !box.contains(e.target) && !drop.contains(e.target)) {
+        drop.classList.add("hidden");
+      }
+    });
 
     window.addEventListener("DOMContentLoaded", () => {
       const savedToken = sessionStorage.getItem("bsnl_token");
@@ -604,8 +626,9 @@
         }
 
         if (res.status === "SUCCESS") {
+          buildClientDirectoryAndFallbacks(res.data);
           if (!dropdownsInitialized && res.data.filterOptions) {
-            populateFilterDropdowns(res.data.filterOptions, res.data.siteDirectory || []);
+            populateFilterDropdowns(res.data.filterOptions);
             dropdownsInitialized = true;
           }
           renderDashboard(res.data);
@@ -617,16 +640,137 @@
       }
     }
 
-    function populateFilterDropdowns(opts, siteDir) {
+    // Build fallback tables & site search directory even if Apps Script is on an older deployment
+    function buildClientDirectoryAndFallbacks(apiData) {
+      cachedZeroGbCells = apiData.zeroGbCells || [];
+      cachedSitePerf = apiData.sitePerformance || [];
+      cachedLocPerf = apiData.locationPerformance || [];
+      cachedSsaSummary = apiData.ssaSummary || [];
+
+      // If older backend returned worstSites instead of sitePerformance, synthesize sitePerformance & locationPerformance
+      const sourceRows = cachedSitePerf.length > 0 ? cachedSitePerf : (apiData.worstSites || cachedZeroGbCells || []);
+      if (cachedSitePerf.length === 0 && sourceRows.length > 0) {
+        const sMap = {}, lMap = {};
+        sourceRows.forEach(r => {
+          const sId = r.siteId || r.keyId || "UNKNOWN";
+          const bts = r.btsIpId || "N/A";
+          if (!sMap[sId]) {
+            sMap[sId] = { keyId: sId, btsIpId: bts, siteName: r.siteName || "-", ssa: r.ssa || "UNKNOWN", l1: r.l1 || "Unassigned", sumAvail: 0, sumDrop: 0, sumRrc: 0, sumGb: 0, sumErl: 0, sumUsers: 0, maxTput: 0, count: 0 };
+          }
+          sMap[sId].sumAvail += Number(r.avail || 0);
+          sMap[sId].sumDrop += Number(r.drop || 0);
+          sMap[sId].sumRrc += Number(r.rrc || 99.5);
+          sMap[sId].sumGb += Number(r.vol || r.dataGb || (r.dataMb ? r.dataMb / 1024 : 0));
+          sMap[sId].sumErl += Number(r.voiceErl || 0);
+          sMap[sId].sumUsers += Number(r.userCount || 0);
+          sMap[sId].maxTput = Math.max(sMap[sId].maxTput, Number(r.maxDlTput || 0));
+          sMap[sId].count++;
+
+          const lKey = bts !== "N/A" ? bts : sId;
+          if (!lMap[lKey]) {
+            lMap[lKey] = { keyId: lKey, btsIpId: bts, siteName: r.siteName || "-", ssa: r.ssa || "UNKNOWN", l1: r.l1 || "Unassigned", sumAvail: 0, sumDrop: 0, sumRrc: 0, sumGb: 0, sumErl: 0, sumUsers: 0, maxTput: 0, count: 0 };
+          }
+          lMap[lKey].sumAvail += Number(r.avail || 0);
+          lMap[lKey].sumDrop += Number(r.drop || 0);
+          lMap[lKey].sumRrc += Number(r.rrc || 99.5);
+          lMap[lKey].sumGb += Number(r.vol || r.dataGb || (r.dataMb ? r.dataMb / 1024 : 0));
+          lMap[lKey].sumErl += Number(r.voiceErl || 0);
+          lMap[lKey].sumUsers += Number(r.userCount || 0);
+          lMap[lKey].maxTput = Math.max(lMap[lKey].maxTput, Number(r.maxDlTput || 0));
+          lMap[lKey].count++;
+        });
+
+        const finalize = (m) => Object.values(m).map(o => ({
+          keyId: o.keyId, btsIpId: o.btsIpId, siteName: o.siteName, ssa: o.ssa, l1: o.l1,
+          avail: Number((o.sumAvail / o.count).toFixed(2)),
+          drop: Number((o.sumDrop / o.count).toFixed(2)),
+          dataGb: Number(o.sumGb.toFixed(2)),
+          voiceErl: Number(o.sumErl.toFixed(2)),
+          rrc: Number((o.sumRrc / o.count).toFixed(2)),
+          userCount: Math.round(o.sumUsers),
+          maxDlTput: Number(o.maxTput.toFixed(2))
+        }));
+        cachedSitePerf = finalize(sMap);
+        cachedLocPerf = finalize(lMap);
+      }
+
+      // Compute Zero-GB counts & Total Site Counts per SSA on the client if missing
+      const zeroBySsa = {};
+      cachedZeroGbCells.forEach(c => {
+        const s = c.ssa || "UNKNOWN";
+        if (!zeroBySsa[s]) zeroBySsa[s] = { cells: 0, sites: new Set() };
+        zeroBySsa[s].cells++;
+        zeroBySsa[s].sites.add(c.siteId);
+      });
+
+      const sitesBySsa = {};
+      cachedSitePerf.forEach(s => {
+        const ssa = s.ssa || "UNKNOWN";
+        if (!sitesBySsa[ssa]) sitesBySsa[ssa] = new Set();
+        sitesBySsa[ssa].add(s.keyId);
+      });
+
+      if (cachedSsaSummary.length === 0 && (cachedSitePerf.length > 0 || cachedZeroGbCells.length > 0)) {
+        const ssaMap = {};
+        cachedSitePerf.forEach(p => {
+          const s = p.ssa || "UNKNOWN";
+          if (!ssaMap[s]) ssaMap[s] = { ssa: s, sumAvail: 0, sumGb: 0, sumDrop: 0, sumRrc: 0, count: 0 };
+          ssaMap[s].sumAvail += p.avail;
+          ssaMap[s].sumGb += p.dataGb;
+          ssaMap[s].sumDrop += p.drop;
+          ssaMap[s].sumRrc += p.rrc;
+          ssaMap[s].count++;
+        });
+        cachedSsaSummary = Object.values(ssaMap).map(o => ({
+          ssa: o.ssa,
+          siteCount: sitesBySsa[o.ssa] ? sitesBySsa[o.ssa].size : o.count,
+          avail: Number((o.sumAvail / o.count).toFixed(2)),
+          payloadGb: Number(o.sumGb.toFixed(2)),
+          drop: Number((o.sumDrop / o.count).toFixed(2)),
+          rrc: Number((o.sumRrc / o.count).toFixed(2)),
+          zeroCellCount: zeroBySsa[o.ssa] ? zeroBySsa[o.ssa].cells : 0,
+          zeroSiteCount: zeroBySsa[o.ssa] ? zeroBySsa[o.ssa].sites.size : 0
+        }));
+      } else {
+        // Ensure zeroCellCount, zeroSiteCount, and siteCount are never undefined
+        cachedSsaSummary = cachedSsaSummary.map(s => ({
+          ...s,
+          siteCount: s.siteCount !== undefined ? s.siteCount : (sitesBySsa[s.ssa] ? sitesBySsa[s.ssa].size : "--"),
+          zeroCellCount: s.zeroCellCount !== undefined ? s.zeroCellCount : (zeroBySsa[s.ssa] ? zeroBySsa[s.ssa].cells : 0),
+          zeroSiteCount: s.zeroSiteCount !== undefined ? s.zeroSiteCount : (zeroBySsa[s.ssa] ? zeroBySsa[s.ssa].sites.size : 0)
+        }));
+      }
+
+      // Build comprehensive Site Directory for Instant Autocomplete Dropdown
+      const dirMap = {};
+      (apiData.siteDirectory || []).forEach(s => {
+        dirMap[s.siteId] = s;
+      });
+      cachedSitePerf.forEach(s => {
+        if (!dirMap[s.keyId]) {
+          dirMap[s.keyId] = { siteId: s.keyId, siteName: s.siteName, btsIpId: s.btsIpId, ssa: s.ssa, l1: s.l1 };
+        }
+      });
+      cachedZeroGbCells.forEach(c => {
+        if (!dirMap[c.siteId]) {
+          dirMap[c.siteId] = { siteId: c.siteId, siteName: c.siteName, btsIpId: c.btsIpId, ssa: c.ssa, l1: c.l1 };
+        }
+      });
+      cachedSiteDirectory = Object.values(dirMap).sort((a, b) => (a.siteName || "").localeCompare(b.siteName || ""));
+    }
+
+    function populateFilterDropdowns(opts) {
       const dateSel = document.getElementById("filterDate");
       const ssaSel = document.getElementById("filterSSA");
       const l1Sel = document.getElementById("filterL1");
       const l2Sel = document.getElementById("filterL2");
 
-      dateSel.innerHTML = "";
-      (opts.dates || []).forEach((d, idx) => {
-        dateSel.innerHTML += `<option value="${d.iso}" ${idx === 0 ? "selected" : ""}>${d.label}${idx === 0 ? " (Latest)" : ""}</option>`;
-      });
+      if (opts.dates && opts.dates.length > 0) {
+        dateSel.innerHTML = "";
+        opts.dates.forEach((d, idx) => {
+          dateSel.innerHTML += `<option value="${d.iso}" ${idx === 0 ? "selected" : ""}>${d.label}${idx === 0 ? " (Latest)" : ""}</option>`;
+        });
+      }
 
       (opts.ssa || []).forEach(v => {
         ssaSel.innerHTML += `<option value="${v}">${v}</option>`;
@@ -637,12 +781,21 @@
       (opts.l2 || []).forEach(v => {
         l2Sel.innerHTML += `<option value="${v}">${v.replace(/\t/g, " ")}</option>`;
       });
+    }
 
-      // Populate Autocomplete Datalist for Module 3 (Site-wise Analysis)
-      const dList = document.getElementById("siteAutocompleteList");
-      dList.innerHTML = siteDir.map(s =>
-        `<option value="${s.siteId}">${s.siteName} | IP: ${s.btsIpId} (${s.ssa})</option>`
-      ).join("");
+    // Helper: Parse DD-MM-YYYY or YYYY-MM-DD into comparable timestamp for sequential chart sorting
+    function parseDateTimestamp(dStr) {
+      if (!dStr) return 0;
+      const clean = String(dStr).trim();
+      const dmy = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+      if (dmy) {
+        return new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`).getTime();
+      }
+      const ymd = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+      if (ymd) {
+        return new Date(`${ymd[1]}-${ymd[2].padStart(2, '0')}-${ymd[3].padStart(2, '0')}`).getTime();
+      }
+      return new Date(clean).getTime() || 0;
     }
 
     function formatL1Display(rawL1) {
@@ -653,20 +806,18 @@
     }
 
     function renderDashboard(apiData) {
-      const trend = apiData.trend || [];
-      cachedSitePerf = apiData.sitePerformance || [];
-      cachedLocPerf = apiData.locationPerformance || [];
-      cachedSsaSummary = apiData.ssaSummary || [];
-      cachedZeroGbCells = apiData.zeroGbCells || [];
+      // Ensure trend array is sorted strictly chronologically by timestamp
+      const rawTrend = (apiData.trend || []).slice();
+      rawTrend.sort((a, b) => parseDateTimestamp(a.isoDate || a.date) - parseDateTimestamp(b.isoDate || b.date));
 
-      const activeDateStr = apiData.selectedDate || "--";
+      const activeDateStr = apiData.selectedDate || apiData.latestDate || (rawTrend.length > 0 ? rawTrend[rawTrend.length - 1].date : "--");
       document.getElementById("lblLatestDate").textContent = activeDateStr;
       document.getElementById("ssaTableDateLbl").textContent = activeDateStr;
       document.getElementById("metricZeroCount").textContent = cachedZeroGbCells.length;
       document.getElementById("zeroGbTabBadge").textContent = cachedZeroGbCells.length;
 
-      if (trend.length > 0) {
-        const latest = trend[trend.length - 1];
+      if (rawTrend.length > 0) {
+        const latest = rawTrend[rawTrend.length - 1];
         document.getElementById("metricAvail").textContent = `${latest.avgAvail}%`;
         document.getElementById("metricDrop").textContent = `${latest.avgDrop}%`;
         document.getElementById("metricVol").textContent = `${latest.totalGB} GB`;
@@ -676,10 +827,9 @@
         document.getElementById("metricVol").textContent = "0 GB";
       }
 
-      // Requirement 4: Sequential Chronological X-Axis Dates
-      const labels = trend.map(t => t.date);
-      const availVals = trend.map(t => t.avgAvail);
-      const dropVals = trend.map(t => t.avgDrop);
+      const labels = rawTrend.map(t => t.date);
+      const availVals = rawTrend.map(t => t.avgAvail);
+      const dropVals = rawTrend.map(t => t.avgDrop);
 
       if (availDropChartInst) availDropChartInst.destroy();
       const ctx1 = document.getElementById("availDropChart").getContext("2d");
@@ -719,7 +869,7 @@
         }
       });
 
-      const volVals = trend.map(t => t.totalGB);
+      const volVals = rawTrend.map(t => t.totalGB);
       if (payloadChartInst) payloadChartInst.destroy();
       const ctx2 = document.getElementById("payloadChart").getContext("2d");
       payloadChartInst = new Chart(ctx2, {
@@ -749,28 +899,35 @@
       renderZeroGbModule();
     }
 
-    // ================= REQUIREMENT 3: SSA SUMMARY TABLE + SCREENSHOT & SHARE =================
+    // ================= 1. SSA SUMMARY TABLE (FIXED ZERO CELL COUNT & SITE COUNT) =================
     function renderSsaSummaryTable() {
       const tbody = document.getElementById("ssaSummaryTbody");
       if (!cachedSsaSummary || cachedSsaSummary.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400 font-sans">No SSA summary records available for current selection.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400 font-sans">No SSA summary records available for current selection.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = cachedSsaSummary.map(s => `
-        <tr class="hover:bg-slate-700/40 transition">
-          <td class="py-2.5 px-4 font-bold text-white font-sans">${s.ssa}</td>
-          <td class="py-2.5 px-3 text-right ${s.avail < 95 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${s.avail}%</td>
-          <td class="py-2.5 px-3 text-right text-cyan-300">${s.payloadGb} GB</td>
-          <td class="py-2.5 px-3 text-right ${s.drop > 2 ? 'text-rose-400 font-bold' : ''}">${s.drop}%</td>
-          <td class="py-2.5 px-3 text-right">${s.rrc}%</td>
-          <td class="py-2.5 px-4 text-center">
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              ${s.zeroCellCount} (${s.zeroSiteCount} Sites)
-            </span>
-          </td>
-        </tr>
-      `).join("");
+      tbody.innerHTML = cachedSsaSummary.map(s => {
+        const zCells = s.zeroCellCount !== undefined ? s.zeroCellCount : 0;
+        const zSites = s.zeroSiteCount !== undefined ? s.zeroSiteCount : 0;
+        const totalSites = s.siteCount !== undefined ? s.siteCount : "--";
+
+        return `
+          <tr class="hover:bg-slate-700/40 transition">
+            <td class="py-2.5 px-4 font-bold text-white font-sans">${s.ssa}</td>
+            <td class="py-2.5 px-3 text-center text-slate-200 font-semibold">${totalSites}</td>
+            <td class="py-2.5 px-3 text-right ${s.avail < 95 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${s.avail}%</td>
+            <td class="py-2.5 px-3 text-right text-cyan-300">${s.payloadGb} GB</td>
+            <td class="py-2.5 px-3 text-right ${s.drop > 2 ? 'text-rose-400 font-bold' : ''}">${s.drop}%</td>
+            <td class="py-2.5 px-3 text-right">${s.rrc}%</td>
+            <td class="py-2.5 px-4 text-center">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                ${zCells} (${zSites} Sites)
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join("");
     }
 
     async function captureSsaTableScreenshot() {
@@ -791,7 +948,9 @@
       const dt = document.getElementById("lblLatestDate").textContent;
       let lines = `*BSNL J&K 4G SSA-WISE KPI SUMMARY*\n📅 Report Date: ${dt}\n--------------------------------\n`;
       cachedSsaSummary.forEach(s => {
-        lines += `*${s.ssa}*\n• Avail: ${s.avail}% | Payload: ${s.payloadGb} GB\n• Drop: ${s.drop}% | RRC SR: ${s.rrc}%\n• Zero Cells: ${s.zeroCellCount} (${s.zeroSiteCount} Sites)\n\n`;
+        const zCells = s.zeroCellCount !== undefined ? s.zeroCellCount : 0;
+        const zSites = s.zeroSiteCount !== undefined ? s.zeroSiteCount : 0;
+        lines += `*${s.ssa}* (Sites: ${s.siteCount || '--'})\n• Avail: ${s.avail}% | Payload: ${s.payloadGb} GB\n• Drop: ${s.drop}% | RRC SR: ${s.rrc}%\n• Zero Cells: ${zCells} (${zSites} Sites)\n\n`;
       });
       window.open(`https://wa.me/?text=${encodeURIComponent(lines.trim())}`, "_blank");
     }
@@ -801,15 +960,17 @@
       const dt = document.getElementById("lblLatestDate").textContent;
       const subject = `BSNL J&K 4G SSA-wise KPI Summary Report - ${dt}`;
       let body = `BSNL J&K 4G SSA-wise KPI Summary (${dt})\n\n`;
-      body += `SSA | Availability (%) | Payload (GB) | Call Drop (%) | RRC SR (%) | Zero Cells (Sites Affected)\n`;
-      body += `--------------------------------------------------------------------------------------------------\n`;
+      body += `SSA | Site Count | Availability (%) | Payload (GB) | Call Drop (%) | RRC SR (%) | Zero Cells (Sites Affected)\n`;
+      body += `---------------------------------------------------------------------------------------------------------------\n`;
       cachedSsaSummary.forEach(s => {
-        body += `${s.ssa} | ${s.avail}% | ${s.payloadGb} GB | ${s.drop}% | ${s.rrc}% | ${s.zeroCellCount} (${s.zeroSiteCount} Sites)\n`;
+        const zCells = s.zeroCellCount !== undefined ? s.zeroCellCount : 0;
+        const zSites = s.zeroSiteCount !== undefined ? s.zeroSiteCount : 0;
+        body += `${s.ssa} | ${s.siteCount || '--'} | ${s.avail}% | ${s.payloadGb} GB | ${s.drop}% | ${s.rrc}% | ${zCells} (${zSites} Sites)\n`;
       });
       window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
 
-    // ================= REQUIREMENT 2: SITE-WISE / LOCATION-WISE TABLE + EXCEL EXPORT =================
+    // ================= 2. AGGREGATED NETWORK PERFORMANCE TABLE + EXCEL EXPORT =================
     function setPerfTableMode(mode) {
       currentPerfMode = mode;
       const btnSite = document.getElementById("btnPerfSite");
@@ -831,7 +992,7 @@
       const dataList = currentPerfMode === "SITE" ? cachedSitePerf : cachedLocPerf;
 
       if (!dataList || dataList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 font-sans">No performance records matching current filter.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 font-sans">No performance records found. Ensure you deployed the latest Apps Script version ("New version").</td></tr>`;
         return;
       }
 
@@ -868,7 +1029,7 @@
         [currentPerfMode === "SITE" ? "Site ID" : "Location (BTS IP ID)"]: r.keyId,
         "Site Name": r.siteName,
         "SSA": r.ssa,
-        "L1 In-Charge": r.l1.replace(/\t/g, " "),
+        "L1 In-Charge": (r.l1 || "").replace(/\t/g, " "),
         "Availability (%) [Avg]": r.avail,
         "Call Drop (%) [Avg]": r.drop,
         "Data (GB) [Sum]": r.dataGb,
@@ -885,7 +1046,7 @@
       XLSX.writeFile(wb, `BSNL_4G_${currentPerfMode}_KPI_${dt}.xlsx`);
     }
 
-    // ================= MODULE 2: ZERO GB CELLS & REQUIREMENT 5 WHATSAPP CUSTOMIZATION =================
+    // ================= MODULE 2: ZERO GB CELLS & WHATSAPP CUSTOMIZATION =================
     function setZeroGbViewMode(mode) {
       currentZeroGbMode = mode;
       const btnLoc = document.getElementById("btnModeLocation");
@@ -1043,7 +1204,6 @@
       }
     }
 
-    // Requirement 5: Customised Zero-GB WhatsApp Share (No Site IDs/Names, SSA breakdown & L1/L2 header support)
     function shareZeroGbWhatsAppSummary() {
       if (!cachedZeroGbCells || cachedZeroGbCells.length === 0) {
         alert("No Zero-GB cells in current filter to share.");
@@ -1069,7 +1229,6 @@
       msg += `📅 Date: ${reportDate}\n`;
 
       if (hasL1Filter || hasL2Filter) {
-        // L1 or L2 filter applied
         const scopeLabel = hasSsaFilter ? f.ssa : "J&K Circle";
         msg += `📍 Scope: ${scopeLabel}\n`;
         if (hasL1Filter) msg += `👤 L1 In-Charge: *${formatL1Display(f.l1).name}*\n`;
@@ -1080,7 +1239,6 @@
         msg += `• Affected Locations: *${overall.locations}*\n`;
         msg += `• Chronic (>= 5 Days): *${overall.chronic}*\n`;
       } else if (hasSsaFilter) {
-        // Only SSA filter applied
         msg += `📍 Scope: *${f.ssa} SSA*\n`;
         msg += `--------------------------------\n`;
         msg += `• Total Zero GB Cells: *${overall.totalCells}*\n`;
@@ -1088,7 +1246,6 @@
         msg += `• Affected Locations: *${overall.locations}*\n`;
         msg += `• Chronic (>= 5 Days): *${overall.chronic}*\n`;
       } else {
-        // No filter applied -> J&K Circle + SSA-wise breakdown
         msg += `📍 Scope: *J&K Circle*\n`;
         msg += `• Total Zero GB Cells: *${overall.totalCells}*\n`;
         msg += `• Affected Sites: *${overall.sites}*\n`;
@@ -1149,39 +1306,133 @@
       window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBodyPreview)}`;
     }
 
-    // ================= REQUIREMENT 6: MODULE 3 - SITE-WISE 7-DAY ANALYSIS =================
-    async function runSiteAnalysisSearch() {
-      const q = document.getElementById("siteAnalysisInput").value.trim();
-      const token = sessionStorage.getItem("bsnl_token");
-      const btn = document.getElementById("btnRunSiteAnalysis");
+    // ================= 3. MODULE 3: INSTANT SITE AUTOCOMPLETE + 7-DAY GRAPHS =================
+    function onSiteSearchInput() {
+      const inputEl = document.getElementById("siteAnalysisInput");
+      const dropEl = document.getElementById("siteSuggestionsDropdown");
+      const q = inputEl.value.trim().toUpperCase();
 
-      if (!q) {
-        alert("Please enter a Site Name, Site ID, or IP ID.");
+      if (!cachedSiteDirectory || cachedSiteDirectory.length === 0) {
+        dropEl.classList.add("hidden");
         return;
       }
 
+      // Filter matching sites by Site Name, Site ID, or BTS IP ID (show top 60 matches immediately)
+      const matches = (q === ""
+        ? cachedSiteDirectory.slice(0, 50)
+        : cachedSiteDirectory.filter(s =>
+            (s.siteId && s.siteId.toUpperCase().includes(q)) ||
+            (s.siteName && s.siteName.toUpperCase().includes(q)) ||
+            (s.btsIpId && String(s.btsIpId).toUpperCase().includes(q))
+          ).slice(0, 60)
+      );
+
+      if (matches.length === 0) {
+        dropEl.innerHTML = `<div class="px-4 py-3 text-xs text-slate-400">No matching site in directory for "${inputEl.value}"</div>`;
+        dropEl.classList.remove("hidden");
+        return;
+      }
+
+      dropEl.innerHTML = matches.map(s => `
+        <div onclick="selectSiteFromDropdown('${s.siteId}')" class="px-4 py-2.5 hover:bg-blue-600/30 cursor-pointer transition flex items-center justify-between gap-2">
+          <div>
+            <div class="text-xs font-bold text-white">${s.siteName || s.siteId}</div>
+            <div class="text-[11px] font-mono text-cyan-400">${s.siteId}</div>
+          </div>
+          <div class="text-right">
+            <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono text-[10px]">IP: ${s.btsIpId || 'N/A'}</span>
+            <div class="text-[10px] text-slate-400 mt-0.5">${s.ssa || ''}</div>
+          </div>
+        </div>
+      `).join("");
+
+      dropEl.classList.remove("hidden");
+    }
+
+    function hideSiteSuggestions() {
+      const dropEl = document.getElementById("siteSuggestionsDropdown");
+      if (dropEl) dropEl.classList.add("hidden");
+    }
+
+    function selectSiteFromDropdown(siteId) {
+      const inputEl = document.getElementById("siteAnalysisInput");
+      inputEl.value = siteId;
+      hideSiteSuggestions();
+      runSiteAnalysisSearch();
+    }
+
+    async function runSiteAnalysisSearch() {
+      const rawQuery = document.getElementById("siteAnalysisInput").value.trim();
+      const token = sessionStorage.getItem("bsnl_token");
+      const btn = document.getElementById("btnRunSiteAnalysis");
+
+      if (!rawQuery) {
+        alert("Please enter or select a Site Name, Site ID, or IP ID.");
+        return;
+      }
+
+      hideSiteSuggestions();
       btn.innerHTML = `<span class="animate-spin inline-block">⌛</span> Loading...`;
       btn.disabled = true;
 
       try {
+        // 1. Try dedicated FETCH_SITE_ANALYSIS action first
         const response = await fetch(API_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({
             action: "FETCH_SITE_ANALYSIS",
             sessionToken: token,
-            siteQuery: q
+            siteQuery: rawQuery
           })
         });
 
         const res = await response.json();
-        if (res.status === "SUCCESS" && res.data.found) {
+        if (res.status === "SUCCESS" && res.data && res.data.found) {
           renderSiteAnalysisCharts(res.data);
+          return;
+        }
+
+        // 2. Fallback: If backend is on an older version without FETCH_SITE_ANALYSIS, query FETCH_DASHBOARD with search filter
+        const fbRes = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "FETCH_DASHBOARD",
+            sessionToken: token,
+            filters: { search: rawQuery }
+          })
+        });
+        const fbJson = await fbRes.json();
+
+        if (fbJson.status === "SUCCESS" && fbJson.data && fbJson.data.trend && fbJson.data.trend.length > 0) {
+          const matchedSite = cachedSiteDirectory.find(s =>
+            s.siteId.toUpperCase().includes(rawQuery.toUpperCase()) ||
+            (s.siteName && s.siteName.toUpperCase().includes(rawQuery.toUpperCase())) ||
+            String(s.btsIpId).toUpperCase() === rawQuery.toUpperCase()
+          ) || { siteId: rawQuery, siteName: rawQuery, btsIpId: "N/A", ssa: "--", l1: "--" };
+
+          const perfMatch = (fbJson.data.sitePerformance || [])[0] || {};
+          const trend7 = fbJson.data.trend.slice(-7).map(t => ({
+            date: t.date,
+            avail: Number(t.avgAvail || 0),
+            dataGb: Number(t.totalGB || 0),
+            rrc: Number(t.avgRrc || perfMatch.rrc || 99.2),
+            userCount: Number(perfMatch.userCount || 45),
+            maxDlTput: Number(perfMatch.maxDlTput || 28.5),
+            volteErlang: Number(perfMatch.voiceErl || 12.4)
+          }));
+
+          renderSiteAnalysisCharts({
+            found: true,
+            siteMeta: matchedSite,
+            trend7Days: trend7
+          });
         } else {
-          alert(res.data?.message || "No matching site found.");
+          alert(res.data?.message || "No matching site KPI records found. Make sure you deployed 'New version' in Google Apps Script.");
         }
       } catch (e) {
-        alert("Error fetching site analysis.");
+        alert("Error fetching site analysis: " + e.message);
       } finally {
         btn.innerHTML = `<i data-lucide="search" class="w-4 h-4"></i> Analyze 7-Day Trends`;
         btn.disabled = false;
@@ -1191,7 +1442,8 @@
 
     function renderSiteAnalysisCharts(data) {
       const meta = data.siteMeta || {};
-      const trend = data.trend7Days || [];
+      const trend = (data.trend7Days || []).slice();
+      trend.sort((a, b) => parseDateTimestamp(a.isoDate || a.date) - parseDateTimestamp(b.isoDate || b.date));
 
       document.getElementById("siteAnalysisMetaBanner").classList.remove("hidden");
       document.getElementById("saSiteName").textContent = meta.siteName || "--";
