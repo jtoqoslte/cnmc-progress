@@ -9,7 +9,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- xlsx-js-style (Color-Coded Excel Export), html2canvas (Screenshots) & html2pdf (PDF Export) -->
+  <!-- xlsx-js-style (Color-Coded Excel Export + AutoFilter), html2canvas (Screenshots) & html2pdf (PDF Export) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -19,7 +19,7 @@
     .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     .sortable-th { cursor: pointer; user-select: none; transition: background-color 0.15s, color 0.15s; }
-    .sortable-th:hover { background-color: rgba(51, 65, 85, 0.9); color: #ffffff; }
+    .sortable-th:hover { background-color: rgba(51, 65, 85, 0.95); color: #ffffff; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
@@ -135,7 +135,7 @@
       </div>
     </section>
 
-    <!-- 5 KPI Summary Metric Cards (Filtered Site Count at the Start) -->
+    <!-- 5 KPI Summary Metric Cards -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
         <div class="flex items-center justify-between text-slate-400 text-xs">
@@ -227,17 +227,20 @@
         </div>
       </section>
 
-      <!-- SSA-Wise Summary Table with Total (J&K Circle) Footer Row -->
+      <!-- SSA-Wise Summary Table (Sortable + Excel Export + Total J&K Circle Row) -->
       <section id="ssaSummaryCard" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-sm font-semibold text-white flex items-center gap-2">
               <i data-lucide="building-2" class="w-4 h-4 text-cyan-400"></i>
-              SSA-wise KPI Summary (<span id="ssaTableDateLbl" class="text-emerald-400 font-mono">--</span>)
+              SSA-wise KPI Summary (<span id="ssaTableDateLbl" class="text-emerald-400 font-mono">--</span>) — Click Any Header to Sort ▲/▼
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">Total Sites, Availability, Payload, Call Drop, RRC Success Rate & Zero Cell Count (Sites Affected)</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
+            <button onclick="exportSsaSummaryToExcel()" class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
+              <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Export Excel
+            </button>
             <button onclick="captureSsaTableScreenshot()" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-semibold transition flex items-center gap-1.5 border border-slate-600">
               <i data-lucide="camera" class="w-3.5 h-3.5 text-cyan-400"></i> Screenshot
             </button>
@@ -254,13 +257,13 @@
           <table class="w-full text-left text-xs text-slate-300">
             <thead class="bg-slate-900 uppercase text-[10px] text-slate-400 font-semibold border-b border-slate-700">
               <tr>
-                <th class="py-3 px-4">SSA</th>
-                <th class="py-3 px-3 text-center">Site Count</th>
-                <th class="py-3 px-3 text-right" title="Target >= 99.5%">Availability (%) ⓘ</th>
-                <th class="py-3 px-3 text-right">Payload (GB)</th>
-                <th class="py-3 px-3 text-right" title="Target <= 1.0%">Call Drop (%) ⓘ</th>
-                <th class="py-3 px-3 text-right" title="Target >= 98.5%">RRC Success Rate (%) ⓘ</th>
-                <th class="py-3 px-4 text-center" title="Cells with <= 5 MB traffic (Number of unique sites affected)">Zero Cell Count (Sites Affected) ⓘ</th>
+                <th onclick="sortTableBy('SSA', 'ssa', 'str')" class="py-3 px-4 sortable-th">SSA <span id="sortIcon_SSA_ssa" class="text-blue-400 ml-0.5">▲</span></th>
+                <th onclick="sortTableBy('SSA', 'siteCount', 'num')" class="py-3 px-3 text-center sortable-th">Site Count <span id="sortIcon_SSA_siteCount" class="text-slate-500 ml-0.5">⇅</span></th>
+                <th onclick="sortTableBy('SSA', 'avail', 'num')" class="py-3 px-3 text-right sortable-th" title="Target >= 99.5%">Availability (%) ⓘ <span id="sortIcon_SSA_avail" class="text-slate-500 ml-0.5">⇅</span></th>
+                <th onclick="sortTableBy('SSA', 'payloadGb', 'num')" class="py-3 px-3 text-right sortable-th">Payload (GB) <span id="sortIcon_SSA_payloadGb" class="text-slate-500 ml-0.5">⇅</span></th>
+                <th onclick="sortTableBy('SSA', 'drop', 'num')" class="py-3 px-3 text-right sortable-th" title="Target <= 1.0%">Call Drop (%) ⓘ <span id="sortIcon_SSA_drop" class="text-slate-500 ml-0.5">⇅</span></th>
+                <th onclick="sortTableBy('SSA', 'rrc', 'num')" class="py-3 px-3 text-right sortable-th" title="Target >= 98.5%">RRC Success Rate (%) ⓘ <span id="sortIcon_SSA_rrc" class="text-slate-500 ml-0.5">⇅</span></th>
+                <th onclick="sortTableBy('SSA', 'zeroCellCount', 'num')" class="py-3 px-4 text-center sortable-th" title="Cells with <= 5 MB traffic">Zero Cell Count (Sites Affected) ⓘ <span id="sortIcon_SSA_zeroCellCount" class="text-slate-500 ml-0.5">⇅</span></th>
               </tr>
             </thead>
             <tbody id="ssaSummaryTbody" class="divide-y divide-slate-700/60 font-mono"></tbody>
@@ -372,7 +375,7 @@
       <section class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 class="text-sm font-semibold text-white">Zero GB Cells (&le; 5 MB Data Volume)</h2>
+            <h2 class="text-sm font-semibold text-white">Zero GB Cells (&le; 5 MB Data Volume) — Click Any Column Header to Sort ▲/▼</h2>
             <p class="text-xs text-slate-400 mt-0.5">Filtered by active Report Date, SSA, L1, L2 & Search criteria</p>
           </div>
           <span id="zeroGbCountSummary" class="text-xs font-mono px-2.5 py-1 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">0 Records</span>
@@ -387,26 +390,29 @@
       </section>
     </div>
 
-    <!-- ================= MODULE 3: SITE-WISE ANALYSIS (7-DAY TRENDS) ================= -->
+    <!-- ================= MODULE 3: SITE-WISE / LOCATION-WISE 7-DAY ANALYSIS ================= -->
     <div id="viewSiteAnalysis" class="hidden space-y-6">
       <section class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 class="text-sm font-semibold text-white flex items-center gap-2">
               <i data-lucide="radar" class="w-4 h-4 text-cyan-400"></i>
-              Site-wise / Location-wise 7-Day Historical KPI Trend Analysis
+              Site-wise (3-Cell) &amp; Location-wise (Band-wise B01/B28) 7-Day Historical KPI Trend Analysis
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Defaults to your Common Network Filter scope (Circle / SSA / L1) until a specific Site or Location is selected</p>
+            <p class="text-xs text-slate-400 mt-0.5">
+              <strong>Site-wise</strong> plots all 3 Cells (<span class="text-emerald-400">Cell 0</span>, <span class="text-cyan-400">Cell 1</span>, <span class="text-amber-400">Cell 2</span>) |
+              <strong>Location-wise</strong> plots Band comparison (<span class="text-blue-400">B01 2100</span> vs <span class="text-emerald-400">B28 700</span>)
+            </p>
           </div>
 
           <div class="flex flex-wrap items-center gap-2.5">
             <!-- Site-wise vs Location-wise Toggle -->
             <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-700">
               <button id="btnSaModeSite" onclick="setSiteAnalysisMode('SITE')" class="px-3 py-1 rounded-md text-xs font-semibold bg-cyan-600 text-white transition">
-                Site-wise (Band ID)
+                Site-wise (3-Cell View)
               </button>
               <button id="btnSaModeLoc" onclick="setSiteAnalysisMode('LOCATION')" class="px-3 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">
-                Location-wise (BTS IP ID - All Bands)
+                Location-wise (Band View: B01/B28)
               </button>
             </div>
 
@@ -426,14 +432,14 @@
               oninput="onSiteSearchInput()"
               onfocus="onSiteSearchInput()"
               onkeydown="if(event.key==='Enter') { hideSiteSuggestions(); runSiteAnalysisSearch(); }"
-              placeholder="Search Site Name or Site ID (B01 / B28)..."
+              placeholder="Search Site Name or Individual 4G Band Site ID (plots Cell 0, Cell 1, Cell 2)..."
               class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
             >
             <div id="siteSuggestionsDropdown" class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-xl shadow-2xl max-h-72 overflow-y-auto custom-scrollbar z-50 divide-y divide-slate-800"></div>
           </div>
 
           <button onclick="runSiteAnalysisSearch()" id="btnRunSiteAnalysis" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-5 py-2.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow">
-            <i data-lucide="search" class="w-4 h-4"></i> Analyze Site / Location
+            <i data-lucide="search" class="w-4 h-4"></i> Analyze 7D Trends
           </button>
           <button onclick="resetToFilterScopeAnalysis()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-2.5 rounded-lg text-xs transition">
             Show Filter Scope
@@ -452,10 +458,13 @@
             <span class="mx-2 text-slate-600">|</span>
             <span class="text-slate-400">IP ID:</span> <strong id="saBtsIp" class="text-amber-300 font-mono ml-1">--</strong>
           </div>
-          <div>
-            <span class="text-slate-400">SSA:</span> <strong id="saSsa" class="text-white ml-1">All Permitted</strong>
-            <span class="mx-2 text-slate-600">|</span>
-            <span class="text-slate-400">L1:</span> <strong id="saL1" class="text-emerald-300 ml-1">All Officers</strong>
+          <div class="flex items-center gap-3">
+            <span id="saPlotModeBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">Scope Consolidated Trend</span>
+            <div>
+              <span class="text-slate-400">SSA:</span> <strong id="saSsa" class="text-white ml-1">All Permitted</strong>
+              <span class="mx-2 text-slate-600">|</span>
+              <span class="text-slate-400">L1:</span> <strong id="saL1" class="text-emerald-300 ml-1">All Officers</strong>
+            </div>
           </div>
         </div>
 
@@ -463,57 +472,70 @@
         <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
             <h3 class="text-xs font-semibold text-emerald-400 mb-2">1. Availability (%) - Target &ge; 99.5%</h3>
-            <div class="h-52 relative"><canvas id="saChartAvail"></canvas></div>
+            <div class="h-56 relative"><canvas id="saChartAvail"></canvas></div>
           </div>
           <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
             <h3 class="text-xs font-semibold text-cyan-400 mb-2">2. Data Volume (GB) - Daily Payload</h3>
-            <div class="h-52 relative"><canvas id="saChartDataGb"></canvas></div>
+            <div class="h-56 relative"><canvas id="saChartDataGb"></canvas></div>
           </div>
           <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
             <h3 class="text-xs font-semibold text-blue-400 mb-2">3. RRC Connection SR (%) - Target &ge; 98.5%</h3>
-            <div class="h-52 relative"><canvas id="saChartRrc"></canvas></div>
+            <div class="h-56 relative"><canvas id="saChartRrc"></canvas></div>
           </div>
           <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
             <h3 class="text-xs font-semibold text-amber-400 mb-2">4. Active User Count - Connected Subscribers</h3>
-            <div class="h-52 relative"><canvas id="saChartUsers"></canvas></div>
+            <div class="h-56 relative"><canvas id="saChartUsers"></canvas></div>
           </div>
           <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
             <h3 class="text-xs font-semibold text-rose-400 mb-2">5. VoLTE Traffic (Erlang) - Voice Load</h3>
-            <div class="h-52 relative"><canvas id="saChartErlang"></canvas></div>
+            <div class="h-56 relative"><canvas id="saChartErlang"></canvas></div>
           </div>
           <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
             <h3 class="text-xs font-semibold text-purple-400 mb-2">6. Max. Cell Throughput (DL) Mbps</h3>
-            <div class="h-52 relative"><canvas id="saChartTput"></canvas></div>
+            <div class="h-56 relative"><canvas id="saChartTput"></canvas></div>
           </div>
         </section>
       </div>
     </div>
 
-    <!-- ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (4 SUB-MODULES) ================= -->
+    <!-- ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (5 SUB-MODULES INCLUDING CHRONIC 3D/5D/7D) ================= -->
     <div id="viewOptimization" class="hidden space-y-5">
       <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
-          <button id="btnOptVolte" onclick="setOptSubModule('VOLTE')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center gap-1.5">
-            <i data-lucide="phone-call" class="w-3.5 h-3.5"></i> 1. VoLTE Quality & Muting
+          <button id="btnOptVolte" onclick="setOptSubModule('VOLTE')" class="px-3 py-2 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center gap-1.5">
+            <i data-lucide="phone-call" class="w-3.5 h-3.5"></i> 1. VoLTE Quality
             <span id="badgeOptVolte" class="px-1.5 py-0.2 bg-black/30 rounded-full text-[10px]">0</span>
           </button>
-          <button id="btnOptRf" onclick="setOptSubModule('RF')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 hover:text-white transition flex items-center gap-1.5">
-            <i data-lucide="waves" class="w-3.5 h-3.5 text-rose-400"></i> 2. RF Interference (SINR / IBLER)
+          <button id="btnOptRf" onclick="setOptSubModule('RF')" class="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 hover:text-white transition flex items-center gap-1.5">
+            <i data-lucide="waves" class="w-3.5 h-3.5 text-rose-400"></i> 2. RF Interference
             <span id="badgeOptRf" class="px-1.5 py-0.2 bg-black/30 rounded-full text-[10px]">0</span>
           </button>
-          <button id="btnOptPrb" onclick="setOptSubModule('PRB')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 hover:text-white transition flex items-center gap-1.5">
-            <i data-lucide="cpu" class="w-3.5 h-3.5 text-amber-400"></i> 3. PRB Capacity Congestion
+          <button id="btnOptPrb" onclick="setOptSubModule('PRB')" class="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 hover:text-white transition flex items-center gap-1.5">
+            <i data-lucide="cpu" class="w-3.5 h-3.5 text-amber-400"></i> 3. PRB Congestion
             <span id="badgeOptPrb" class="px-1.5 py-0.2 bg-black/30 rounded-full text-[10px]">0</span>
           </button>
-          <button id="btnOptHo" onclick="setOptSubModule('HO')" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 hover:text-white transition flex items-center gap-1.5">
-            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5 text-cyan-400"></i> 4. Handover & Mobility Matrix
+          <button id="btnOptHo" onclick="setOptSubModule('HO')" class="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 hover:text-white transition flex items-center gap-1.5">
+            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5 text-cyan-400"></i> 4. Handover Matrix
             <span id="badgeOptHo" class="px-1.5 py-0.2 bg-black/30 rounded-full text-[10px]">0</span>
+          </button>
+          <button id="btnOptChronic" onclick="setOptSubModule('CHRONIC')" class="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-rose-300 hover:text-white border border-rose-500/40 transition flex items-center gap-1.5">
+            <i data-lucide="flame" class="w-3.5 h-3.5 text-rose-400"></i> 5. Chronic Degradation (3D/5D/7D)
+            <span id="badgeOptChronic" class="px-1.5 py-0.2 bg-rose-500/30 text-rose-200 rounded-full text-[10px]">0</span>
           </button>
         </div>
 
-        <button onclick="exportOptModuleToExcel()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
-          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Export Color Excel
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Quick Days Filter Pills for Chronic Tab -->
+          <div id="chronicDaysFilterBar" class="hidden inline-flex rounded-lg bg-slate-900 p-1 border border-slate-700 mr-1">
+            <button id="btnChr3" onclick="setChronicDaysFilter(3)" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-rose-600 text-white transition">&ge;3 Days</button>
+            <button id="btnChr5" onclick="setChronicDaysFilter(5)" class="px-2.5 py-1 rounded text-[11px] font-semibold text-slate-400 hover:text-white transition">&ge;5 Days</button>
+            <button id="btnChr7" onclick="setChronicDaysFilter(7)" class="px-2.5 py-1 rounded text-[11px] font-semibold text-slate-400 hover:text-white transition">7+ Days</button>
+          </div>
+
+          <button onclick="exportOptModuleToExcel()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Export Color Excel
+          </button>
+        </div>
       </section>
 
       <section id="optGuideBanner" class="bg-slate-800/90 border border-purple-500/40 rounded-xl p-4 text-xs space-y-2.5"></section>
@@ -522,7 +544,7 @@
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 id="optTableTitle" class="text-sm font-semibold text-white">VoLTE Quality Watchlist</h2>
-            <p id="optTableSubtitle" class="text-xs text-slate-400 mt-0.5">Cells exceeding critical threshold benchmarks on selected Report Date</p>
+            <p id="optTableSubtitle" class="text-xs text-slate-400 mt-0.5">Click any column header to sort ▲/▼ — Exported Excel preserves sort order &amp; enables AutoFilter</p>
           </div>
           <span id="optRecordCount" class="text-xs font-mono px-2.5 py-1 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30">0 Cells</span>
         </div>
@@ -538,7 +560,7 @@
 
   </main>
 
-  <!-- ================= 4G KPI HANDBOOK & RESPONSIBILITY MATRIX MODAL (WITH PDF EXPORT & FOOTER NOTE) ================= -->
+  <!-- ================= 4G KPI HANDBOOK & RESPONSIBILITY MATRIX MODAL ================= -->
   <div id="kpiHandbookModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
       <div class="p-4 bg-slate-900 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
@@ -560,9 +582,7 @@
         </div>
       </div>
 
-      <!-- Printable Content Container -->
       <div id="kpiHandbookPrintable" class="p-5 overflow-y-auto custom-scrollbar space-y-6 text-xs bg-slate-800 text-slate-100">
-        <!-- Section 1: Target Benchmarks Table -->
         <div>
           <h4 class="font-bold text-amber-300 uppercase tracking-wider mb-2">1. BSNL 4G LTE Operational Target Benchmarks</h4>
           <div class="overflow-x-auto border border-slate-700 rounded-xl">
@@ -592,7 +612,6 @@
           </div>
         </div>
 
-        <!-- Section 2: L1 vs TCS/Tejas Responsibility Matrix -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="bg-slate-900 border border-emerald-500/40 rounded-xl p-4 space-y-2">
             <h4 class="font-bold text-emerald-400 text-xs uppercase flex items-center gap-1.5">
@@ -621,7 +640,6 @@
           </div>
         </div>
 
-        <!-- Mandatory SiteAssist / ITSM Docket Note at Bottom -->
         <div class="bg-amber-500/15 border-2 border-amber-500/50 rounded-xl p-3.5 text-center">
           <p class="text-xs font-bold text-amber-300 tracking-wide">
             📌 IMPORTANT NOTE: "BSNL L1 need to book docket in the 'SiteAssist'/ ITSM App for Tejas/TCS faults &amp; assign to concerned Tejas/TCS L1."
@@ -682,6 +700,7 @@
     let cachedRfList = [];
     let cachedPrbList = [];
     let cachedHoList = [];
+    let cachedChronicList = [];
 
     let currentPerfMode = "SITE";       // SITE | LOCATION
     let perfSortCol = "avail";
@@ -691,8 +710,22 @@
     let currentSaMode = "SITE";         // SITE | LOCATION
     let isCustomSiteSearched = false;
 
-    let currentOptSubModule = "VOLTE";  // VOLTE | RF | PRB | HO
+    let currentOptSubModule = "VOLTE";  // VOLTE | RF | PRB | HO | CHRONIC
+    let chronicMinDaysFilter = 3;       // 3 | 5 | 7
     let dropdownsInitialized = false;
+
+    // Universal Sort State for SSA, ZeroGB, and Optimization Tables
+    const TABLE_SORT = {
+      SSA: { col: "ssa", asc: true, type: "str" },
+      ZEROGB_CELL: { col: "consecutiveDays", asc: false, type: "num" },
+      ZEROGB_SITE: { col: "count", asc: false, type: "num" },
+      ZEROGB_LOC: { col: "count", asc: false, type: "num" },
+      OPT_VOLTE: { col: "consecutiveDays", asc: false, type: "num" },
+      OPT_RF: { col: "consecutiveDays", asc: false, type: "num" },
+      OPT_PRB: { col: "consecutiveDays", asc: false, type: "num" },
+      OPT_HO: { col: "consecutiveDays", asc: false, type: "num" },
+      OPT_CHRONIC: { col: "consecutiveDays", asc: false, type: "num" }
+    };
 
     lucide.createIcons();
 
@@ -767,6 +800,44 @@
         renderDefaultFilterScope7DayCharts();
       }
       if (tab === "OPTIMIZATION") renderOptimizationModule();
+    }
+
+    // Universal Generic Array Sorter
+    function sortArrayByState(arr, stateKey) {
+      const st = TABLE_SORT[stateKey];
+      if (!st || !arr) return arr || [];
+      return arr.slice().sort((a, b) => {
+        if (st.type === "str") {
+          const vA = String(a[st.col] || "").toUpperCase();
+          const vB = String(b[st.col] || "").toUpperCase();
+          return st.asc ? vA.localeCompare(vB) : vB.localeCompare(vA);
+        } else {
+          const nA = Number(a[st.col] !== undefined ? a[st.col] : 0);
+          const nB = Number(b[st.col] !== undefined ? b[st.col] : 0);
+          return st.asc ? (nA - nB) : (nB - nA);
+        }
+      });
+    }
+
+    function getSortArrowHtml(stateKey, colName) {
+      const st = TABLE_SORT[stateKey];
+      if (!st || st.col !== colName) return `<span class="text-slate-500 ml-0.5">⇅</span>`;
+      return `<span class="text-blue-400 ml-0.5 font-bold">${st.asc ? '▲' : '▼'}</span>`;
+    }
+
+    function sortTableBy(stateKey, colName, colType) {
+      const st = TABLE_SORT[stateKey];
+      if (st.col === colName) {
+        st.asc = !st.asc;
+      } else {
+        st.col = colName;
+        st.type = colType;
+        st.asc = (colType === "str");
+      }
+
+      if (stateKey === "SSA") renderSsaSummaryTable();
+      else if (stateKey.startsWith("ZEROGB")) renderZeroGbModule();
+      else if (stateKey.startsWith("OPT")) renderOptimizationModule();
     }
 
     async function performLogin() {
@@ -891,18 +962,11 @@
       cachedLocPerf = apiData.locationPerformance || [];
       cachedSsaSummary = apiData.ssaSummary || [];
 
-      cachedVolteList = (apiData.volteWatchlist || []).filter(r =>
-        r.pktLossDl > 1.5 || r.pktLossUl > 1.5 || r.erabDropVolte > 2.0 || r.cssrVolte < 95.0
-      );
-      cachedRfList = (apiData.rfInterferenceList || []).filter(r =>
-        r.sinr < 2.0 || r.ulIbler > 15.0 || (r.cqi > 0 && r.cqi < 7.0)
-      );
-      cachedPrbList = (apiData.prbCongestionList || []).filter(r =>
-        r.prbDl > 80.0 || r.prbUl > 80.0
-      );
-      cachedHoList = (apiData.handoverWatchlist || []).filter(r =>
-        (r.intraHoSr > 0 && r.intraHoSr < 92.0) || (r.interHoSr > 0 && r.interHoSr < 92.0) || r.dropRate > 2.0
-      );
+      cachedVolteList = (apiData.volteWatchlist || []).map(r => ({ ...r, consecutiveDays: r.consecutiveDays || 1 }));
+      cachedRfList = (apiData.rfInterferenceList || []).map(r => ({ ...r, consecutiveDays: r.consecutiveDays || 1 }));
+      cachedPrbList = (apiData.prbCongestionList || []).map(r => ({ ...r, consecutiveDays: r.consecutiveDays || 1 }));
+      cachedHoList = (apiData.handoverWatchlist || []).map(r => ({ ...r, consecutiveDays: r.consecutiveDays || 1 }));
+      cachedChronicList = apiData.chronicWatchlist || [];
 
       const zeroBySsa = {};
       cachedZeroGbCells.forEach(c => {
@@ -972,7 +1036,17 @@
       return { name, phone };
     }
 
-    // ================= EXCEL COLOR-STYLING HELPER ENGINE =================
+    function getDaysBadgeHtml(days) {
+      const d = Number(days || 1);
+      const cls = d >= 5
+        ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+        : d >= 3
+          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+          : "bg-slate-700 text-slate-300 border-slate-600";
+      return `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold border ${cls}">${d}d</span>`;
+    }
+
+    // ================= EXCEL COLOR-STYLING + AUTOFILTER HELPER ENGINE =================
     const EXCEL_STYLES = {
       header: {
         fill: { fgColor: { rgb: "1E293B" } },
@@ -1035,13 +1109,16 @@
       const range = XLSX.utils.decode_range(ws["!ref"]);
       const headers = Object.keys(rows[0]);
 
+      // Enable Native Excel Sort/Filter Dropdowns on Header Row
+      ws["!autofilter"] = { ref: ws["!ref"] };
+
       ws["!cols"] = headers.map(h => {
         let maxLen = h.length;
         rows.forEach(r => {
           const valStr = r[h] !== undefined && r[h] !== null ? String(r[h]) : "";
           if (valStr.length > maxLen) maxLen = valStr.length;
         });
-        return { wch: Math.min(Math.max(maxLen + 3, 12), 52) };
+        return { wch: Math.min(Math.max(maxLen + 4, 12), 54) };
       });
 
       for (let R = range.s.r; R <= range.e.r; ++R) {
@@ -1084,6 +1161,7 @@
       document.getElementById("badgeOptRf").textContent = cachedRfList.length;
       document.getElementById("badgeOptPrb").textContent = cachedPrbList.length;
       document.getElementById("badgeOptHo").textContent = cachedHoList.length;
+      document.getElementById("badgeOptChronic").textContent = cachedChronicList.length;
       const totalOpt = cachedVolteList.length + cachedRfList.length + cachedPrbList.length + cachedHoList.length;
       document.getElementById("optTabBadge").textContent = totalOpt;
 
@@ -1175,7 +1253,7 @@
       }
     }
 
-    // ================= 1. SSA SUMMARY TABLE + TOTAL (J&K CIRCLE) ROW =================
+    // ================= 1. SSA SUMMARY TABLE + SORTING + EXCEL EXPORT =================
     function computeSsaTotals() {
       let totSites = 0, totPayload = 0, totZeroCells = 0, totZeroSites = 0;
       let weightedAvail = 0, weightedDrop = 0, weightedRrc = 0, weightSum = 0;
@@ -1194,10 +1272,10 @@
 
       return {
         siteCount: totSites,
-        avail: weightSum > 0 ? (weightedAvail / weightSum).toFixed(2) : "0.00",
-        payloadGb: totPayload.toFixed(2),
-        drop: weightSum > 0 ? (weightedDrop / weightSum).toFixed(2) : "0.00",
-        rrc: weightSum > 0 ? (weightedRrc / weightSum).toFixed(2) : "0.00",
+        avail: weightSum > 0 ? Number((weightedAvail / weightSum).toFixed(2)) : 0,
+        payloadGb: Number(totPayload.toFixed(2)),
+        drop: weightSum > 0 ? Number((weightedDrop / weightSum).toFixed(2)) : 0,
+        rrc: weightSum > 0 ? Number((weightedRrc / weightSum).toFixed(2)) : 0,
         zeroCellCount: totZeroCells,
         zeroSiteCount: totZeroSites
       };
@@ -1207,13 +1285,28 @@
       const tbody = document.getElementById("ssaSummaryTbody");
       const tfoot = document.getElementById("ssaSummaryTfoot");
 
+      const cols = ["ssa", "siteCount", "avail", "payloadGb", "drop", "rrc", "zeroCellCount"];
+      cols.forEach(c => {
+        const el = document.getElementById(`sortIcon_SSA_${c}`);
+        if (!el) return;
+        if (TABLE_SORT.SSA.col === c) {
+          el.textContent = TABLE_SORT.SSA.asc ? "▲" : "▼";
+          el.className = "text-blue-400 ml-0.5 font-bold";
+        } else {
+          el.textContent = "⇅";
+          el.className = "text-slate-500 ml-0.5";
+        }
+      });
+
       if (!cachedSsaSummary || cachedSsaSummary.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400 font-sans">No SSA summary records available for current selection.</td></tr>`;
         tfoot.innerHTML = "";
         return;
       }
 
-      tbody.innerHTML = cachedSsaSummary.map(s => {
+      const sortedSsa = sortArrayByState(cachedSsaSummary, "SSA");
+
+      tbody.innerHTML = sortedSsa.map(s => {
         const zCells = s.zeroCellCount !== undefined ? s.zeroCellCount : 0;
         const zSites = s.zeroSiteCount !== undefined ? s.zeroSiteCount : 0;
         const totalSites = s.siteCount !== undefined ? s.siteCount : "--";
@@ -1253,6 +1346,50 @@
       `;
     }
 
+    function exportSsaSummaryToExcel() {
+      if (!cachedSsaSummary || cachedSsaSummary.length === 0) {
+        alert("No SSA summary data to export.");
+        return;
+      }
+      const sortedSsa = sortArrayByState(cachedSsaSummary, "SSA");
+      const tot = computeSsaTotals();
+
+      const exportRows = sortedSsa.map(s => ({
+        "SSA": s.ssa,
+        "Site Count": s.siteCount,
+        "Availability (%)": s.avail,
+        "Payload (GB)": s.payloadGb,
+        "Call Drop (%)": s.drop,
+        "RRC Success Rate (%)": s.rrc,
+        "Zero-GB Cells": s.zeroCellCount,
+        "Zero-GB Sites Affected": s.zeroSiteCount
+      }));
+
+      exportRows.push({
+        "SSA": "Total (J&K Circle)",
+        "Site Count": tot.siteCount,
+        "Availability (%)": tot.avail,
+        "Payload (GB)": tot.payloadGb,
+        "Call Drop (%)": tot.drop,
+        "RRC Success Rate (%)": tot.rrc,
+        "Zero-GB Cells": tot.zeroCellCount,
+        "Zero-GB Sites Affected": tot.zeroSiteCount
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      applyConditionalExcelFormatting(ws, exportRows, (col, val) => {
+        if (col === "Availability (%)") return val < 95 ? "critical" : val < 99.5 ? "warning" : "healthy";
+        if (col === "Call Drop (%)") return val > 2.0 ? "critical" : val > 1.0 ? "warning" : "normal";
+        if (col === "Zero-GB Cells" && val > 0) return "warning";
+        return "normal";
+      });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "SSA_KPI_Summary");
+      const dt = document.getElementById("lblLatestDate").textContent;
+      XLSX.writeFile(wb, `BSNL_4G_SSA_Summary_${dt}.xlsx`);
+    }
+
     async function captureSsaTableScreenshot() {
       const el = document.getElementById("ssaScreenshotArea");
       try {
@@ -1271,7 +1408,7 @@
       const dt = document.getElementById("lblLatestDate").textContent;
       const tot = computeSsaTotals();
       let lines = `*BSNL J&K 4G SSA-WISE KPI SUMMARY*\n📅 Report Date: ${dt}\n--------------------------------\n`;
-      cachedSsaSummary.forEach(s => {
+      sortArrayByState(cachedSsaSummary, "SSA").forEach(s => {
         lines += `*${s.ssa}* (Sites: ${s.siteCount || 0})\n• Avail: ${s.avail}% | Payload: ${s.payloadGb} GB\n• Drop: ${s.drop}% | RRC SR: ${s.rrc}%\n• Zero Cells: ${s.zeroCellCount || 0} (${s.zeroSiteCount || 0} Sites)\n\n`;
       });
       lines += `--------------------------------\n`;
@@ -1287,7 +1424,7 @@
       let body = `BSNL J&K 4G SSA-wise KPI Summary (${dt})\n\n`;
       body += `SSA | Site Count | Availability (%) | Payload (GB) | Call Drop (%) | RRC SR (%) | Zero Cells (Sites Affected)\n`;
       body += `---------------------------------------------------------------------------------------------------------------\n`;
-      cachedSsaSummary.forEach(s => {
+      sortArrayByState(cachedSsaSummary, "SSA").forEach(s => {
         body += `${s.ssa} | ${s.siteCount || 0} | ${s.avail}% | ${s.payloadGb} GB | ${s.drop}% | ${s.rrc}% | ${s.zeroCellCount || 0} (${s.zeroSiteCount || 0} Sites)\n`;
       });
       body += `---------------------------------------------------------------------------------------------------------------\n`;
@@ -1433,7 +1570,7 @@
       XLSX.writeFile(wb, `BSNL_4G_${currentPerfMode}_KPI_${dt}.xlsx`);
     }
 
-    // ================= MODULE 2: ZERO GB CELLS (CELL -> SITE -> LOCATION) =================
+    // ================= MODULE 2: ZERO GB CELLS (SORTABLE IN ALL 3 MODES + EXCEL AUTOFILTER) =================
     function setZeroGbViewMode(mode) {
       currentZeroGbMode = mode;
       const btnCell = document.getElementById("btnModeCell");
@@ -1450,6 +1587,33 @@
       renderZeroGbModule();
     }
 
+    function getZeroGbGroupedData() {
+      if (currentZeroGbMode === "CELL") {
+        return sortArrayByState(cachedZeroGbCells, "ZEROGB_CELL");
+      } else if (currentZeroGbMode === "SITE") {
+        const siteMap = {};
+        cachedZeroGbCells.forEach(c => {
+          if (!siteMap[c.siteId]) {
+            siteMap[c.siteId] = { siteId: c.siteId, btsIpId: c.btsIpId, siteName: c.siteName, ssa: c.ssa, l1: c.l1, cells: [], count: 0 };
+          }
+          siteMap[c.siteId].cells.push(`Cell ${c.cellId} (${c.dataMb}MB, ${c.consecutiveDays}d)`);
+          siteMap[c.siteId].count++;
+        });
+        return sortArrayByState(Object.values(siteMap), "ZEROGB_SITE");
+      } else {
+        const locMap = {};
+        cachedZeroGbCells.forEach(c => {
+          const key = c.btsIpId || "UNMAPPED_BTS_IP";
+          if (!locMap[key]) {
+            locMap[key] = { btsIpId: key, siteName: c.siteName, ssa: c.ssa, l1: c.l1, cells: [], count: 0 };
+          }
+          locMap[key].cells.push(`${c.siteId} [Cell ${c.cellId}: ${c.dataMb}MB, ${c.consecutiveDays}d]`);
+          locMap[key].count++;
+        });
+        return sortArrayByState(Object.values(locMap), "ZEROGB_LOC");
+      }
+    }
+
     function renderZeroGbModule() {
       const thead = document.getElementById("zeroGbThead");
       const tbody = document.getElementById("zeroGbTbody");
@@ -1462,23 +1626,25 @@
         return;
       }
 
+      const rows = getZeroGbGroupedData();
+
       if (currentZeroGbMode === "CELL") {
-        countLbl.textContent = `${cachedZeroGbCells.length} Zero-GB Cells`;
+        countLbl.textContent = `${rows.length} Zero-GB Cells`;
         thead.innerHTML = `
           <tr>
-            <th class="py-3 px-4">Site ID</th>
-            <th class="py-3 px-3">Cell ID</th>
-            <th class="py-3 px-3">Site Name</th>
-            <th class="py-3 px-3">Location (BTS IP ID)</th>
-            <th class="py-3 px-3 text-right">Avail (%)</th>
-            <th class="py-3 px-3 text-right">Data Volume (MB)</th>
-            <th class="py-3 px-3 text-center">Consecutive Days</th>
+            <th onclick="sortTableBy('ZEROGB_CELL', 'siteId', 'str')" class="py-3 px-4 sortable-th">Site ID ${getSortArrowHtml('ZEROGB_CELL', 'siteId')}</th>
+            <th onclick="sortTableBy('ZEROGB_CELL', 'cellId', 'str')" class="py-3 px-3 sortable-th">Cell ID ${getSortArrowHtml('ZEROGB_CELL', 'cellId')}</th>
+            <th onclick="sortTableBy('ZEROGB_CELL', 'siteName', 'str')" class="py-3 px-3 sortable-th">Site Name ${getSortArrowHtml('ZEROGB_CELL', 'siteName')}</th>
+            <th onclick="sortTableBy('ZEROGB_CELL', 'btsIpId', 'str')" class="py-3 px-3 sortable-th">Location (BTS IP ID) ${getSortArrowHtml('ZEROGB_CELL', 'btsIpId')}</th>
+            <th onclick="sortTableBy('ZEROGB_CELL', 'avail', 'num')" class="py-3 px-3 text-right sortable-th">Avail (%) ${getSortArrowHtml('ZEROGB_CELL', 'avail')}</th>
+            <th onclick="sortTableBy('ZEROGB_CELL', 'dataMb', 'num')" class="py-3 px-3 text-right sortable-th">Data Volume (MB) ${getSortArrowHtml('ZEROGB_CELL', 'dataMb')}</th>
+            <th onclick="sortTableBy('ZEROGB_CELL', 'consecutiveDays', 'num')" class="py-3 px-3 text-center sortable-th">Consecutive Days ${getSortArrowHtml('ZEROGB_CELL', 'consecutiveDays')}</th>
             <th class="py-3 px-3">Field Diagnosis &amp; Action</th>
-            <th class="py-3 px-3">L1 In-Charge</th>
+            <th onclick="sortTableBy('ZEROGB_CELL', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('ZEROGB_CELL', 'l1')}</th>
           </tr>
         `;
 
-        tbody.innerHTML = cachedZeroGbCells.map(c => {
+        tbody.innerHTML = rows.map(c => {
           const l1 = formatL1Display(c.l1);
           const badgeColor = c.consecutiveDays >= 5
             ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
@@ -1513,29 +1679,19 @@
         }).join("");
 
       } else if (currentZeroGbMode === "SITE") {
-        const siteMap = {};
-        cachedZeroGbCells.forEach(c => {
-          if (!siteMap[c.siteId]) {
-            siteMap[c.siteId] = { siteId: c.siteId, btsIpId: c.btsIpId, siteName: c.siteName, ssa: c.ssa, l1: c.l1, cells: [] };
-          }
-          siteMap[c.siteId].cells.push(`Cell ${c.cellId} (${c.dataMb}MB, ${c.consecutiveDays}d)`);
-        });
-
-        const groups = Object.values(siteMap).sort((a, b) => b.cells.length - a.cells.length);
-        countLbl.textContent = `${groups.length} Sites (${cachedZeroGbCells.length} Zero-GB Cells)`;
-
+        countLbl.textContent = `${rows.length} Sites (${cachedZeroGbCells.length} Zero-GB Cells)`;
         thead.innerHTML = `
           <tr>
-            <th class="py-3 px-4">Site ID</th>
-            <th class="py-3 px-3">Site Name</th>
-            <th class="py-3 px-3">Location (BTS IP ID)</th>
-            <th class="py-3 px-3 text-center">No. of Zero-GB Cells</th>
+            <th onclick="sortTableBy('ZEROGB_SITE', 'siteId', 'str')" class="py-3 px-4 sortable-th">Site ID ${getSortArrowHtml('ZEROGB_SITE', 'siteId')}</th>
+            <th onclick="sortTableBy('ZEROGB_SITE', 'siteName', 'str')" class="py-3 px-3 sortable-th">Site Name ${getSortArrowHtml('ZEROGB_SITE', 'siteName')}</th>
+            <th onclick="sortTableBy('ZEROGB_SITE', 'btsIpId', 'str')" class="py-3 px-3 sortable-th">Location (BTS IP ID) ${getSortArrowHtml('ZEROGB_SITE', 'btsIpId')}</th>
+            <th onclick="sortTableBy('ZEROGB_SITE', 'count', 'num')" class="py-3 px-3 text-center sortable-th">No. of Zero-GB Cells ${getSortArrowHtml('ZEROGB_SITE', 'count')}</th>
             <th class="py-3 px-3">Cells with Zero GB at Site</th>
-            <th class="py-3 px-3">L1 In-Charge</th>
+            <th onclick="sortTableBy('ZEROGB_SITE', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('ZEROGB_SITE', 'l1')}</th>
           </tr>
         `;
 
-        tbody.innerHTML = groups.map(g => {
+        tbody.innerHTML = rows.map(g => {
           const l1 = formatL1Display(g.l1);
           return `
             <tr class="hover:bg-slate-700/40 transition">
@@ -1543,7 +1699,7 @@
               <td class="py-3 px-3 font-sans text-slate-200">${g.siteName || "-"}</td>
               <td class="py-3 px-3 text-amber-300">${g.btsIpId}</td>
               <td class="py-3 px-3 text-center">
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">${g.cells.length}</span>
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">${g.count}</span>
               </td>
               <td class="py-3 px-3 text-[11px] text-slate-300">${g.cells.join(" | ")}</td>
               <td class="py-3 px-3 font-sans">
@@ -1555,30 +1711,19 @@
         }).join("");
 
       } else {
-        const locMap = {};
-        cachedZeroGbCells.forEach(c => {
-          const key = c.btsIpId || "UNMAPPED_BTS_IP";
-          if (!locMap[key]) {
-            locMap[key] = { btsIpId: key, siteName: c.siteName, ssa: c.ssa, l1: c.l1, cells: [] };
-          }
-          locMap[key].cells.push(`${c.siteId} [Cell ${c.cellId}: ${c.dataMb}MB, ${c.consecutiveDays}d]`);
-        });
-
-        const groups = Object.values(locMap).sort((a, b) => b.cells.length - a.cells.length);
-        countLbl.textContent = `${groups.length} Locations (${cachedZeroGbCells.length} Zero-GB Cells)`;
-
+        countLbl.textContent = `${rows.length} Locations (${cachedZeroGbCells.length} Zero-GB Cells)`;
         thead.innerHTML = `
           <tr>
-            <th class="py-3 px-4">Location (BTS IP ID)</th>
-            <th class="py-3 px-3">Site Name</th>
-            <th class="py-3 px-3">SSA</th>
-            <th class="py-3 px-3 text-center">No. of Zero-GB Cells</th>
+            <th onclick="sortTableBy('ZEROGB_LOC', 'btsIpId', 'str')" class="py-3 px-4 sortable-th">Location (BTS IP ID) ${getSortArrowHtml('ZEROGB_LOC', 'btsIpId')}</th>
+            <th onclick="sortTableBy('ZEROGB_LOC', 'siteName', 'str')" class="py-3 px-3 sortable-th">Site Name ${getSortArrowHtml('ZEROGB_LOC', 'siteName')}</th>
+            <th onclick="sortTableBy('ZEROGB_LOC', 'ssa', 'str')" class="py-3 px-3 sortable-th">SSA ${getSortArrowHtml('ZEROGB_LOC', 'ssa')}</th>
+            <th onclick="sortTableBy('ZEROGB_LOC', 'count', 'num')" class="py-3 px-3 text-center sortable-th">No. of Zero-GB Cells ${getSortArrowHtml('ZEROGB_LOC', 'count')}</th>
             <th class="py-3 px-3">Cells with Zero GB at Location</th>
-            <th class="py-3 px-3">L1 In-Charge</th>
+            <th onclick="sortTableBy('ZEROGB_LOC', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('ZEROGB_LOC', 'l1')}</th>
           </tr>
         `;
 
-        tbody.innerHTML = groups.map(g => {
+        tbody.innerHTML = rows.map(g => {
           const l1 = formatL1Display(g.l1);
           return `
             <tr class="hover:bg-slate-700/40 transition">
@@ -1586,7 +1731,7 @@
               <td class="py-3 px-3 font-sans text-white">${g.siteName || "-"}</td>
               <td class="py-3 px-3 font-sans">${g.ssa}</td>
               <td class="py-3 px-3 text-center">
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">${g.cells.length}</span>
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">${g.count}</span>
               </td>
               <td class="py-3 px-3 text-[11px] text-slate-300 max-w-md break-words">${g.cells.join(", ")}</td>
               <td class="py-3 px-3 font-sans">
@@ -1605,39 +1750,30 @@
         return;
       }
 
+      const rows = getZeroGbGroupedData();
       let exportRows = [];
+
       if (currentZeroGbMode === "LOCATION") {
-        const locMap = {};
-        cachedZeroGbCells.forEach(c => {
-          const key = c.btsIpId || "UNMAPPED_BTS_IP";
-          if (!locMap[key]) locMap[key] = { btsIpId: key, siteName: c.siteName, ssa: c.ssa, l1: c.l1, cells: [] };
-          locMap[key].cells.push(`${c.siteId} (Cell ${c.cellId}: ${c.dataMb}MB, ${c.consecutiveDays}d)`);
-        });
-        exportRows = Object.values(locMap).map(g => ({
+        exportRows = rows.map(g => ({
           "Location (BTS IP ID)": g.btsIpId,
           "Site Name": g.siteName,
           "SSA": g.ssa,
-          "Zero-GB Cell Count": g.cells.length,
+          "Zero-GB Cell Count": g.count,
           "Affected Cells": g.cells.join(", "),
           "L1 In-Charge": (g.l1 || "").replace(/\t/g, " ")
         }));
       } else if (currentZeroGbMode === "SITE") {
-        const siteMap = {};
-        cachedZeroGbCells.forEach(c => {
-          if (!siteMap[c.siteId]) siteMap[c.siteId] = { siteId: c.siteId, btsIpId: c.btsIpId, siteName: c.siteName, ssa: c.ssa, l1: c.l1, cells: [] };
-          siteMap[c.siteId].cells.push(`Cell ${c.cellId} (${c.dataMb}MB, ${c.consecutiveDays}d)`);
-        });
-        exportRows = Object.values(siteMap).map(g => ({
+        exportRows = rows.map(g => ({
           "Site ID": g.siteId,
           "Site Name": g.siteName,
           "Location (BTS IP ID)": g.btsIpId,
           "SSA": g.ssa,
-          "Zero-GB Cell Count": g.cells.length,
+          "Zero-GB Cell Count": g.count,
           "Affected Cells at Site": g.cells.join(" | "),
           "L1 In-Charge": (g.l1 || "").replace(/\t/g, " ")
         }));
       } else {
-        exportRows = cachedZeroGbCells.map(c => ({
+        exportRows = rows.map(c => ({
           "Site ID": c.siteId,
           "Cell ID": `Cell ${c.cellId}`,
           "Site Name": c.siteName,
@@ -1653,22 +1789,11 @@
 
       const ws = XLSX.utils.json_to_sheet(exportRows);
       applyConditionalExcelFormatting(ws, exportRows, (col, val) => {
-        if (col === "Consecutive Days (<=5MB)") {
-          if (val >= 5) return "critical";
-          if (val >= 3) return "warning";
-        }
-        if (col === "Zero-GB Cell Count") {
-          if (val >= 3) return "critical";
-          if (val >= 2) return "warning";
-        }
-        if (col === "Availability (%)") {
-          if (val < 95.0) return "critical";
-          return "healthy";
-        }
+        if (col === "Consecutive Days (<=5MB)") return val >= 5 ? "critical" : val >= 3 ? "warning" : "normal";
+        if (col === "Zero-GB Cell Count") return val >= 3 ? "critical" : val >= 2 ? "warning" : "normal";
+        if (col === "Availability (%)") return val < 95.0 ? "critical" : "healthy";
         if (col === "Data Volume (MB)") return "critical";
-        if (col === "Field Diagnosis & Action") {
-          return String(val).includes("Outage") ? "critical" : "warning";
-        }
+        if (col === "Field Diagnosis & Action") return String(val).includes("Outage") ? "critical" : "warning";
         return "normal";
       });
 
@@ -1780,7 +1905,7 @@
       window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBodyPreview)}`;
     }
 
-    // ================= MODULE 3: SITE-WISE / LOCATION-WISE 7-DAY ANALYSIS =================
+    // ================= MODULE 3: SITE-WISE (3-CELL) & LOCATION-WISE (BAND-WISE) 7-DAY ANALYSIS =================
     function setSiteAnalysisMode(mode) {
       currentSaMode = mode;
       const btnSite = document.getElementById("btnSaModeSite");
@@ -1794,8 +1919,8 @@
       btnLoc.className = mode === "LOCATION" ? activeCls : inactiveCls;
 
       inputEl.placeholder = mode === "SITE"
-        ? "Search Site Name or Individual 4G Band Site ID (e.g. T4JK01... / T4JK28...)..."
-        : "Search Location Name or BTS IP ID (combines all 4G bands B01 + B28)...";
+        ? "Search Site Name or Individual 4G Band Site ID (plots Cell 0, Cell 1, Cell 2)..."
+        : "Search Location Name or BTS IP ID (plots Band-wise B01 vs B28)...";
 
       inputEl.value = "";
       hideSiteSuggestions();
@@ -1823,6 +1948,7 @@
       }));
 
       renderSiteAnalysisCharts({
+        mode: "SCOPE",
         siteMeta: {
           siteName: scopeTitle,
           siteId: `${cachedSitePerf.length} Sites (${cachedLocPerf.length} Locations)`,
@@ -1830,7 +1956,8 @@
           ssa: f.ssa || "All Permitted SSAs",
           l1: f.l1 ? formatL1Display(f.l1).name : "All L1 Officers"
         },
-        trend7Days: trend7
+        trend7Days: trend7,
+        seriesTrends: []
       });
     }
 
@@ -1886,7 +2013,7 @@
         dropEl.innerHTML = matches.map(l => `
           <div onclick="selectSiteFromDropdown('${l.btsIpId}')" class="px-4 py-2.5 hover:bg-cyan-600/30 cursor-pointer transition flex items-center justify-between gap-2">
             <div>
-              <div class="text-xs font-bold text-white">${l.locName} <span class="text-[10px] text-emerald-400 font-normal">(${l.bands.length} Band${l.bands.length > 1 ? 's' : ''})</span></div>
+              <div class="text-xs font-bold text-white">${l.locName} <span class="text-[10px] text-emerald-400 font-normal">(${l.bands.length} Band${l.bands.length > 1 ? 's' : ''} — Band-wise Plot)</span></div>
               <div class="text-[10px] font-mono text-slate-400">${l.bands.join(" + ")}</div>
             </div>
             <div class="text-right">
@@ -1918,7 +2045,7 @@
           return `
             <div onclick="selectSiteFromDropdown('${s.siteId}')" class="px-4 py-2.5 hover:bg-blue-600/30 cursor-pointer transition flex items-center justify-between gap-2">
               <div>
-                <div class="text-xs font-bold text-white">${s.siteName || s.siteId} <span class="ml-1 px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 text-[10px] font-mono">${bandTag}</span></div>
+                <div class="text-xs font-bold text-white">${s.siteName || s.siteId} <span class="ml-1 px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 text-[10px] font-mono">${bandTag} — 3-Cell Plot</span></div>
                 <div class="text-[11px] font-mono text-cyan-400">${s.siteId}</div>
               </div>
               <div class="text-right">
@@ -1981,7 +2108,7 @@
       } catch (e) {
         alert("Error fetching site analysis: " + e.message);
       } finally {
-        btn.innerHTML = `<i data-lucide="search" class="w-4 h-4"></i> Analyze Site / Location`;
+        btn.innerHTML = `<i data-lucide="search" class="w-4 h-4"></i> Analyze 7D Trends`;
         btn.disabled = false;
         lucide.createIcons();
       }
@@ -1992,45 +2119,94 @@
       const trend = (data.trend7Days || []).slice();
       trend.sort((a, b) => parseDateTimestamp(a.isoDate || a.date) - parseDateTimestamp(b.isoDate || b.date));
 
+      const seriesList = data.seriesTrends || [];
+      const hasMultiSeries = seriesList.length > 0;
+
       document.getElementById("saSiteName").textContent = meta.siteName || "--";
       document.getElementById("saSiteId").textContent = meta.siteId || "--";
       document.getElementById("saBtsIp").textContent = meta.btsIpId || "--";
       document.getElementById("saSsa").textContent = meta.ssa || "--";
       document.getElementById("saL1").textContent = formatL1Display(meta.l1).name;
 
+      const modeBadge = document.getElementById("saPlotModeBadge");
+      if (!hasMultiSeries) {
+        modeBadge.textContent = "Scope Consolidated Trend";
+        modeBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40";
+      } else if (data.mode === "LOCATION") {
+        modeBadge.textContent = `Band-wise Plot (${seriesList.map(s => s.seriesName).join(" vs ")})`;
+        modeBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40";
+      } else {
+        modeBadge.textContent = `3-Cell Sector Plot (${seriesList.map(s => s.seriesName).join(", ")})`;
+        modeBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+      }
+
       const labels = trend.map(t => t.date);
 
-      // Order: 1. Avail, 2. Data GB, 3. RRC SR, 4. Users, 5. VoLTE Erlang, 6. Max Cell Throughput DL
+      // Distinct Palette for Multi-Series (Cell 0 / Cell 1 / Cell 2 OR B01 / B28)
+      const SERIES_COLORS = [
+        "#10b981", // Emerald Green (Cell 0 / B28)
+        "#06b6d4", // Cyan Blue     (Cell 1 / B01)
+        "#f59e0b", // Amber Orange  (Cell 2)
+        "#a855f7", // Purple        (Cell 3 / Extra Carrier)
+        "#f43f5e", // Rose          (Cell 4)
+        "#3b82f6"  // Royal Blue    (Cell 5)
+      ];
+
+      // 6 Charts Config (Position 5 = VoLTE Erlang, Position 6 = Max Cell Throughput DL)
       const chartConfigs = [
-        { id: "saChartAvail", label: "Availability (%)", data: trend.map(t => t.avail), color: "#10b981", type: "line" },
-        { id: "saChartDataGb", label: "Data (GB)", data: trend.map(t => t.dataGb), color: "#06b6d4", type: "bar" },
-        { id: "saChartRrc", label: "RRC Success Rate (%)", data: trend.map(t => t.rrc), color: "#3b82f6", type: "line" },
-        { id: "saChartUsers", label: "User Count", data: trend.map(t => t.userCount), color: "#f59e0b", type: "bar" },
-        { id: "saChartErlang", label: "VoLTE Erlang", data: trend.map(t => t.volteErlang), color: "#f43f5e", type: "line" },
-        { id: "saChartTput", label: "Max DL Throughput (Mbps)", data: trend.map(t => t.maxDlTput), color: "#a855f7", type: "line" }
+        { id: "saChartAvail", prop: "avail", label: "Availability (%)", color: "#10b981", type: "line" },
+        { id: "saChartDataGb", prop: "dataGb", label: "Data (GB)", color: "#06b6d4", type: "bar" },
+        { id: "saChartRrc", prop: "rrc", label: "RRC Success Rate (%)", color: "#3b82f6", type: "line" },
+        { id: "saChartUsers", prop: "userCount", label: "User Count", color: "#f59e0b", type: "bar" },
+        { id: "saChartErlang", prop: "volteErlang", label: "VoLTE Erlang", color: "#f43f5e", type: "line" },
+        { id: "saChartTput", prop: "maxDlTput", label: "Max DL Throughput (Mbps)", color: "#a855f7", type: "line" }
       ];
 
       chartConfigs.forEach(cfg => {
         if (saCharts[cfg.id]) saCharts[cfg.id].destroy();
         const ctx = document.getElementById(cfg.id).getContext("2d");
+
+        let datasets = [];
+        if (hasMultiSeries) {
+          datasets = seriesList.map((sItem, idx) => {
+            const col = SERIES_COLORS[idx % SERIES_COLORS.length];
+            const pts = (sItem.trend7Days || []).slice().sort((a, b) => parseDateTimestamp(a.isoDate || a.date) - parseDateTimestamp(b.isoDate || b.date));
+            return {
+              label: sItem.seriesName,
+              data: pts.map(p => p[cfg.prop]),
+              borderColor: col,
+              backgroundColor: cfg.type === "bar" ? col : `${col}18`,
+              fill: false,
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: 3,
+              borderRadius: 3
+            };
+          });
+        } else {
+          datasets = [{
+            label: cfg.label,
+            data: trend.map(t => t[cfg.prop]),
+            borderColor: cfg.color,
+            backgroundColor: cfg.type === "bar" ? cfg.color : `${cfg.color}22`,
+            fill: cfg.type === "line",
+            tension: 0.3,
+            borderRadius: 4
+          }];
+        }
+
         saCharts[cfg.id] = new Chart(ctx, {
           type: cfg.type,
-          data: {
-            labels: labels,
-            datasets: [{
-              label: cfg.label,
-              data: cfg.data,
-              borderColor: cfg.color,
-              backgroundColor: cfg.type === "bar" ? cfg.color : `${cfg.color}22`,
-              fill: cfg.type === "line",
-              tension: 0.3,
-              borderRadius: 4
-            }]
-          },
+          data: { labels: labels, datasets: datasets },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+              legend: {
+                display: hasMultiSeries,
+                labels: { color: "#cbd5e1", font: { size: 10 }, boxWidth: 12, padding: 8 }
+              }
+            },
             scales: {
               x: { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#334155" } },
               y: { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#334155" } }
@@ -2054,7 +2230,7 @@
       }
     }
 
-    // ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (DIAGNOSIS HELPERS + COLOR EXCEL EXPORT) =================
+    // ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (5 SUB-MODULES + SORTING + COLOR EXCEL) =================
     function getVolteDiagnosisText(r) {
       if (r.pktLossDl > 1.5 && r.pktLossUl > 1.5) return `Backhaul Jitter (DL & UL Loss) -> L1 Check Media (${r.media})`;
       if (r.pktLossUl > 1.5) return `UL Voice Muting (UL Loss ${r.pktLossUl}%) -> Check UL RF / B1 Edge`;
@@ -2092,15 +2268,36 @@
         VOLTE: document.getElementById("btnOptVolte"),
         RF: document.getElementById("btnOptRf"),
         PRB: document.getElementById("btnOptPrb"),
-        HO: document.getElementById("btnOptHo")
+        HO: document.getElementById("btnOptHo"),
+        CHRONIC: document.getElementById("btnOptChronic")
       };
 
-      const activeCls = "px-3.5 py-2 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center gap-1.5 shadow";
-      const inactiveCls = "px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 hover:text-white transition flex items-center gap-1.5";
+      const activeCls = "px-3 py-2 rounded-lg text-xs font-semibold bg-purple-600 text-white transition flex items-center gap-1.5 shadow";
+      const inactiveCls = "px-3 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 hover:text-white transition flex items-center gap-1.5";
 
       Object.keys(btns).forEach(k => {
         btns[k].className = (k === subMod) ? activeCls : inactiveCls;
       });
+
+      const chrFilterBar = document.getElementById("chronicDaysFilterBar");
+      if (subMod === "CHRONIC") chrFilterBar.classList.remove("hidden");
+      else chrFilterBar.classList.add("hidden");
+
+      renderOptimizationModule();
+    }
+
+    function setChronicDaysFilter(minDays) {
+      chronicMinDaysFilter = minDays;
+      const b3 = document.getElementById("btnChr3");
+      const b5 = document.getElementById("btnChr5");
+      const b7 = document.getElementById("btnChr7");
+
+      const act = "px-2.5 py-1 rounded text-[11px] font-semibold bg-rose-600 text-white transition";
+      const inact = "px-2.5 py-1 rounded text-[11px] font-semibold text-slate-400 hover:text-white transition";
+
+      b3.className = minDays === 3 ? act : inact;
+      b5.className = minDays === 5 ? act : inact;
+      b7.className = minDays === 7 ? act : inact;
 
       renderOptimizationModule();
     }
@@ -2114,9 +2311,10 @@
       const tbody = document.getElementById("optTbody");
 
       if (currentOptSubModule === "VOLTE") {
+        const rows = sortArrayByState(cachedVolteList, "OPT_VOLTE");
         titleEl.textContent = "1. VoLTE Audio Quality & Call Muting Watchlist";
-        subEl.textContent = "Strict Critical Breaches Only: VoLTE Packet Loss > 1.5%, VoLTE ERAB Drop > 2.0%, or VoLTE CSSR < 95%";
-        countEl.textContent = `${cachedVolteList.length} Cells Flagged`;
+        subEl.textContent = "Active Cells with VoLTE Packet Loss > 1.5%, VoLTE Drop > 2.0%, or VoLTE CSSR < 95% (Click any header to sort)";
+        countEl.textContent = `${rows.length} Cells Flagged`;
 
         guideEl.innerHTML = `
           <div class="flex items-center justify-between">
@@ -2137,24 +2335,25 @@
 
         thead.innerHTML = `
           <tr>
-            <th class="py-3 px-4">Site ID &amp; Cell</th>
-            <th class="py-3 px-3">Site Name</th>
-            <th class="py-3 px-3">Media</th>
-            <th class="py-3 px-3 text-right" title="Critical > 1.5%">VoLTE Pkt Loss DL (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Critical > 1.5%">VoLTE Pkt Loss UL (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Critical > 2.0%">VoLTE Drop (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Critical < 95.0%">CSSR VoLTE (%) ⓘ</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'siteId', 'str')" class="py-3 px-4 sortable-th">Site ID &amp; Cell ${getSortArrowHtml('OPT_VOLTE', 'siteId')}</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'siteName', 'str')" class="py-3 px-3 sortable-th">Site Name ${getSortArrowHtml('OPT_VOLTE', 'siteName')}</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'media', 'str')" class="py-3 px-3 sortable-th">Media ${getSortArrowHtml('OPT_VOLTE', 'media')}</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'pktLossDl', 'num')" class="py-3 px-3 text-right sortable-th">Pkt Loss DL (%) ${getSortArrowHtml('OPT_VOLTE', 'pktLossDl')}</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'pktLossUl', 'num')" class="py-3 px-3 text-right sortable-th">Pkt Loss UL (%) ${getSortArrowHtml('OPT_VOLTE', 'pktLossUl')}</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'erabDropVolte', 'num')" class="py-3 px-3 text-right sortable-th">VoLTE Drop (%) ${getSortArrowHtml('OPT_VOLTE', 'erabDropVolte')}</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'cssrVolte', 'num')" class="py-3 px-3 text-right sortable-th">CSSR VoLTE (%) ${getSortArrowHtml('OPT_VOLTE', 'cssrVolte')}</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'consecutiveDays', 'num')" class="py-3 px-3 text-center sortable-th">Days ${getSortArrowHtml('OPT_VOLTE', 'consecutiveDays')}</th>
             <th class="py-3 px-3">Probable Cause &amp; Action</th>
-            <th class="py-3 px-3">L1 In-Charge</th>
+            <th onclick="sortTableBy('OPT_VOLTE', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('OPT_VOLTE', 'l1')}</th>
           </tr>
         `;
 
-        if (cachedVolteList.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400 font-sans">No critical VoLTE quality breaches found for current filter.</td></tr>`;
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 font-sans">No critical VoLTE quality breaches found for current filter.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = cachedVolteList.map(r => {
+        tbody.innerHTML = rows.map(r => {
           const l1 = formatL1Display(r.l1);
           const diagText = getVolteDiagnosisText(r);
           const badgeCls = r.pktLossUl > 1.5 ? "bg-rose-500/20 text-rose-300" : r.pktLossDl > 1.5 ? "bg-amber-500/20 text-amber-300" : "bg-purple-500/20 text-purple-300";
@@ -2168,6 +2367,7 @@
               <td class="py-2.5 px-3 text-right ${r.pktLossUl > 1.5 ? 'text-rose-400 font-bold' : ''}">${r.pktLossUl}%</td>
               <td class="py-2.5 px-3 text-right ${r.erabDropVolte > 2.0 ? 'text-rose-400 font-bold' : ''}">${r.erabDropVolte}%</td>
               <td class="py-2.5 px-3 text-right ${r.cssrVolte < 95.0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${r.cssrVolte}%</td>
+              <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
               <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded ${badgeCls} font-sans text-[10px]">${diagText}</span></td>
               <td class="py-2.5 px-3 font-sans"><div class="text-white">${l1.name}</div><div class="text-[10px] text-slate-400">${l1.phone}</div></td>
             </tr>
@@ -2175,9 +2375,10 @@
         }).join("");
 
       } else if (currentOptSubModule === "RF") {
+        const rows = sortArrayByState(cachedRfList, "OPT_RF");
         titleEl.textContent = "2. RF Interference, Uplink Noise & Poor CQI Watchlist";
-        subEl.textContent = "Strict Critical Breaches Only: SINR (PUSCH) < 2.0 dB, UL IBLER > 15.0%, or CQI < 7.0";
-        countEl.textContent = `${cachedRfList.length} Cells Flagged`;
+        subEl.textContent = "Active Cells with SINR (PUSCH) < 2.0 dB, UL IBLER > 15.0%, or CQI < 7.0 (Click any header to sort)";
+        countEl.textContent = `${rows.length} Cells Flagged`;
 
         guideEl.innerHTML = `
           <div class="flex items-center justify-between">
@@ -2198,24 +2399,25 @@
 
         thead.innerHTML = `
           <tr>
-            <th class="py-3 px-4">Site ID &amp; Cell</th>
-            <th class="py-3 px-3">Site Name</th>
-            <th class="py-3 px-3">BTS IP ID</th>
-            <th class="py-3 px-3 text-right" title="Critical < 2.0 dB">SINR (PUSCH) dB ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Critical > 15.0%">UL IBLER (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Critical < 7.0">CQI ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Target < 50 ms">IP Latency (ms) ⓘ</th>
+            <th onclick="sortTableBy('OPT_RF', 'siteId', 'str')" class="py-3 px-4 sortable-th">Site ID &amp; Cell ${getSortArrowHtml('OPT_RF', 'siteId')}</th>
+            <th onclick="sortTableBy('OPT_RF', 'siteName', 'str')" class="py-3 px-3 sortable-th">Site Name ${getSortArrowHtml('OPT_RF', 'siteName')}</th>
+            <th onclick="sortTableBy('OPT_RF', 'btsIpId', 'str')" class="py-3 px-3 sortable-th">BTS IP ID ${getSortArrowHtml('OPT_RF', 'btsIpId')}</th>
+            <th onclick="sortTableBy('OPT_RF', 'sinr', 'num')" class="py-3 px-3 text-right sortable-th">SINR (dB) ${getSortArrowHtml('OPT_RF', 'sinr')}</th>
+            <th onclick="sortTableBy('OPT_RF', 'ulIbler', 'num')" class="py-3 px-3 text-right sortable-th">UL IBLER (%) ${getSortArrowHtml('OPT_RF', 'ulIbler')}</th>
+            <th onclick="sortTableBy('OPT_RF', 'cqi', 'num')" class="py-3 px-3 text-right sortable-th">CQI ${getSortArrowHtml('OPT_RF', 'cqi')}</th>
+            <th onclick="sortTableBy('OPT_RF', 'latency', 'num')" class="py-3 px-3 text-right sortable-th">Latency (ms) ${getSortArrowHtml('OPT_RF', 'latency')}</th>
+            <th onclick="sortTableBy('OPT_RF', 'consecutiveDays', 'num')" class="py-3 px-3 text-center sortable-th">Days ${getSortArrowHtml('OPT_RF', 'consecutiveDays')}</th>
             <th class="py-3 px-3">Probable Cause &amp; Action</th>
-            <th class="py-3 px-3">L1 In-Charge</th>
+            <th onclick="sortTableBy('OPT_RF', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('OPT_RF', 'l1')}</th>
           </tr>
         `;
 
-        if (cachedRfList.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400 font-sans">No critical RF interference or low SINR cells found for current filter.</td></tr>`;
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 font-sans">No critical RF interference or low SINR cells found for current filter.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = cachedRfList.map(r => {
+        tbody.innerHTML = rows.map(r => {
           const l1 = formatL1Display(r.l1);
           const diagText = getRfDiagnosisText(r);
           const badgeCls = r.sinr < 2.0 ? "bg-rose-500/20 text-rose-300" : r.ulIbler > 15.0 ? "bg-amber-500/20 text-amber-300" : "bg-cyan-500/20 text-cyan-300";
@@ -2229,6 +2431,7 @@
               <td class="py-2.5 px-3 text-right ${r.ulIbler > 15.0 ? 'text-rose-400 font-bold' : ''}">${r.ulIbler}%</td>
               <td class="py-2.5 px-3 text-right ${r.cqi < 7.0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${r.cqi}</td>
               <td class="py-2.5 px-3 text-right">${r.latency} ms</td>
+              <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
               <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded ${badgeCls} font-sans text-[10px]">${diagText}</span></td>
               <td class="py-2.5 px-3 font-sans"><div class="text-white">${l1.name}</div><div class="text-[10px] text-slate-400">${l1.phone}</div></td>
             </tr>
@@ -2236,9 +2439,10 @@
         }).join("");
 
       } else if (currentOptSubModule === "PRB") {
+        const rows = sortArrayByState(cachedPrbList, "OPT_PRB");
         titleEl.textContent = "3. PRB Capacity Congestion & Throughput Bottleneck Tracker";
-        subEl.textContent = "Strict Critical Breaches Only: Downlink or Uplink PRB Utilisation > 80.0%";
-        countEl.textContent = `${cachedPrbList.length} Cells Flagged`;
+        subEl.textContent = "Active Cells with Downlink or Uplink PRB Utilisation > 80.0% (Click any header to sort)";
+        countEl.textContent = `${rows.length} Cells Flagged`;
 
         guideEl.innerHTML = `
           <div class="flex items-center justify-between">
@@ -2259,24 +2463,25 @@
 
         thead.innerHTML = `
           <tr>
-            <th class="py-3 px-4">Site ID &amp; Cell</th>
-            <th class="py-3 px-3">Site Name</th>
-            <th class="py-3 px-3">BTS IP ID</th>
-            <th class="py-3 px-3 text-right" title="Critical > 80%">PRB Util DL (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Critical > 80%">PRB Util UL (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Target >= 5 Mbps">Avg User DL Tput (Mbps) ⓘ</th>
-            <th class="py-3 px-3 text-right">Active Users</th>
+            <th onclick="sortTableBy('OPT_PRB', 'siteId', 'str')" class="py-3 px-4 sortable-th">Site ID &amp; Cell ${getSortArrowHtml('OPT_PRB', 'siteId')}</th>
+            <th onclick="sortTableBy('OPT_PRB', 'siteName', 'str')" class="py-3 px-3 sortable-th">Site Name ${getSortArrowHtml('OPT_PRB', 'siteName')}</th>
+            <th onclick="sortTableBy('OPT_PRB', 'btsIpId', 'str')" class="py-3 px-3 sortable-th">BTS IP ID ${getSortArrowHtml('OPT_PRB', 'btsIpId')}</th>
+            <th onclick="sortTableBy('OPT_PRB', 'prbDl', 'num')" class="py-3 px-3 text-right sortable-th">PRB DL (%) ${getSortArrowHtml('OPT_PRB', 'prbDl')}</th>
+            <th onclick="sortTableBy('OPT_PRB', 'prbUl', 'num')" class="py-3 px-3 text-right sortable-th">PRB UL (%) ${getSortArrowHtml('OPT_PRB', 'prbUl')}</th>
+            <th onclick="sortTableBy('OPT_PRB', 'userDlTput', 'num')" class="py-3 px-3 text-right sortable-th">User DL Tput ${getSortArrowHtml('OPT_PRB', 'userDlTput')}</th>
+            <th onclick="sortTableBy('OPT_PRB', 'userCount', 'num')" class="py-3 px-3 text-right sortable-th">Users ${getSortArrowHtml('OPT_PRB', 'userCount')}</th>
+            <th onclick="sortTableBy('OPT_PRB', 'consecutiveDays', 'num')" class="py-3 px-3 text-center sortable-th">Days ${getSortArrowHtml('OPT_PRB', 'consecutiveDays')}</th>
             <th class="py-3 px-3">Probable Cause &amp; Action</th>
-            <th class="py-3 px-3">L1 In-Charge</th>
+            <th onclick="sortTableBy('OPT_PRB', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('OPT_PRB', 'l1')}</th>
           </tr>
         `;
 
-        if (cachedPrbList.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400 font-sans">No critically congested cells (&gt;80% PRB) found for current filter.</td></tr>`;
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 font-sans">No critically congested cells (&gt;80% PRB) found for current filter.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = cachedPrbList.map(r => {
+        tbody.innerHTML = rows.map(r => {
           const l1 = formatL1Display(r.l1);
           const diagText = getPrbDiagnosisText(r);
           const badgeCls = (r.prbDl > 80.0 && r.userDlTput < 3.0) ? "bg-rose-500/20 text-rose-300" : "bg-amber-500/20 text-amber-300";
@@ -2290,16 +2495,18 @@
               <td class="py-2.5 px-3 text-right ${r.prbUl > 80 ? 'text-rose-400 font-bold' : ''}">${r.prbUl}%</td>
               <td class="py-2.5 px-3 text-right ${r.userDlTput < 3 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${r.userDlTput} Mbps</td>
               <td class="py-2.5 px-3 text-right text-cyan-300">${r.userCount}</td>
+              <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
               <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded ${badgeCls} font-sans text-[10px]">${diagText}</span></td>
               <td class="py-2.5 px-3 font-sans"><div class="text-white">${l1.name}</div><div class="text-[10px] text-slate-400">${l1.phone}</div></td>
             </tr>
           `;
         }).join("");
 
-      } else {
+      } else if (currentOptSubModule === "HO") {
+        const rows = sortArrayByState(cachedHoList, "OPT_HO");
         titleEl.textContent = "4. Mobility & Handover Failure Matrix";
-        subEl.textContent = "Strict Critical Breaches Only: Intra/Inter Frequency Handover SR < 92.0% or Call Drop Rate > 2.0%";
-        countEl.textContent = `${cachedHoList.length} Cells Flagged`;
+        subEl.textContent = "Active Cells with Intra/Inter Frequency Handover SR < 92.0% or Call Drop Rate > 2.0% (Click any header to sort)";
+        countEl.textContent = `${rows.length} Cells Flagged`;
 
         guideEl.innerHTML = `
           <div class="flex items-center justify-between">
@@ -2320,24 +2527,25 @@
 
         thead.innerHTML = `
           <tr>
-            <th class="py-3 px-4">Site ID &amp; Cell</th>
-            <th class="py-3 px-3">Site Name</th>
-            <th class="py-3 px-3">SSA</th>
-            <th class="py-3 px-3 text-right" title="Critical < 92.0%">Intra-Freq HO SR (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Critical < 92.0%">Inter-Freq HO SR (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="VoLTE Handover Success Rate">VoLTE HO SR (%) ⓘ</th>
-            <th class="py-3 px-3 text-right" title="Critical > 2.0%">Call Drop (%) ⓘ</th>
+            <th onclick="sortTableBy('OPT_HO', 'siteId', 'str')" class="py-3 px-4 sortable-th">Site ID &amp; Cell ${getSortArrowHtml('OPT_HO', 'siteId')}</th>
+            <th onclick="sortTableBy('OPT_HO', 'siteName', 'str')" class="py-3 px-3 sortable-th">Site Name ${getSortArrowHtml('OPT_HO', 'siteName')}</th>
+            <th onclick="sortTableBy('OPT_HO', 'ssa', 'str')" class="py-3 px-3 sortable-th">SSA ${getSortArrowHtml('OPT_HO', 'ssa')}</th>
+            <th onclick="sortTableBy('OPT_HO', 'intraHoSr', 'num')" class="py-3 px-3 text-right sortable-th">Intra-HO SR (%) ${getSortArrowHtml('OPT_HO', 'intraHoSr')}</th>
+            <th onclick="sortTableBy('OPT_HO', 'interHoSr', 'num')" class="py-3 px-3 text-right sortable-th">Inter-HO SR (%) ${getSortArrowHtml('OPT_HO', 'interHoSr')}</th>
+            <th onclick="sortTableBy('OPT_HO', 'volteHoSr', 'num')" class="py-3 px-3 text-right sortable-th">VoLTE HO SR (%) ${getSortArrowHtml('OPT_HO', 'volteHoSr')}</th>
+            <th onclick="sortTableBy('OPT_HO', 'dropRate', 'num')" class="py-3 px-3 text-right sortable-th">Call Drop (%) ${getSortArrowHtml('OPT_HO', 'dropRate')}</th>
+            <th onclick="sortTableBy('OPT_HO', 'consecutiveDays', 'num')" class="py-3 px-3 text-center sortable-th">Days ${getSortArrowHtml('OPT_HO', 'consecutiveDays')}</th>
             <th class="py-3 px-3">Probable Cause &amp; Action</th>
-            <th class="py-3 px-3">L1 In-Charge</th>
+            <th onclick="sortTableBy('OPT_HO', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('OPT_HO', 'l1')}</th>
           </tr>
         `;
 
-        if (cachedHoList.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400 font-sans">No critical handover failure or call drop cells found for current filter.</td></tr>`;
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 font-sans">No critical handover failure or call drop cells found for current filter.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = cachedHoList.map(r => {
+        tbody.innerHTML = rows.map(r => {
           const l1 = formatL1Display(r.l1);
           const diagText = getHoDiagnosisText(r);
           const badgeCls = r.interHoSr < 92.0 ? "bg-rose-500/20 text-rose-300" : r.intraHoSr < 92.0 ? "bg-amber-500/20 text-amber-300" : "bg-purple-500/20 text-purple-300";
@@ -2351,7 +2559,72 @@
               <td class="py-2.5 px-3 text-right ${r.interHoSr < 92.0 ? 'text-rose-400 font-bold' : ''}">${r.interHoSr}%</td>
               <td class="py-2.5 px-3 text-right">${r.volteHoSr}%</td>
               <td class="py-2.5 px-3 text-right ${r.dropRate > 2.0 ? 'text-rose-400 font-bold' : ''}">${r.dropRate}%</td>
+              <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
               <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded ${badgeCls} font-sans text-[10px]">${diagText}</span></td>
+              <td class="py-2.5 px-3 font-sans"><div class="text-white">${l1.name}</div><div class="text-[10px] text-slate-400">${l1.phone}</div></td>
+            </tr>
+          `;
+        }).join("");
+
+      } else {
+        // Sub-Module 5: Dedicated Chronic Degradation Watchlist (3D / 5D / 7D)
+        const filteredChronic = cachedChronicList.filter(r => r.consecutiveDays >= chronicMinDaysFilter);
+        const rows = sortArrayByState(filteredChronic, "OPT_CHRONIC");
+
+        titleEl.textContent = `5. Chronic Multi-Day KPI Degradation Watchlist (≥ ${chronicMinDaysFilter} Consecutive Days)`;
+        subEl.textContent = "Cells breaching critical thresholds continuously across multiple days without recovery";
+        countEl.textContent = `${rows.length} Chronic Faults`;
+
+        guideEl.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-rose-300">Chronic Multi-Day Degradation Escalation Guide (3D / 5D / 7D Zero-Pendency Tracker)</span>
+            <span class="font-mono text-[11px] text-amber-300">Filter: Showing Cells Degraded for &ge; ${chronicMinDaysFilter} Consecutive Days</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-700">
+              <strong class="text-emerald-400">BSNL L1 Field In-Charge Action:</strong>
+              Prioritize sites degraded for <strong>&ge; 3 consecutive days</strong>. Verify site power/media stability and book a mandatory docket in <strong>SiteAssist / ITSM App</strong> for any unresolved RAN/RF hardware fault.
+            </div>
+            <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-700">
+              <strong class="text-cyan-400">TCS / Tejas Team Action:</strong>
+              Provide time-bound root-cause resolution for chronic RF interference, VoLTE packet loss, and handover failures exceeding 3 days.
+            </div>
+          </div>
+        `;
+
+        thead.innerHTML = `
+          <tr>
+            <th onclick="sortTableBy('OPT_CHRONIC', 'siteId', 'str')" class="py-3 px-4 sortable-th">Site ID &amp; Cell ${getSortArrowHtml('OPT_CHRONIC', 'siteId')}</th>
+            <th onclick="sortTableBy('OPT_CHRONIC', 'siteName', 'str')" class="py-3 px-3 sortable-th">Site Name ${getSortArrowHtml('OPT_CHRONIC', 'siteName')}</th>
+            <th onclick="sortTableBy('OPT_CHRONIC', 'ssa', 'str')" class="py-3 px-3 sortable-th">SSA ${getSortArrowHtml('OPT_CHRONIC', 'ssa')}</th>
+            <th onclick="sortTableBy('OPT_CHRONIC', 'category', 'str')" class="py-3 px-3 sortable-th">Category ${getSortArrowHtml('OPT_CHRONIC', 'category')}</th>
+            <th onclick="sortTableBy('OPT_CHRONIC', 'kpiName', 'str')" class="py-3 px-3 sortable-th">Degraded KPI ${getSortArrowHtml('OPT_CHRONIC', 'kpiName')}</th>
+            <th class="py-3 px-3 text-right">Current Value</th>
+            <th class="py-3 px-3 text-center">Last 3 Days Trend</th>
+            <th onclick="sortTableBy('OPT_CHRONIC', 'consecutiveDays', 'num')" class="py-3 px-3 text-center sortable-th">Chronic Days ${getSortArrowHtml('OPT_CHRONIC', 'consecutiveDays')}</th>
+            <th class="py-3 px-3">Probable Cause &amp; Action</th>
+            <th onclick="sortTableBy('OPT_CHRONIC', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('OPT_CHRONIC', 'l1')}</th>
+          </tr>
+        `;
+
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 font-sans">No cells found with &ge; ${chronicMinDaysFilter} consecutive days of chronic degradation.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = rows.map(r => {
+          const l1 = formatL1Display(r.l1);
+          return `
+            <tr class="hover:bg-slate-700/40 transition">
+              <td class="py-2.5 px-4"><div class="font-bold text-white">${r.siteId}</div><div class="text-[10px] text-cyan-400">Cell ${r.cellId}</div></td>
+              <td class="py-2.5 px-3 font-sans text-slate-200">${r.siteName}</td>
+              <td class="py-2.5 px-3 font-sans">${r.ssa}</td>
+              <td class="py-2.5 px-3 font-sans text-amber-300 font-semibold">${r.category}</td>
+              <td class="py-2.5 px-3 font-sans">${r.kpiName}</td>
+              <td class="py-2.5 px-3 text-right text-rose-400 font-bold">${r.currentVal}</td>
+              <td class="py-2.5 px-3 text-center text-[11px] text-slate-300">${r.miniTrend}</td>
+              <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
+              <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-sans text-[10px]">${r.action}</span></td>
               <td class="py-2.5 px-3 font-sans"><div class="text-white">${l1.name}</div><div class="text-[10px] text-slate-400">${l1.phone}</div></td>
             </tr>
           `;
@@ -2359,13 +2632,13 @@
       }
     }
 
-    // Export RF & VoLTE Optimization Sub-Modules with Probable Cause & Action Column + Color Coding
     function exportOptModuleToExcel() {
       let exportRows = [];
 
       if (currentOptSubModule === "VOLTE") {
-        if (!cachedVolteList.length) { alert("No VoLTE records to export."); return; }
-        exportRows = cachedVolteList.map(r => ({
+        const rows = sortArrayByState(cachedVolteList, "OPT_VOLTE");
+        if (!rows.length) { alert("No VoLTE records to export."); return; }
+        exportRows = rows.map(r => ({
           "Site ID": r.siteId,
           "Cell ID": `Cell ${r.cellId}`,
           "Site Name": r.siteName,
@@ -2376,12 +2649,14 @@
           "VoLTE Drop (%)": r.erabDropVolte,
           "CSSR VoLTE (%)": r.cssrVolte,
           "VoLTE Traffic (Erl)": r.volteErl,
+          "Consecutive Days": r.consecutiveDays,
           "Probable Cause & Action": getVolteDiagnosisText(r),
           "L1 In-Charge": (r.l1 || "").replace(/\t/g, " ")
         }));
       } else if (currentOptSubModule === "RF") {
-        if (!cachedRfList.length) { alert("No RF Interference records to export."); return; }
-        exportRows = cachedRfList.map(r => ({
+        const rows = sortArrayByState(cachedRfList, "OPT_RF");
+        if (!rows.length) { alert("No RF Interference records to export."); return; }
+        exportRows = rows.map(r => ({
           "Site ID": r.siteId,
           "Cell ID": `Cell ${r.cellId}`,
           "Site Name": r.siteName,
@@ -2391,12 +2666,14 @@
           "UL IBLER (%)": r.ulIbler,
           "CQI": r.cqi,
           "IP Latency (ms)": r.latency,
+          "Consecutive Days": r.consecutiveDays,
           "Probable Cause & Action": getRfDiagnosisText(r),
           "L1 In-Charge": (r.l1 || "").replace(/\t/g, " ")
         }));
       } else if (currentOptSubModule === "PRB") {
-        if (!cachedPrbList.length) { alert("No PRB Congestion records to export."); return; }
-        exportRows = cachedPrbList.map(r => ({
+        const rows = sortArrayByState(cachedPrbList, "OPT_PRB");
+        if (!rows.length) { alert("No PRB Congestion records to export."); return; }
+        exportRows = rows.map(r => ({
           "Site ID": r.siteId,
           "Cell ID": `Cell ${r.cellId}`,
           "Site Name": r.siteName,
@@ -2407,12 +2684,14 @@
           "Avg User DL Tput (Mbps)": r.userDlTput,
           "Active Users": r.userCount,
           "Data Volume (GB)": r.dataGb,
+          "Consecutive Days": r.consecutiveDays,
           "Probable Cause & Action": getPrbDiagnosisText(r),
           "L1 In-Charge": (r.l1 || "").replace(/\t/g, " ")
         }));
-      } else {
-        if (!cachedHoList.length) { alert("No Handover failure records to export."); return; }
-        exportRows = cachedHoList.map(r => ({
+      } else if (currentOptSubModule === "HO") {
+        const rows = sortArrayByState(cachedHoList, "OPT_HO");
+        if (!rows.length) { alert("No Handover failure records to export."); return; }
+        exportRows = rows.map(r => ({
           "Site ID": r.siteId,
           "Cell ID": `Cell ${r.cellId}`,
           "Site Name": r.siteName,
@@ -2422,7 +2701,26 @@
           "Inter-Freq HO SR (%)": r.interHoSr,
           "VoLTE HO SR (%)": r.volteHoSr,
           "Call Drop (%)": r.dropRate,
+          "Consecutive Days": r.consecutiveDays,
           "Probable Cause & Action": getHoDiagnosisText(r),
+          "L1 In-Charge": (r.l1 || "").replace(/\t/g, " ")
+        }));
+      } else {
+        const filteredChronic = cachedChronicList.filter(r => r.consecutiveDays >= chronicMinDaysFilter);
+        const rows = sortArrayByState(filteredChronic, "OPT_CHRONIC");
+        if (!rows.length) { alert("No Chronic Degradation records to export."); return; }
+        exportRows = rows.map(r => ({
+          "Site ID": r.siteId,
+          "Cell ID": `Cell ${r.cellId}`,
+          "Site Name": r.siteName,
+          "BTS IP ID": r.btsIpId,
+          "SSA": r.ssa,
+          "Category": r.category,
+          "Degraded KPI": r.kpiName,
+          "Current Value": r.currentVal,
+          "Last 3 Days Trend": r.miniTrend,
+          "Consecutive Days": r.consecutiveDays,
+          "Probable Cause & Action": r.action,
           "L1 In-Charge": (r.l1 || "").replace(/\t/g, " ")
         }));
       }
@@ -2439,6 +2737,8 @@
         if (col === "Avg User DL Tput (Mbps)" && val < 3.0) return "critical";
         if ((col === "Intra-Freq HO SR (%)" || col === "Inter-Freq HO SR (%)") && val < 92.0) return "critical";
         if (col === "Call Drop (%)" && val > 2.0) return "critical";
+        if (col === "Current Value") return "critical";
+        if (col === "Consecutive Days") return val >= 5 ? "critical" : val >= 3 ? "warning" : "normal";
         if (col === "Probable Cause & Action") return "warning";
         return "normal";
       });
