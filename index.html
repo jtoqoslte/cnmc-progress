@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BSNL J&K CM">
   <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22BSNL%20J%26K%20CM%20Operations%20Portal%22%2C%22short_name%22%3A%22BSNL%20J%26K%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f8fafc%22%2C%22theme_color%22%3A%22%23003366%22%7D">
 
-  <!-- Analytics, Charting, Screenshot & PDF Libraries -->
+  <!-- Analytics, Styled Excel (xlsx-js-style), Charting, Screenshot & PDF Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -86,8 +86,6 @@
     .btn-camera { background: #6366f1; color: white; }
     .btn-file { background: #475569; color: white; }
     .btn-red { background: #dc2626; color: white; }
-    .btn-pwa { background: #0284c7; color: white; font-weight: 700; }
-    .btn-pwa:hover { background: #0369a1; }
     .btn-sm { padding: 5px 10px; font-size: 11px; }
 
     .toolbar { background: var(--card-bg); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -1077,12 +1075,9 @@
   let userDegradedSitesList = [];
   let escalationData = [];
 
-  // Module 1 Alert Caches
   let zeroDataDisplayRecords = [];
   let top10FlappingRecords = [];
   let worst5L1Records = [];
-
-  // Module 4 Chronic Streak Cache
   let chronicRecordsCache = [];
 
   let downRawRecords = [];
@@ -1109,6 +1104,193 @@
   let rawDataRows = [], globalHeaders = [], cachedSites = [];
   let currentModalSites = [], currentModalEntityName = "";
 
+  // =========================================================================
+  // CENTRALIZED EXCEL CONDITIONAL STYLING ENGINE (RED / AMBER / GREEN)
+  // =========================================================================
+  function getConditionalCellStyle(headerName, rawVal) {
+    const h = String(headerName || "").toLowerCase();
+    const strVal = String(rawVal === undefined || rawVal === null ? "" : rawVal).trim();
+    const numVal = parseFloat(strVal.replace(/[%Hr\s]/gi, ""));
+
+    const STYLE_CRIT = {
+      fill: { fgColor: { rgb: "FEE2E2" } },
+      font: { color: { rgb: "991B1B" }, bold: true, sz: 10 }
+    };
+    const STYLE_WARN = {
+      fill: { fgColor: { rgb: "FEF3C7" } },
+      font: { color: { rgb: "92400E" }, bold: true, sz: 10 }
+    };
+    const STYLE_GOOD = {
+      fill: { fgColor: { rgb: "DCFCE7" } },
+      font: { color: { rgb: "166534" }, bold: true, sz: 10 }
+    };
+
+    // 1. Target Status / Met vs Lagging
+    if (h.includes("status")) {
+      if (strVal.toLowerCase().includes("lagging")) return STYLE_CRIT;
+      if (strVal.toLowerCase().includes("met")) return STYLE_GOOD;
+    }
+
+    // 2. Shortfall Sites
+    if (h.includes("shortfall")) {
+      if (!isNaN(numVal) && numVal > 0) return STYLE_CRIT;
+      if (!isNaN(numVal) && numVal === 0) return STYLE_GOOD;
+    }
+
+    // 3. Availability % / Rate %
+    if ((h.includes("avail") || h.includes("rate")) && !h.includes("drop")) {
+      if (!isNaN(numVal)) {
+        if (numVal < 90.0) return STYLE_CRIT;
+        if (numVal < 98.0) return STYLE_WARN;
+        return STYLE_GOOD;
+      }
+    }
+
+    // 4. Fill % (CNMC Infra)
+    if (h.includes("fill %")) {
+      if (!isNaN(numVal)) {
+        if (numVal < 40.0) return STYLE_CRIT;
+        if (numVal < 80.0) return STYLE_WARN;
+        return STYLE_GOOD;
+      }
+    }
+
+    // 5. Data (GB)
+    if (h.includes("data (gb)") || h.includes("avg data")) {
+      if (!isNaN(numVal) && numVal <= 0.0) return STYLE_CRIT;
+    }
+
+    // 6. Drop Delta / User Drop %
+    if (h.includes("drop")) {
+      if (!isNaN(numVal)) {
+        const absDrop = Math.abs(numVal);
+        if (absDrop >= 20.0) return STYLE_CRIT;
+        if (absDrop > 0) return STYLE_WARN;
+      }
+    }
+
+    // 7. Flaps / Chronic Streak
+    if (h.includes("flap") && !h.includes("breakdown")) {
+      if (!isNaN(numVal)) {
+        if (numVal >= 20) return STYLE_CRIT;
+        if (numVal > 0) return STYLE_WARN;
+        return STYLE_GOOD;
+      }
+    }
+    if (h.includes("streak")) {
+      if (!isNaN(numVal) && numVal >= 3) return STYLE_CRIT;
+    }
+
+    // 8. Down Hours / Duration
+    if (h.includes("down hours") && !h.includes("4g down") && !h.includes("breakdown")) {
+      if (!isNaN(numVal)) {
+        if (numVal >= 4.0) return STYLE_CRIT;
+        if (numVal > 0) return STYLE_WARN;
+        return STYLE_GOOD;
+      }
+    }
+
+    // 9. Reason Not Updated
+    if (h.includes("not updated")) {
+      if (!isNaN(numVal)) {
+        if (h.includes("%")) {
+          if (numVal >= 25.0) return STYLE_CRIT;
+          if (numVal > 0) return STYLE_WARN;
+          return STYLE_GOOD;
+        } else {
+          if (numVal >= 5) return STYLE_CRIT;
+          if (numVal > 0) return STYLE_WARN;
+          return STYLE_GOOD;
+        }
+      }
+    }
+
+    // 10. Critical Outage Counts (<90%)
+    if (h.includes("<90% count") || h.includes("<90% outage")) {
+      if (!isNaN(numVal)) {
+        if (numVal >= 5) return STYLE_CRIT;
+        if (numVal > 0) return STYLE_WARN;
+        return STYLE_GOOD;
+      }
+    }
+
+    // 11. Fault Category Text
+    if (h.includes("fault")) {
+      if (strVal.toLowerCase() === "reason not updated") return STYLE_CRIT;
+    }
+
+    return null;
+  }
+
+  function exportStyledExcel(rows, sheetName, fileName) {
+    if (!rows || rows.length === 0) {
+      alert("No records available to export.");
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const headers = Object.keys(rows[0]);
+
+    const thinBorder = {
+      top: { style: "thin", color: { rgb: "CBD5E1" } },
+      bottom: { style: "thin", color: { rgb: "CBD5E1" } },
+      left: { style: "thin", color: { rgb: "CBD5E1" } },
+      right: { style: "thin", color: { rgb: "CBD5E1" } }
+    };
+
+    // Style Header Row (Row 0)
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const addr = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (!ws[addr]) continue;
+      ws[addr].s = {
+        fill: { fgColor: { rgb: "003366" } },
+        font: { color: { rgb: "FFFFFF" }, bold: true, sz: 11 },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        border: thinBorder
+      };
+    }
+
+    // Style Data Rows & Apply Conditional Formatting
+    for (let R = 1; R <= range.e.r; ++R) {
+      const isTotalRow = String(rows[R - 1][headers[0]] || "").toUpperCase().includes("TOTAL");
+
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[addr]) continue;
+
+        const headerName = headers[C] || "";
+        const cellVal = ws[addr].v;
+        const condStyle = isTotalRow ? null : getConditionalCellStyle(headerName, cellVal);
+
+        ws[addr].s = {
+          font: condStyle ? condStyle.font : { color: { rgb: "0F172A" }, bold: isTotalRow, sz: 10 },
+          fill: condStyle ? condStyle.fill : (isTotalRow ? { fgColor: { rgb: "E2E8F0" } } : (R % 2 === 0 ? { fgColor: { rgb: "F8FAFC" } } : { fgColor: { rgb: "FFFFFF" } })),
+          border: thinBorder,
+          alignment: { vertical: "center" }
+        };
+      }
+    }
+
+    // Auto-calculate optimal column widths
+    ws['!cols'] = headers.map(h => {
+      let maxLen = h.length;
+      rows.forEach(r => {
+        const valLen = String(r[h] !== undefined && r[h] !== null ? r[h] : "").length;
+        if (valLen > maxLen) maxLen = valLen;
+      });
+      return { wch: Math.min(Math.max(maxLen + 4, 12), 45) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+    XLSX.writeFile(wb, fileName);
+  }
+  window.exportStyledExcel = exportStyledExcel;
+
+  // =========================================================================
+  // CORE DATA NORMALIZATION & HELPER UTILITIES
+  // =========================================================================
   function getAvailabilityBucket(avail) {
     if (avail >= 98.0) return ">=98%";
     if (avail >= 94.0) return "94-98%";
@@ -1215,7 +1397,7 @@
   // --- END OF PART 1 (DO NOT CLOSE SCRIPT TAG - PASTE PART 2 DIRECTLY BELOW) ---
   // =========================================================================
 // =========================================================================
-  // CANONICAL LOCATION IDENTIFIER & RESOLVER
+  // CANONICAL LOCATION IDENTIFIER & 4G DOWNTIME FORMATTER
   // =========================================================================
   function getCanonicalNodeKey(ipRaw, siteIdRaw) {
     const ipKey = normalizeIpKey(ipRaw);
@@ -1227,9 +1409,6 @@
     return ipKey || siteKey || "";
   }
 
-  // =========================================================================
-  // CORE 4G DOWNTIME FORMATTER (DECLARED FIRST TO PREVENT REFERENCEERRORS)
-  // =========================================================================
   function format4GBandDowntime(ipRaw, siteIdRaw, targetDate) {
     if (!historyAlarmLoaded) return "-";
 
@@ -1438,7 +1617,7 @@
   window.refreshCurrentModule = refreshCurrentModule;
 
   // =========================================================================
-  // MODULE 1: ALERTS & ESCALATION ENGINES (DYNAMIC FILTER RECALCULATION)
+  // MODULE 1: ALERTS & ESCALATION ENGINES
   // =========================================================================
   function populateAlertControls() {
     const zdDate = document.getElementById("zerodata-date-select");
@@ -1655,7 +1834,7 @@
 
   function exportZeroDataExcel() {
     if (!zeroDataDisplayRecords || zeroDataDisplayRecords.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(zeroDataDisplayRecords.map((r, i) => ({
+    const rows = zeroDataDisplayRecords.map((r, i) => ({
       "S.No": i + 1,
       "Report Date": r.reportDate,
       "Site ID": r.siteId,
@@ -1663,17 +1842,15 @@
       "Site Name": r.siteName,
       "SSA": r.ssa,
       "Category": r.category,
-      "Avail %": r.avail,
+      "Avail %": parseFloat(r.avail.toFixed(2)),
       "Max Active Users": r.maxActiveUser,
-      "Voice Erl": r.voiceErl,
-      "Data (GB)": r.dataGb,
+      "Voice Erl": parseFloat(r.voiceErl.toFixed(2)),
+      "Data (GB)": parseFloat(r.dataGb.toFixed(2)),
       "Media": r.media,
       "L1 Officer": r.l1,
       "L2 Officer": r.l2
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Zero_Data_4G");
-    XLSX.writeFile(wb, "Zero_Data_4G_Sites.xlsx");
+    }));
+    exportStyledExcel(rows, "Zero_Data_4G", "Zero_Data_4G_Sites.xlsx");
   }
   window.exportZeroDataExcel = exportZeroDataExcel;
 
@@ -1815,7 +1992,7 @@
 
   function exportTop10FlapExcel() {
     if (!top10FlappingRecords || top10FlappingRecords.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(top10FlappingRecords.map((r, i) => ({
+    const rows = top10FlappingRecords.map((r, i) => ({
       "Rank": i + 1,
       "BTS IP ID": r.btsIp,
       "Site Name": r.siteName,
@@ -1824,333 +2001,12 @@
       "Installed Bands": r.installedBands,
       "Total Flap Count (<15m)": r.totFlap,
       "Major Outages (>15m)": r.totMajor,
-      "Total Down Hours": r.totHours.toFixed(2),
+      "Total Down Hours": parseFloat(r.totHours.toFixed(2)),
       "L1 Officer": r.l1
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Top_10_Flapping");
-    XLSX.writeFile(wb, "Circle_Top_10_Flapping_Sites.xlsx");
+    }));
+    exportStyledExcel(rows, "Top_10_Flapping", "Circle_Top_10_Flapping_Sites.xlsx");
   }
   window.exportTop10FlapExcel = exportTop10FlapExcel;
-
-  // =========================================================================
-  // MODULE 3: PRE-DECLARED ANALYSIS ENGINES (PREVENTS REFERENCEERRORS)
-  // =========================================================================
-  function runDegradedAnalysis() {
-    const prevDateElem = document.getElementById("deg-prev-date");
-    const nextDateElem = document.getElementById("deg-next-date");
-    const ssaElem = document.getElementById("deg-ssa-select");
-    const catElem = document.getElementById("deg-cat-select");
-    const l1Elem = document.getElementById("deg-l1-select");
-
-    const prevDate = prevDateElem ? prevDateElem.value : "";
-    const nextDate = nextDateElem ? nextDateElem.value : "";
-    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
-    const chosenCat = catElem ? catElem.value : "ALL";
-    const chosenL1 = l1Elem ? l1Elem.value : "ALL";
-
-    if (!prevDate || !nextDate || !dbnRawRecords || dbnRawRecords.length === 0) return;
-
-    const prevMap = {};
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === prevDate) {
-        prevMap[r.siteId] = r;
-      }
-    });
-
-    let baseHealthyCount = 0;
-    const degraded = [];
-
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate !== nextDate) return;
-      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
-      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
-      if (chosenL1 !== "ALL" && r.l1 !== chosenL1) return;
-
-      const base = prevMap[r.siteId];
-      if (base && base.avail >= 98.0) {
-        baseHealthyCount++;
-        if (r.avail < 98.0) {
-          const dropDelta = (base.avail - r.avail).toFixed(2);
-          degraded.push({
-            siteId: r.siteId,
-            btsIp: r.btsIp,
-            siteName: r.siteName,
-            ssa: r.ssa,
-            category: r.category,
-            prevAvail: base.avail,
-            nextAvail: r.avail,
-            dropDelta: dropDelta,
-            currentBucket: r.bucket,
-            l1: r.l1,
-            media: r.media
-          });
-        }
-      }
-    });
-
-    degraded.sort((a, b) => parseFloat(b.dropDelta) - parseFloat(a.dropDelta));
-    degradedSitesList = degraded;
-
-    const elBase = document.getElementById("deg-kpi-base"); if (elBase) elBase.innerText = baseHealthyCount.toLocaleString();
-    const elCnt = document.getElementById("deg-kpi-count"); if (elCnt) elCnt.innerText = degraded.length.toLocaleString();
-    const elRate = document.getElementById("deg-kpi-rate");
-    if (elRate) {
-      const rate = baseHealthyCount > 0 ? ((degraded.length / baseHealthyCount) * 100).toFixed(1) : "0.0";
-      elRate.innerText = rate + "%";
-    }
-
-    const tbody = document.getElementById("degraded-sites-tbody");
-    if (!tbody) return;
-
-    if (degraded.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
-      return;
-    }
-
-    let html = "";
-    degraded.forEach(s => {
-      html += `
-        <tr>
-          <td><strong>${s.siteId}</strong></td>
-          <td>${s.btsIp || "-"}</td>
-          <td>${s.siteName}</td>
-          <td>${s.ssa}</td>
-          <td><span class="${s.category === 'DBN' ? 'badge-dbn' : 'badge-ndbn'}">${s.category}</span></td>
-          <td class="num" style="color:#16a34a; font-weight:600;">${s.prevAvail.toFixed(2)}%</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${s.nextAvail.toFixed(2)}%</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.dropDelta}%</td>
-          <td><span class="badge-fault">${s.currentBucket}</span></td>
-          <td><strong>${s.l1}</strong></td>
-          <td>${s.media}</td>
-        </tr>`;
-    });
-    tbody.innerHTML = html;
-  }
-  window.runDegradedAnalysis = runDegradedAnalysis;
-
-  function runUserDegradedAnalysis() {
-    const prevDateElem = document.getElementById("user-deg-prev-date");
-    const nextDateElem = document.getElementById("user-deg-next-date");
-    const threshElem = document.getElementById("user-deg-threshold");
-    const ssaElem = document.getElementById("user-deg-ssa-select");
-    const catElem = document.getElementById("user-deg-cat-select");
-    const l1Elem = document.getElementById("user-deg-l1-select");
-
-    const prevDate = prevDateElem ? prevDateElem.value : "";
-    const nextDate = nextDateElem ? nextDateElem.value : "";
-    const threshold = parseFloat(threshElem ? threshElem.value : "0") || 0;
-    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
-    const chosenCat = catElem ? catElem.value : "ALL";
-    const chosenL1 = l1Elem ? l1Elem.value : "ALL";
-
-    if (!prevDate || !nextDate || !dbnRawRecords || dbnRawRecords.length === 0) return;
-
-    const prevMap = {};
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate === prevDate) {
-        prevMap[r.siteId] = r;
-      }
-    });
-
-    let totalCompared = 0, totalLostUsers = 0, dropSumPct = 0;
-    const degraded = [];
-
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate !== nextDate) return;
-      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
-      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
-      if (chosenL1 !== "ALL" && r.l1 !== chosenL1) return;
-
-      const base = prevMap[r.siteId];
-      if (base) {
-        totalCompared++;
-        if (base.maxActiveUser > 0 && r.maxActiveUser < base.maxActiveUser) {
-          const userDrop = base.maxActiveUser - r.maxActiveUser;
-          const dropPct = (userDrop / base.maxActiveUser) * 100;
-
-          if (dropPct >= threshold) {
-            totalLostUsers += userDrop;
-            dropSumPct += dropPct;
-            degraded.push({
-              siteId: r.siteId,
-              btsIp: r.btsIp,
-              siteName: r.siteName,
-              ssa: r.ssa,
-              category: r.category,
-              baseUsers: base.maxActiveUser,
-              compareUsers: r.maxActiveUser,
-              userDrop: userDrop,
-              dropPct: dropPct,
-              l1: r.l1,
-              media: r.media
-            });
-          }
-        }
-      }
-    });
-
-    degraded.sort((a, b) => b.userDrop - a.userDrop);
-    userDegradedSitesList = degraded;
-
-    const elTot = document.getElementById("user-deg-kpi-total"); if (elTot) elTot.innerText = totalCompared.toLocaleString();
-    const elCnt = document.getElementById("user-deg-kpi-count"); if (elCnt) elCnt.innerText = degraded.length.toLocaleString();
-    const elLost = document.getElementById("user-deg-kpi-lost"); if (elLost) elLost.innerText = totalLostUsers.toLocaleString();
-    const elDrop = document.getElementById("user-deg-kpi-drop-pct");
-    if (elDrop) {
-      const avg = degraded.length > 0 ? (dropSumPct / degraded.length).toFixed(1) : "0.0";
-      elDrop.innerText = avg + "%";
-    }
-
-    const tbody = document.getElementById("user-degraded-tbody");
-    if (!tbody) return;
-
-    if (degraded.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No user degradation detected matching criteria.</td></tr>`;
-      return;
-    }
-
-    let html = "";
-    degraded.forEach(s => {
-      html += `
-        <tr>
-          <td><strong>${s.siteId}</strong></td>
-          <td>${s.btsIp || "-"}</td>
-          <td>${s.siteName}</td>
-          <td>${s.ssa}</td>
-          <td><span class="${s.category === 'DBN' ? 'badge-dbn' : 'badge-ndbn'}">${s.category}</span></td>
-          <td class="num">${s.baseUsers}</td>
-          <td class="num">${s.compareUsers}</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.userDrop}</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.dropPct.toFixed(1)}%</td>
-          <td><strong>${s.l1}</strong></td>
-          <td>${s.media}</td>
-        </tr>`;
-    });
-    tbody.innerHTML = html;
-  }
-  window.runUserDegradedAnalysis = runUserDegradedAnalysis;
-
-  function renderEscalationDashboard() {
-    const dElem = document.getElementById("esc-date-select");
-    const ssaElem = document.getElementById("esc-ssa-select");
-    const catElem = document.getElementById("esc-cat-select");
-    const targetElem = document.getElementById("esc-target-select");
-    const searchElem = document.getElementById("esc-search-input");
-
-    const targetDate = dElem ? dElem.value : (dbnAvailableDates[0] || "");
-    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
-    const chosenCat = catElem ? catElem.value : "ALL";
-    const targetPct = parseFloat(targetElem ? targetElem.value : "80") || 80;
-    const searchVal = safeStr(searchElem ? searchElem.value : "").toLowerCase();
-
-    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
-
-    const inchargeMap = {};
-    dbnRawRecords.forEach(r => {
-      if (r.reportDate !== targetDate) return;
-      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
-      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
-
-      const officer = cleanL1(r.l1, "Unassigned");
-      if (officer === "Unassigned") return;
-
-      const key = r.ssa + "____" + officer;
-      if (!inchargeMap[key]) {
-        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0 };
-      }
-
-      inchargeMap[key].total++;
-      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
-      else if (r.bucket === "94-98%") inchargeMap[key].mid94++;
-      else if (r.bucket === "90-94%") inchargeMap[key].low90++;
-      else inchargeMap[key].lt90++;
-    });
-
-    const parsed = Object.values(inchargeMap)
-      .map(d => {
-        const actualPct = (d.gte98 / d.total) * 100;
-        const targetReq = Math.ceil((targetPct / 100) * d.total);
-        const shortfall = Math.max(0, targetReq - d.gte98);
-        const isTargetMet = actualPct >= targetPct;
-        const isRankable = d.total >= 10;
-        return {
-          ssa: d.ssa,
-          officer: d.officer,
-          total: d.total,
-          gte98: d.gte98,
-          mid94: d.mid94,
-          low90: d.low90,
-          lt90: d.lt90,
-          actualPct: actualPct,
-          targetReq: targetReq,
-          shortfall: shortfall,
-          isTargetMet: isTargetMet,
-          isRankable: isRankable
-        };
-      }).filter(d => {
-        if (searchVal && !d.officer.toLowerCase().includes(searchVal)) return false;
-        return true;
-      });
-
-    parsed.sort((a, b) => {
-      if (a.isRankable && !b.isRankable) return -1;
-      if (!a.isRankable && b.isRankable) return 1;
-      return b.actualPct - a.actualPct || a.shortfall - b.shortfall || b.total - a.total;
-    });
-
-    let currentRank = 1;
-    parsed.forEach(d => {
-      if (d.isRankable) {
-        d.rank = currentRank++;
-      } else {
-        d.rank = null;
-      }
-    });
-
-    escalationData = parsed;
-
-    const tbody = document.getElementById("escalation-tbody");
-    if (!tbody) return;
-
-    if (parsed.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No matching officers found for active criteria.</td></tr>`;
-      return;
-    }
-
-    let html = "";
-    parsed.forEach((d, idx) => {
-      const pGte = ((d.gte98 / d.total) * 100).toFixed(1);
-      const pMid = ((d.mid94 / d.total) * 100).toFixed(1);
-      const pLow = ((d.low90 / d.total) * 100).toFixed(1);
-      const pLt  = ((d.lt90  / d.total) * 100).toFixed(1);
-
-      const rankBadge = d.isRankable
-        ? `<span class="badge-rank">#${d.rank}</span>`
-        : `<span class="badge-rank-na" title="Minimum 10 sites required for ranking">N/A (&lt;10)</span>`;
-
-      html += `
-        <tr style="${!d.isRankable ? 'background-color: #fafafa;' : ''}">
-          <td style="text-align:center;">${rankBadge}</td>
-          <td>${d.ssa}</td>
-          <td><strong>${d.officer}</strong></td>
-          <td class="num"><strong>${d.total}</strong></td>
-          <td class="num" style="color:#16a34a; font-weight:600;">${d.gte98} (${pGte}%)</td>
-          <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
-          <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
-          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90} (${pLt}%)</td>
-          <td class="num" style="color:${d.actualPct >= targetPct ? '#16a34a' : '#dc2626'}; font-weight:bold;">${d.actualPct.toFixed(1)}%</td>
-          <td class="num">${d.targetReq} sites</td>
-          <td class="num" style="color:${d.shortfall > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${d.shortfall > 0 ? '-' + d.shortfall : '0'}</td>
-          <td style="text-align:center;"><span class="${d.isTargetMet ? 'badge-ok' : 'badge-lag'}">${d.isTargetMet ? 'Met' : 'Lagging'}</span></td>
-          <td style="text-align:center;">
-            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSingleEscalationWhatsApp(${idx})">💬 Alert</button>
-          </td>
-        </tr>`;
-    });
-    tbody.innerHTML = html;
-  }
-  window.renderEscalationDashboard = renderEscalationDashboard;
 
   function runWorst5L1Analysis() {
     if (!dbnRawRecords || dbnRawRecords.length === 0) return;
@@ -2244,7 +2100,12 @@
     msg += `Please initiate immediate corrective action and expedite field restoration.\n\n`;
     msg += getClosingSignature(d.ssa);
 
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+    const phone = extractPhoneNumber(d.officer);
+    const url = phone 
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+    window.open(url, "_blank");
   }
   window.shareSingleWorstL1WhatsApp = shareSingleWorstL1WhatsApp;
 
@@ -2286,7 +2147,7 @@
 
   function exportWorst5L1Excel() {
     if (!worst5L1Records || worst5L1Records.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(worst5L1Records.map((r, i) => ({
+    const rows = worst5L1Records.map((r, i) => ({
       "Rank (Lowest)": i + 1,
       "SSA": r.ssa,
       "Site In-charge (L1)": r.officer,
@@ -2296,89 +2157,13 @@
       "Actual >=98% Rate %": r.actualPct.toFixed(2) + "%",
       "Target Required (80%)": r.targetReq,
       "Shortfall Sites": r.shortfall
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Worst_L1_Availability");
-    XLSX.writeFile(wb, "Worst_5_L1_Availability.xlsx");
+    }));
+    exportStyledExcel(rows, "Worst_L1_Availability", "Worst_5_L1_Availability.xlsx");
   }
   window.exportWorst5L1Excel = exportWorst5L1Excel;
 
-  function shareSingleEscalationWhatsApp(idx) {
-    if (!escalationData || !escalationData[idx]) return;
-    const d = escalationData[idx];
-    const dElem = document.getElementById("esc-date-select");
-    const targetElem = document.getElementById("esc-target-select");
-    const selectedDate = dElem ? dElem.value : "";
-    const targetPct = targetElem ? targetElem.value : "80";
-
-    let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
-    msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
-    msg += `*Total Sites Managed:* ${d.total}\n`;
-    msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
-    msg += `*Corporate Target:* ${targetPct}% (${d.targetReq} sites)\n\n`;
-
-    if (d.shortfall > 0) {
-      msg += `👉 You have a shortfall of *${d.shortfall} sites* to achieve the ${targetPct}% benchmark. ${d.lt90} of your sites are currently <90%.\n\n`;
-      msg += `Please prioritize rectification on priority.\n\n`;
-    } else {
-      msg += `✅ Congratulations! Target met successfully.\n\n`;
-    }
-    msg += getClosingSignature(d.ssa);
-
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
-  }
-  window.shareSingleEscalationWhatsApp = shareSingleEscalationWhatsApp;
-
-  function shareBulkEscalationWhatsApp() {
-    if (!escalationData || escalationData.length === 0) return;
-    const dElem = document.getElementById("esc-date-select");
-    const targetElem = document.getElementById("esc-target-select");
-    const selectedDate = dElem ? dElem.value : "";
-    const targetPct = targetElem ? targetElem.value : "80";
-
-    let msg = `*📊 J&K CM Availability Escalation Summary (${selectedDate})*\n`;
-    msg += `*Target Benchmark:* ≥${targetPct}% Healthy Sites\n\n`;
-
-    escalationData.slice(0, 15).forEach((d, i) => {
-      const rankLabel = d.isRankable ? `Rank #${d.rank}` : `Unranked (<10)`;
-      msg += `${i + 1}. *${d.officer}* (${d.ssa}) [${rankLabel}]: ${d.actualPct.toFixed(1)}% (${d.gte98}/${d.total}) | Shortfall: *${d.shortfall > 0 ? '-' + d.shortfall : '0'}*\n`;
-    });
-
-    if (escalationData.length > 15) {
-      msg += `\n_...and ${escalationData.length - 15} more officers._\n`;
-    }
-
-    msg += `\n${getClosingSignature("ALL")}`;
-    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
-  }
-  window.shareBulkEscalationWhatsApp = shareBulkEscalationWhatsApp;
-
-  function exportEscalationExcel() {
-    if (!escalationData || escalationData.length === 0) return;
-    const rows = escalationData.map((d) => ({
-      "Rank": d.isRankable ? d.rank : "N/A (<10 sites)",
-      "SSA": d.ssa,
-      "L1 Site In-charge": d.officer,
-      "Total Sites": d.total,
-      ">=98% Count": d.gte98,
-      ">=98% Rate %": d.actualPct.toFixed(2) + "%",
-      "94-98% Count": d.mid94,
-      "90-94% Count": d.low90,
-      "<90% Outage Count": d.lt90,
-      "Target Required Sites": d.targetReq,
-      "Shortfall Sites": d.shortfall,
-      "Target Status": d.isTargetMet ? "Target Met" : "Lagging"
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Escalation_Matrix");
-    XLSX.writeFile(wb, "Incharge_Escalation_Target_Matrix.xlsx");
-  }
-  window.exportEscalationExcel = exportEscalationExcel;
-
   // =========================================================================
-  // MODULE 3: DBN_NDBN DATA RETRIEVAL PIPELINE
+  // MODULE 3: DBN_NDBN DATA RETRIEVAL & FILTER PIPELINE
   // =========================================================================
   async function fetchAndRenderDbn() {
     const status = document.getElementById("status-bar");
@@ -2732,6 +2517,18 @@
   }
   window.captureSsaChartScreenshot = captureSsaChartScreenshot;
 
+  function captureSsaSummaryScreenshot() {
+    const elem = document.getElementById("dbn-summary-table-section");
+    if (!elem) return;
+    html2canvas(elem, { scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = `SSA_Availability_Summary_${Date.now()}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+  window.captureSsaSummaryScreenshot = captureSsaSummaryScreenshot;
+
   function renderDbnCharts(gte98, mid94, low90, lt90, ssaAgg) {
     const canvas = document.getElementById("dbnBucketChart");
     if (!canvas) return;
@@ -2990,10 +2787,7 @@
       };
     });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "SSA_Summary");
-    XLSX.writeFile(wb, "DBN_NDBN_SSA_Summary_4Buckets.xlsx");
+    exportStyledExcel(rows, "SSA_Summary", "DBN_NDBN_SSA_Summary_4Buckets.xlsx");
   }
   window.exportDbnSummaryExcel = exportDbnSummaryExcel;
 
@@ -3013,23 +2807,518 @@
         "Site IP ID": r.btsIp,
         "Site Name": r.siteName,
         "Category": r.category,
-        "Availability %": r.avail,
+        "Availability %": parseFloat(r.avail.toFixed(2)),
         "Bucket": r.bucket,
         "Max Active User": r.maxActiveUser,
         "L1 Officer": r.l1,
         "Media": r.media,
         "4G Down Hours (B01+B28+B41)": downHrs,
-        "Voice (Erl)": r.voiceErl,
-        "Data (GB)": r.dataGb
+        "Voice (Erl)": parseFloat(r.voiceErl.toFixed(2)),
+        "Data (GB)": parseFloat(r.dataGb.toFixed(2))
       };
     });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "DBN_Filtered_Sites");
-    XLSX.writeFile(wb, "DBN_NDBN_Filtered_Sites.xlsx");
+    exportStyledExcel(rows, "DBN_Filtered_Sites", "DBN_NDBN_Filtered_Sites.xlsx");
   }
   window.exportDbnSitesExcel = exportDbnSitesExcel;
+
+  // =========================================================================
+  // --- END OF PART 2 (DO NOT CLOSE SCRIPT TAG - PASTE PART 3 DIRECTLY BELOW) ---
+  // =========================================================================
+// =========================================================================
+  // MODULE 3(ii): DEGRADED SITES, USER DEGRADATION & ESCALATION ENGINES
+  // =========================================================================
+  function runDegradedAnalysis() {
+    const prevDateElem = document.getElementById("deg-prev-date");
+    const nextDateElem = document.getElementById("deg-next-date");
+    const ssaElem = document.getElementById("deg-ssa-select");
+    const catElem = document.getElementById("deg-cat-select");
+    const l1Elem = document.getElementById("deg-l1-select");
+
+    const prevDate = prevDateElem ? prevDateElem.value : "";
+    const nextDate = nextDateElem ? nextDateElem.value : "";
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const chosenCat = catElem ? catElem.value : "ALL";
+    const chosenL1 = l1Elem ? l1Elem.value : "ALL";
+
+    if (!prevDate || !nextDate || !dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const prevMap = {};
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) prevMap[r.siteId] = r;
+    });
+
+    let baseHealthyCount = 0;
+    const degraded = [];
+
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate !== nextDate) return;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+      if (chosenL1 !== "ALL" && r.l1 !== chosenL1) return;
+
+      const base = prevMap[r.siteId];
+      if (base && base.avail >= 98.0) {
+        baseHealthyCount++;
+        if (r.avail < 98.0) {
+          const dropDelta = (base.avail - r.avail).toFixed(2);
+          degraded.push({
+            siteId: r.siteId,
+            btsIp: r.btsIp,
+            siteName: r.siteName,
+            ssa: r.ssa,
+            category: r.category,
+            prevAvail: base.avail,
+            nextAvail: r.avail,
+            dropDelta: dropDelta,
+            currentBucket: r.bucket,
+            l1: r.l1,
+            media: r.media
+          });
+        }
+      }
+    });
+
+    degraded.sort((a, b) => parseFloat(b.dropDelta) - parseFloat(a.dropDelta));
+    degradedSitesList = degraded;
+
+    const elBase = document.getElementById("deg-kpi-base"); if (elBase) elBase.innerText = baseHealthyCount.toLocaleString();
+    const elCnt = document.getElementById("deg-kpi-count"); if (elCnt) elCnt.innerText = degraded.length.toLocaleString();
+    const elRate = document.getElementById("deg-kpi-rate");
+    if (elRate) {
+      const rate = baseHealthyCount > 0 ? ((degraded.length / baseHealthyCount) * 100).toFixed(1) : "0.0";
+      elRate.innerText = rate + "%";
+    }
+
+    const tbody = document.getElementById("degraded-sites-tbody");
+    if (!tbody) return;
+
+    if (degraded.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No sites degraded below 98% between ${prevDate} and ${nextDate}.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    degraded.forEach(s => {
+      html += `
+        <tr>
+          <td><strong>${s.siteId}</strong></td>
+          <td>${s.btsIp || "-"}</td>
+          <td>${s.siteName}</td>
+          <td>${s.ssa}</td>
+          <td><span class="${s.category === 'DBN' ? 'badge-dbn' : 'badge-ndbn'}">${s.category}</span></td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${s.prevAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${s.nextAvail.toFixed(2)}%</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.dropDelta}%</td>
+          <td><span class="badge-fault">${s.currentBucket}</span></td>
+          <td><strong>${s.l1}</strong></td>
+          <td>${s.media}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runDegradedAnalysis = runDegradedAnalysis;
+
+  function exportDegradedSitesExcel() {
+    if (!degradedSitesList || degradedSitesList.length === 0) {
+      alert("No degraded sites available to export.");
+      return;
+    }
+    const prevDate = document.getElementById("deg-prev-date")?.value || "Day1";
+    const nextDate = document.getElementById("deg-next-date")?.value || "Day2";
+
+    const rows = degradedSitesList.map((s, i) => ({
+      "S.No": i + 1,
+      "Phy Site ID": s.siteId,
+      "Site IP ID": s.btsIp || "-",
+      "Site Name": s.siteName,
+      "SSA": s.ssa,
+      "Category": s.category,
+      [`Prev Avail % (${prevDate})`]: parseFloat(s.prevAvail.toFixed(2)),
+      [`Next Avail % (${nextDate})`]: parseFloat(s.nextAvail.toFixed(2)),
+      "Drop Delta (%)": -parseFloat(s.dropDelta),
+      "Current Bucket": s.currentBucket,
+      "L1 In-charge": s.l1,
+      "Media": s.media
+    }));
+
+    exportStyledExcel(rows, "Avail_Degraded_Sites", `Degraded_Sites_${prevDate}_to_${nextDate}.xlsx`);
+  }
+  window.exportDegradedSitesExcel = exportDegradedSitesExcel;
+
+  function shareDegradedSitesWhatsApp() {
+    if (!degradedSitesList || degradedSitesList.length === 0) {
+      alert("No degraded sites available to share.");
+      return;
+    }
+    const prevDate = document.getElementById("deg-prev-date")?.value || "";
+    const nextDate = document.getElementById("deg-next-date")?.value || "";
+    const chosenSsa = document.getElementById("deg-ssa-select")?.value || "ALL";
+
+    let msg = `*⚠️ J&K CM Availability Degradation Alert (${prevDate} → ${nextDate})*\n`;
+    msg += `*Scope:* ${chosenSsa === "ALL" ? "Circle-Wide" : chosenSsa} | *Degraded (<98%):* ${degradedSitesList.length} Sites\n\n`;
+
+    degradedSitesList.slice(0, 15).forEach((s, i) => {
+      msg += `${i + 1}. *${s.siteName}* (${s.ssa}) - ${s.prevAvail.toFixed(1)}% → *${s.nextAvail.toFixed(1)}%* (-${s.dropDelta}%) [L1: ${s.l1}]\n`;
+    });
+
+    if (degradedSitesList.length > 15) {
+      msg += `\n_...and ${degradedSitesList.length - 15} more degraded sites._\n`;
+    }
+
+    msg += `\n${getClosingSignature(chosenSsa)}`;
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareDegradedSitesWhatsApp = shareDegradedSitesWhatsApp;
+
+  function runUserDegradedAnalysis() {
+    const prevDateElem = document.getElementById("user-deg-prev-date");
+    const nextDateElem = document.getElementById("user-deg-next-date");
+    const threshElem = document.getElementById("user-deg-threshold");
+    const ssaElem = document.getElementById("user-deg-ssa-select");
+    const catElem = document.getElementById("user-deg-cat-select");
+    const l1Elem = document.getElementById("user-deg-l1-select");
+
+    const prevDate = prevDateElem ? prevDateElem.value : "";
+    const nextDate = nextDateElem ? nextDateElem.value : "";
+    const threshold = parseFloat(threshElem ? threshElem.value : "0") || 0;
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const chosenCat = catElem ? catElem.value : "ALL";
+    const chosenL1 = l1Elem ? l1Elem.value : "ALL";
+
+    if (!prevDate || !nextDate || !dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const prevMap = {};
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate === prevDate) prevMap[r.siteId] = r;
+    });
+
+    let totalCompared = 0, totalLostUsers = 0, dropSumPct = 0;
+    const degraded = [];
+
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate !== nextDate) return;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+      if (chosenL1 !== "ALL" && r.l1 !== chosenL1) return;
+
+      const base = prevMap[r.siteId];
+      if (base) {
+        totalCompared++;
+        if (base.maxActiveUser > 0 && r.maxActiveUser < base.maxActiveUser) {
+          const userDrop = base.maxActiveUser - r.maxActiveUser;
+          const dropPct = (userDrop / base.maxActiveUser) * 100;
+
+          if (dropPct >= threshold) {
+            totalLostUsers += userDrop;
+            dropSumPct += dropPct;
+            degraded.push({
+              siteId: r.siteId,
+              btsIp: r.btsIp,
+              siteName: r.siteName,
+              ssa: r.ssa,
+              category: r.category,
+              baseUsers: base.maxActiveUser,
+              compareUsers: r.maxActiveUser,
+              userDrop: userDrop,
+              dropPct: dropPct,
+              l1: r.l1,
+              media: r.media
+            });
+          }
+        }
+      }
+    });
+
+    degraded.sort((a, b) => b.userDrop - a.userDrop);
+    userDegradedSitesList = degraded;
+
+    const elTot = document.getElementById("user-deg-kpi-total"); if (elTot) elTot.innerText = totalCompared.toLocaleString();
+    const elCnt = document.getElementById("user-deg-kpi-count"); if (elCnt) elCnt.innerText = degraded.length.toLocaleString();
+    const elLost = document.getElementById("user-deg-kpi-lost"); if (elLost) elLost.innerText = totalLostUsers.toLocaleString();
+    const elDrop = document.getElementById("user-deg-kpi-drop-pct");
+    if (elDrop) {
+      const avg = degraded.length > 0 ? (dropSumPct / degraded.length).toFixed(1) : "0.0";
+      elDrop.innerText = avg + "%";
+    }
+
+    const tbody = document.getElementById("user-degraded-tbody");
+    if (!tbody) return;
+
+    if (degraded.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:20px; color:#16a34a; font-weight:bold;">No user degradation detected matching criteria.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    degraded.forEach(s => {
+      html += `
+        <tr>
+          <td><strong>${s.siteId}</strong></td>
+          <td>${s.btsIp || "-"}</td>
+          <td>${s.siteName}</td>
+          <td>${s.ssa}</td>
+          <td><span class="${s.category === 'DBN' ? 'badge-dbn' : 'badge-ndbn'}">${s.category}</span></td>
+          <td class="num">${s.baseUsers}</td>
+          <td class="num">${s.compareUsers}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.userDrop}</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">-${s.dropPct.toFixed(1)}%</td>
+          <td><strong>${s.l1}</strong></td>
+          <td>${s.media}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.runUserDegradedAnalysis = runUserDegradedAnalysis;
+
+  function exportUserDegradedSitesExcel() {
+    if (!userDegradedSitesList || userDegradedSitesList.length === 0) {
+      alert("No user-degraded sites available to export.");
+      return;
+    }
+    const prevDate = document.getElementById("user-deg-prev-date")?.value || "Day1";
+    const nextDate = document.getElementById("user-deg-next-date")?.value || "Day2";
+
+    const rows = userDegradedSitesList.map((s, i) => ({
+      "S.No": i + 1,
+      "Phy Site ID": s.siteId,
+      "Site IP ID": s.btsIp || "-",
+      "Site Name": s.siteName,
+      "SSA": s.ssa,
+      "Category": s.category,
+      [`Base Active Users (${prevDate})`]: s.baseUsers,
+      [`Compare Active Users (${nextDate})`]: s.compareUsers,
+      "User Drop": -s.userDrop,
+      "User Drop %": -parseFloat(s.dropPct.toFixed(2)),
+      "L1 In-charge": s.l1,
+      "Media": s.media
+    }));
+
+    exportStyledExcel(rows, "User_Degraded_Sites", `User_Degradation_${prevDate}_to_${nextDate}.xlsx`);
+  }
+  window.exportUserDegradedSitesExcel = exportUserDegradedSitesExcel;
+
+  function shareUserDegSummaryWhatsApp() {
+    if (!userDegradedSitesList || userDegradedSitesList.length === 0) {
+      alert("No user-degraded sites available to share.");
+      return;
+    }
+    const prevDate = document.getElementById("user-deg-prev-date")?.value || "";
+    const nextDate = document.getElementById("user-deg-next-date")?.value || "";
+    const chosenSsa = document.getElementById("user-deg-ssa-select")?.value || "ALL";
+
+    let msg = `*👥 J&K CM Active User Degradation Alert (${prevDate} → ${nextDate})*\n`;
+    msg += `*Scope:* ${chosenSsa === "ALL" ? "Circle-Wide" : chosenSsa} | *Affected Sites:* ${userDegradedSitesList.length}\n\n`;
+
+    userDegradedSitesList.slice(0, 15).forEach((s, i) => {
+      msg += `${i + 1}. *${s.siteName}* (${s.ssa}): ${s.baseUsers} → *${s.compareUsers}* (-${s.userDrop} / -${s.dropPct.toFixed(1)}%) [L1: ${s.l1}]\n`;
+    });
+
+    if (userDegradedSitesList.length > 15) {
+      msg += `\n_...and ${userDegradedSitesList.length - 15} more sites._\n`;
+    }
+
+    msg += `\n${getClosingSignature(chosenSsa)}`;
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareUserDegSummaryWhatsApp = shareUserDegSummaryWhatsApp;
+
+  function renderEscalationDashboard() {
+    const dElem = document.getElementById("esc-date-select");
+    const ssaElem = document.getElementById("esc-ssa-select");
+    const catElem = document.getElementById("esc-cat-select");
+    const targetElem = document.getElementById("esc-target-select");
+    const searchElem = document.getElementById("esc-search-input");
+
+    const targetDate = dElem ? dElem.value : (dbnAvailableDates[0] || "");
+    const chosenSsa = ssaElem ? ssaElem.value : "ALL";
+    const chosenCat = catElem ? catElem.value : "ALL";
+    const targetPct = parseFloat(targetElem ? targetElem.value : "80") || 80;
+    const searchVal = safeStr(searchElem ? searchElem.value : "").toLowerCase();
+
+    if (!dbnRawRecords || dbnRawRecords.length === 0) return;
+
+    const inchargeMap = {};
+    dbnRawRecords.forEach(r => {
+      if (r.reportDate !== targetDate) return;
+      if (chosenSsa !== "ALL" && r.ssa !== chosenSsa) return;
+      if (chosenCat !== "ALL" && r.category !== chosenCat) return;
+
+      const officer = cleanL1(r.l1, "Unassigned");
+      if (officer === "Unassigned") return;
+
+      const key = r.ssa + "____" + officer;
+      if (!inchargeMap[key]) {
+        inchargeMap[key] = { ssa: r.ssa, officer: officer, total: 0, gte98: 0, mid94: 0, low90: 0, lt90: 0 };
+      }
+
+      inchargeMap[key].total++;
+      if (r.bucket === ">=98%") inchargeMap[key].gte98++;
+      else if (r.bucket === "94-98%") inchargeMap[key].mid94++;
+      else if (r.bucket === "90-94%") inchargeMap[key].low90++;
+      else inchargeMap[key].lt90++;
+    });
+
+    const parsed = Object.values(inchargeMap)
+      .map(d => {
+        const actualPct = (d.gte98 / d.total) * 100;
+        const targetReq = Math.ceil((targetPct / 100) * d.total);
+        const shortfall = Math.max(0, targetReq - d.gte98);
+        const isTargetMet = actualPct >= targetPct;
+        const isRankable = d.total >= 10;
+        return {
+          ssa: d.ssa,
+          officer: d.officer,
+          total: d.total,
+          gte98: d.gte98,
+          mid94: d.mid94,
+          low90: d.low90,
+          lt90: d.lt90,
+          actualPct: actualPct,
+          targetReq: targetReq,
+          shortfall: shortfall,
+          isTargetMet: isTargetMet,
+          isRankable: isRankable
+        };
+      }).filter(d => {
+        if (searchVal && !d.officer.toLowerCase().includes(searchVal)) return false;
+        return true;
+      });
+
+    parsed.sort((a, b) => {
+      if (a.isRankable && !b.isRankable) return -1;
+      if (!a.isRankable && b.isRankable) return 1;
+      return b.actualPct - a.actualPct || a.shortfall - b.shortfall || b.total - a.total;
+    });
+
+    let currentRank = 1;
+    parsed.forEach(d => {
+      if (d.isRankable) {
+        d.rank = currentRank++;
+      } else {
+        d.rank = null;
+      }
+    });
+
+    escalationData = parsed;
+
+    const tbody = document.getElementById("escalation-tbody");
+    if (!tbody) return;
+
+    if (parsed.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:20px; color:#64748b;">No matching officers found for active criteria.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    parsed.forEach((d, idx) => {
+      const pGte = ((d.gte98 / d.total) * 100).toFixed(1);
+      const pMid = ((d.mid94 / d.total) * 100).toFixed(1);
+      const pLow = ((d.low90 / d.total) * 100).toFixed(1);
+      const pLt  = ((d.lt90  / d.total) * 100).toFixed(1);
+
+      const rankBadge = d.isRankable
+        ? `<span class="badge-rank">#${d.rank}</span>`
+        : `<span class="badge-rank-na" title="Minimum 10 sites required for ranking">N/A (&lt;10)</span>`;
+
+      html += `
+        <tr style="${!d.isRankable ? 'background-color: #fafafa;' : ''}">
+          <td style="text-align:center;">${rankBadge}</td>
+          <td>${d.ssa}</td>
+          <td><strong>${d.officer}</strong></td>
+          <td class="num"><strong>${d.total}</strong></td>
+          <td class="num" style="color:#16a34a; font-weight:600;">${d.gte98} (${pGte}%)</td>
+          <td class="num" style="color:#d97706; font-weight:600;">${d.mid94} (${pMid}%)</td>
+          <td class="num" style="color:#ea580c; font-weight:600;">${d.low90} (${pLow}%)</td>
+          <td class="num" style="color:#dc2626; font-weight:bold;">${d.lt90} (${pLt}%)</td>
+          <td class="num" style="color:${d.actualPct >= targetPct ? '#16a34a' : '#dc2626'}; font-weight:bold;">${d.actualPct.toFixed(1)}%</td>
+          <td class="num">${d.targetReq} sites</td>
+          <td class="num" style="color:${d.shortfall > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${d.shortfall > 0 ? '-' + d.shortfall : '0'}</td>
+          <td style="text-align:center;"><span class="${d.isTargetMet ? 'badge-ok' : 'badge-lag'}">${d.isTargetMet ? 'Met' : 'Lagging'}</span></td>
+          <td style="text-align:center;">
+            <button class="btn btn-whatsapp btn-sm admin-only" onclick="shareSingleEscalationWhatsApp(${idx})">💬 Alert</button>
+          </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+  window.renderEscalationDashboard = renderEscalationDashboard;
+
+  function shareSingleEscalationWhatsApp(idx) {
+    if (!escalationData || !escalationData[idx]) return;
+    const d = escalationData[idx];
+    const dElem = document.getElementById("esc-date-select");
+    const targetElem = document.getElementById("esc-target-select");
+    const selectedDate = dElem ? dElem.value : "";
+    const targetPct = targetElem ? targetElem.value : "80";
+
+    let msg = `*🎯 J&K CM Availability Target Alert (${selectedDate})*\n\n`;
+    msg += `*Site In-Charge:* ${d.officer} (${d.ssa})\n`;
+    msg += `*Total Sites Managed:* ${d.total}\n`;
+    msg += `*≥98% Availability Sites:* ${d.gte98} (${d.actualPct.toFixed(1)}%)\n`;
+    msg += `*Corporate Target:* ${targetPct}% (${d.targetReq} sites)\n\n`;
+
+    if (d.shortfall > 0) {
+      msg += `👉 You have a shortfall of *${d.shortfall} sites* to achieve the ${targetPct}% benchmark. ${d.lt90} of your sites are currently <90%.\n\n`;
+      msg += `Please prioritize rectification on priority.\n\n`;
+    } else {
+      msg += `✅ Congratulations! Target met successfully.\n\n`;
+    }
+    msg += getClosingSignature(d.ssa);
+
+    const phone = extractPhoneNumber(d.officer);
+    const url = phone 
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+    window.open(url, "_blank");
+  }
+  window.shareSingleEscalationWhatsApp = shareSingleEscalationWhatsApp;
+
+  function shareBulkEscalationWhatsApp() {
+    if (!escalationData || escalationData.length === 0) return;
+    const dElem = document.getElementById("esc-date-select");
+    const targetElem = document.getElementById("esc-target-select");
+    const selectedDate = dElem ? dElem.value : "";
+    const targetPct = targetElem ? targetElem.value : "80";
+
+    let msg = `*📊 J&K CM Availability Escalation Summary (${selectedDate})*\n`;
+    msg += `*Target Benchmark:* ≥${targetPct}% Healthy Sites\n\n`;
+
+    escalationData.slice(0, 15).forEach((d, i) => {
+      const rankLabel = d.isRankable ? `Rank #${d.rank}` : `Unranked (<10)`;
+      msg += `${i + 1}. *${d.officer}* (${d.ssa}) [${rankLabel}]: ${d.actualPct.toFixed(1)}% (${d.gte98}/${d.total}) | Shortfall: *${d.shortfall > 0 ? '-' + d.shortfall : '0'}*\n`;
+    });
+
+    if (escalationData.length > 15) {
+      msg += `\n_...and ${escalationData.length - 15} more officers._\n`;
+    }
+
+    msg += `\n${getClosingSignature("ALL")}`;
+    window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+  }
+  window.shareBulkEscalationWhatsApp = shareBulkEscalationWhatsApp;
+
+  function exportEscalationExcel() {
+    if (!escalationData || escalationData.length === 0) return;
+    const rows = escalationData.map((d) => ({
+      "Rank": d.isRankable ? d.rank : "N/A (<10 sites)",
+      "SSA": d.ssa,
+      "L1 Site In-charge": d.officer,
+      "Total Sites": d.total,
+      ">=98% Count": d.gte98,
+      ">=98% Rate %": d.actualPct.toFixed(2) + "%",
+      "94-98% Count": d.mid94,
+      "90-94% Count": d.low90,
+      "<90% Outage Count": d.lt90,
+      "Target Required Sites": d.targetReq,
+      "Shortfall Sites": d.shortfall,
+      "Target Status": d.isTargetMet ? "Target Met" : "Lagging"
+    }));
+
+    exportStyledExcel(rows, "Escalation_Matrix", "Incharge_Escalation_Target_Matrix.xlsx");
+  }
+  window.exportEscalationExcel = exportEscalationExcel;
 
   // =========================================================================
   // MODULE 2: CNMC SITE INFRASTRUCTURE PROGRESS PIPELINE
@@ -3169,12 +3458,12 @@
     if (l1Select) {
       l1Select.innerHTML = '<option value="ALL">All L1 Officers</option>';
       Array.from(l1Set).sort().forEach(l => l1Select.innerHTML += `<option value="${l}">${l}</option>`);
-      if (curL1 && Array.from(l1Select.options).some(o => o.value === curL1)) l1Select.value = currentL1;
+      if (curL1 && Array.from(l1Select.options).some(o => o.value === curL1)) l1Select.value = curL1;
     }
     if (l2Select) {
       l2Select.innerHTML = '<option value="ALL">All L2 Officers</option>';
       Array.from(l2Set).sort().forEach(l => l2Select.innerHTML += `<option value="${l}">${l}</option>`);
-      if (curL2 && Array.from(l2Select.options).some(o => o.value === currentL2)) l2Select.value = currentL2;
+      if (curL2 && Array.from(l2Select.options).some(o => o.value === curL2)) l2Select.value = curL2;
     }
   }
 
@@ -3443,10 +3732,7 @@
       "L1 Owner": s.l1, "L2 Owner": s.l2, "Filled (/41)": s.filledCount, "Fill %": Math.round(s.fillPct) + "%",
       "Missing Parameters": s.missingFields.join(", ")
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Pending_Sites");
-    XLSX.writeFile(wb, (fileName || "CNMC_Sites") + ".xlsx");
+    exportStyledExcel(data, "Pending_Sites", (fileName || "CNMC_Sites") + ".xlsx");
   }
 
   function exportSitesPDF(sites, title) {
@@ -3461,14 +3747,14 @@
     doc.autoTable({ startY: 55, head: [['#', 'Site ID', 'BTS Name', 'L1 Owner', 'Filled', 'Fill %', 'Missing Params']], body: rows, theme: 'striped', styles: { fontSize: 8 }, headStyles: { fillColor: [0, 51, 102] } });
     doc.save("CNMC_Report_" + title.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf");
   }
-// =========================================================================
+
+  // =========================================================================
   // MODULE 4: HISTORY ALARM TRACKER LOGIC (MULTI-BAND & CHRONIC)
   // =========================================================================
   async function loadHistoryAlarmData() {
     const status = document.getElementById("status-bar");
     if (status) status.innerText = "Loading Static Master and History Alarm feeds...";
 
-    // 1. Ingest Static Master (Single Entry per Physical Tower)
     await new Promise((resolve) => {
       Papa.parse(STATIC_MASTER_URL, {
         download: true,
@@ -3552,7 +3838,6 @@
       });
     });
 
-    // 2. Ingest History Alarm Data
     await new Promise((resolve) => {
       Papa.parse(HISTORY_ALARM_URL, {
         download: true,
@@ -3890,10 +4175,7 @@
       "Duration Breakdown (2G+3G+B01+B28+B41)": r.hoursStr.replace(/<[^>]*>/g, ""),
       "Site In-Charge (L1)": r.l1
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "History_Alarm");
-    XLSX.writeFile(wb, `History_Alarm_${d}.xlsx`);
+    exportStyledExcel(data, "History_Alarm", `History_Alarm_${d}.xlsx`);
   }
   window.exportHistoryAlarmExcel = exportHistoryAlarmExcel;
 
@@ -4083,20 +4365,18 @@
   function exportChronicExcel() {
     if (!chronicRecordsCache || chronicRecordsCache.length === 0) return;
     const mode = document.getElementById("chronic-mode-select").value;
-    const ws = XLSX.utils.json_to_sheet(chronicRecordsCache.map((r, i) => ({
+    const rows = chronicRecordsCache.map((r, i) => ({
       "Rank": i + 1,
       "BTS IP ID": r.btsIp,
       "Site Name": r.siteName,
       "SSA": r.ssa,
       "Media": r.media,
       "Consecutive Streak (Days)": r.streak,
-      "Metric Sum": r.metricSum,
+      "Metric Sum": mode === 'FLAP' ? r.metricSum : parseFloat(r.metricSum.toFixed(2)),
       "Daily History": r.breakdown,
       "Site In-Charge (L1)": r.l1
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Chronic_Streaks");
-    XLSX.writeFile(wb, `Chronic_${mode}_Streak_Sites.xlsx`);
+    }));
+    exportStyledExcel(rows, "Chronic_Streaks", `Chronic_${mode}_Streak_Sites.xlsx`);
   }
   window.exportChronicExcel = exportChronicExcel;
 
@@ -4111,8 +4391,9 @@
     });
   }
   window.captureChronicScreenshot = captureChronicScreenshot;
+
   // =========================================================================
-  // MODULE 5: DOWN SITES TRACKER ENGINE
+  // MODULE 5: DOWN SITES TRACKER & L1 WHATSAPP DISPATCH ENGINE
   // =========================================================================
   function handleDownFileUpload(event) {
     const file = event.target.files[0];
@@ -4712,7 +4993,7 @@
   window.shareHealthyDownSummarySsaWhatsApp = shareHealthyDownSummarySsaWhatsApp;
 
   // =========================================================================
-  // REASON NOT UPDATED ENGINE (TABLE, ALERT BUTTONS & DISPATCH QUEUE)
+  // REASON NOT UPDATED ENGINE & RAPID L1 DISPATCH QUEUE
   // =========================================================================
   function getPendingL1ReasonList() {
     const pendingByL1 = {};
@@ -5021,10 +5302,7 @@
       "% Not Updated": r.total > 0 ? ((r.notUpdated / r.total) * 100).toFixed(1) + "%" : "0.0%"
     }));
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Reason_Not_Updated");
-    XLSX.writeFile(wb, "Down_Sites_Reason_Not_Updated.xlsx");
+    exportStyledExcel(data, "Reason_Not_Updated", "Down_Sites_Reason_Not_Updated.xlsx");
   }
   window.exportNotUpdatedExcel = exportNotUpdatedExcel;
 
@@ -5426,13 +5704,10 @@
       "Remark": r.remark,
       "Site Incharge (L1)": r.incharge,
       "L2 Incharge": r.l2,
-      "4G Rolling 30 Days Avail. %": r.currentSelectedAvail !== null ? r.currentSelectedAvail.toFixed(2) + "%" : "N/A"
+      "4G Rolling 30 Days Avail. %": r.currentSelectedAvail !== null ? parseFloat(r.currentSelectedAvail.toFixed(2)) : "N/A"
     }));
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, `${sheetName}_Report.xlsx`);
+    exportStyledExcel(rows, sheetName, `${sheetName}_Report.xlsx`);
   }
   window.exportDownSitesExcel = exportDownSitesExcel;
 
@@ -5452,10 +5727,7 @@
       "Total Outage Sites": r.total
     }));
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Down_Info_Summary");
-    XLSX.writeFile(wb, "Down_Sites_Info_Summary.xlsx");
+    exportStyledExcel(data, "Down_Info_Summary", "Down_Sites_Info_Summary.xlsx");
   }
   window.exportInfoSummaryExcel = exportInfoSummaryExcel;
 
@@ -5492,10 +5764,7 @@
       return row;
     });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Fault_Matrix");
-    XLSX.writeFile(wb, `Down_Sites_Fault_Matrix_${durVal}.xlsx`);
+    exportStyledExcel(rows, "Fault_Matrix", `Down_Sites_Fault_Matrix_${durVal}.xlsx`);
   }
   window.exportDownMatrixExcel = exportDownMatrixExcel;
 
