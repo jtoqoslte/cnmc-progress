@@ -23,10 +23,11 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     .sortable-th { cursor: pointer; user-select: none; transition: background-color 0.15s, color 0.15s; }
     .sortable-th:hover { background-color: rgba(51, 65, 85, 0.95); color: #ffffff; }
-    #gisMap { height: 520px; width: 100%; border-radius: 0.75rem; z-index: 10; border: 1px solid #334155; }
+    #gisMap { height: 560px; width: 100%; border-radius: 0.75rem; z-index: 10; border: 1px solid #334155; background: #0f172a; }
     .leaflet-tooltip { background: #0f172a; color: #f8fafc; border: 1px solid #334155; font-family: 'Inter', sans-serif; font-size: 11px; }
     .leaflet-tooltip-left::before { border-left-color: #334155; }
     .leaflet-tooltip-right::before { border-right-color: #334155; }
+    .leaflet-control-layers { background: #0f172a !important; color: #f8fafc !important; border: 1px solid #475569 !important; border-radius: 0.5rem !important; font-size: 11px !important; }
     @keyframes beaconPulse {
       0%, 100% { transform: scale(1); opacity: 1; }
       50% { transform: scale(1.45); opacity: 0.65; }
@@ -366,7 +367,7 @@
         </div>
       </div>
 
-      <!-- NEW: Exclude Jail/Halted + TCS Actionable (>98% Avail) Filter Bar Directly Above Zero-GB Table -->
+      <!-- Exclude Jail/Halted + TCS Actionable (>98% Avail) Filter Bar Directly Above Zero-GB Table -->
       <section class="bg-slate-800 border border-amber-500/40 p-3.5 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div class="flex flex-wrap items-center gap-5">
           <label class="cursor-pointer text-xs font-semibold text-slate-200 hover:text-white flex items-center gap-2">
@@ -533,7 +534,7 @@
           </div>
         </section>
 
-        <!-- NEW: Full Infrastructure Metadata, 7-Day Availability, 7D Alarms & RF Sector Specs Below 6 Graphs -->
+        <!-- Full Infrastructure Metadata, 7-Day Availability, 7D Alarms & RF Sector Specs Below 6 Graphs -->
         <section id="site7dFullDetailCard" class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
           <div class="text-xs text-slate-400 text-center py-4">
             Search and select any site or location above to view complete Infrastructure Profile (Site ID, IP ID, NEP ID, On-Air / SCFT / Take Over Dates, L1/L2), Last 7-Day Availability, 7-Day Alarms, and Sector RF Specs.
@@ -542,36 +543,84 @@
       </div>
     </div>
 
-    <!-- ================= MODULE 3B: GIS RF MAP & DATA AUDIT MODULE ================= -->
+    <!-- ================= MODULE 3B: GIS RF MAP (REAL CLUTTER + LAT/LONG COMPLAINT SEARCH) ================= -->
     <div id="viewGisMap" class="hidden space-y-5">
-      <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div class="flex flex-wrap items-center gap-4 text-xs">
-          <span class="font-bold text-white flex items-center gap-1.5">
-            <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i> GIS Layer Controls:
-          </span>
-          <label class="cursor-pointer flex items-center gap-1.5 text-emerald-300 font-semibold">
-            <input type="checkbox" id="chkGisB28" checked onchange="renderGisMapFeatures()" class="rounded accent-emerald-500"> B28 (700 MHz)
-          </label>
-          <label class="cursor-pointer flex items-center gap-1.5 text-sky-300 font-semibold">
-            <input type="checkbox" id="chkGisB01" checked onchange="renderGisMapFeatures()" class="rounded accent-sky-500"> B01 (2100 MHz)
-          </label>
-          <label class="cursor-pointer flex items-center gap-1.5 text-purple-300 font-semibold">
-            <input type="checkbox" id="chkGisB41" checked onchange="renderGisMapFeatures()" class="rounded accent-purple-500"> B41 (2500 MHz)
-          </label>
-          <label class="cursor-pointer flex items-center gap-1.5 text-amber-300 font-semibold border-l border-slate-600 pl-4">
-            <input type="checkbox" id="chkGisShowAssumed" checked onchange="renderGisMapFeatures()" class="rounded accent-amber-500"> Show Assumed RF Wedges (~)
-          </label>
+      <!-- Top Control Bar: Band Toggles, Wedge Width (65° vs 115°), Clutter Basemap Switcher & Customer Lat/Long Search -->
+      <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-4 text-xs">
+            <span class="font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i> Bands &amp; Geometry:
+            </span>
+            <label class="cursor-pointer flex items-center gap-1.5 text-emerald-300 font-semibold">
+              <input type="checkbox" id="chkGisB28" checked onchange="renderGisMapFeatures()" class="rounded accent-emerald-500"> B28 (700)
+            </label>
+            <label class="cursor-pointer flex items-center gap-1.5 text-sky-300 font-semibold">
+              <input type="checkbox" id="chkGisB01" checked onchange="renderGisMapFeatures()" class="rounded accent-sky-500"> B01 (2100)
+            </label>
+            <label class="cursor-pointer flex items-center gap-1.5 text-purple-300 font-semibold">
+              <input type="checkbox" id="chkGisB41" checked onchange="renderGisMapFeatures()" class="rounded accent-purple-500"> B41 (2500)
+            </label>
+            <label class="cursor-pointer flex items-center gap-1.5 text-amber-300 font-semibold border-l border-slate-600 pl-3">
+              <input type="checkbox" id="chkGisShowAssumed" checked onchange="renderGisMapFeatures()" class="rounded accent-amber-500"> Assumed RF (~)
+            </label>
+            <div class="flex items-center gap-1.5 border-l border-slate-600 pl-3">
+              <span class="text-slate-400">Wedge:</span>
+              <select id="gisWedgeAngleSelect" onchange="renderGisMapFeatures()" class="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-[11px] text-cyan-300 font-semibold">
+                <option value="65" selected>65° (Main Lobe / Azimuth)</option>
+                <option value="115">115° (Full Sector Footprint)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Real Clutter Basemap Switcher -->
+            <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-700 text-[11px]">
+              <button id="btnBasemapHybrid" onclick="setGisBasemap('HYBRID')" class="px-2.5 py-1 rounded font-semibold bg-emerald-600 text-white transition">
+                🛰️ Satellite Clutter + Labels
+              </button>
+              <button id="btnBasemapStreet" onclick="setGisBasemap('STREET')" class="px-2.5 py-1 rounded font-semibold text-slate-400 hover:text-white transition">
+                🗺️ Street Map
+              </button>
+              <button id="btnBasemapTopo" onclick="setGisBasemap('TOPO')" class="px-2.5 py-1 rounded font-semibold text-slate-400 hover:text-white transition">
+                ⛰️ Terrain Contours
+              </button>
+            </div>
+
+            <button onclick="openGisAuditDrawer()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition flex items-center gap-1.5">
+              <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Audit (<span id="gisAuditCountLbl">0</span>)
+            </button>
+          </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <button onclick="openGisAuditDrawer()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition flex items-center gap-1.5">
-            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Unmapped &amp; Assumed RF Audit (<span id="gisAuditCountLbl">0</span>)
+        <!-- Customer Complaint Lat, Long Search Bar -->
+        <div class="pt-3 border-t border-slate-700/80 flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-rose-300">
+            <i data-lucide="crosshair" class="w-4 h-4 text-rose-400"></i>
+            <span>Customer Complaint Lat, Long Search:</span>
+          </div>
+          <input
+            type="text"
+            id="gisLatLongInput"
+            onkeydown="if(event.key==='Enter') searchCustomerLatLong()"
+            placeholder="Paste Lat, Long (e.g. 32.7266, 74.8570 or 34.0837 74.7973)..."
+            class="flex-1 min-w-[260px] bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-rose-400"
+          >
+          <button onclick="searchCustomerLatLong()" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
+            <i data-lucide="navigation" class="w-3.5 h-3.5"></i> Locate &amp; Check Serving Sectors
+          </button>
+          <button id="btnClearCustomerPin" onclick="clearCustomerPin()" class="hidden px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs transition">
+            Clear Pin
           </button>
         </div>
       </section>
 
+      <!-- Customer Complaint Serving-Cell RF Diagnostic Result Panel (Hidden until Lat/Long searched) -->
+      <section id="customerComplaintResultCard" class="hidden bg-slate-800 border border-rose-500/50 rounded-xl p-4 shadow-md space-y-3"></section>
+
+      <!-- Interactive Leaflet Map Canvas -->
       <section class="bg-slate-800 border border-slate-700 p-3 rounded-xl shadow-sm relative">
-        <div class="absolute top-6 right-6 z-20 bg-slate-900/90 backdrop-blur border border-slate-600 p-3 rounded-xl text-[11px] text-slate-200 space-y-1.5 shadow-xl pointer-events-none">
+        <div class="absolute bottom-6 left-6 z-20 bg-slate-900/90 backdrop-blur border border-slate-600 p-3 rounded-xl text-[11px] text-slate-200 space-y-1.5 shadow-xl pointer-events-none">
           <div class="font-bold text-slate-300 border-b border-slate-700 pb-1 mb-1">GIS Legend &amp; Data Confidence</div>
           <div class="flex items-center gap-2"><span class="w-3 h-3 bg-[#10b981] inline-block rounded-sm"></span> B28 (700 MHz — Verified)</div>
           <div class="flex items-center gap-2"><span class="w-3 h-3 bg-[#0ea5e9] inline-block rounded-sm"></span> B01 (2100 MHz — Verified)</div>
@@ -583,7 +632,7 @@
       </section>
     </div>
 
-    <!-- ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (3-TIER YELLOW/RED + 5 SUB-MODULES) ================= -->
+    <!-- ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION ================= -->
     <div id="viewOptimization" class="hidden space-y-5">
       <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
@@ -775,8 +824,8 @@
               </thead>
               <tbody class="divide-y divide-slate-700/60 text-slate-200">
                 <tr><td class="py-2 px-3 font-semibold">Antenna Height / Total Tilt</td><td class="py-2 px-3 font-mono">30 m / 4°</td><td class="py-2 px-3 font-mono">30 m / 5°</td><td class="py-2 px-3 font-mono">30 m / 6°</td><td class="py-2 px-3">Rendered with <strong>dashed border (~)</strong> and tagged <code>(Assumed)</code> in popup.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">Horizontal / Vertical BW</td><td class="py-2 px-3 font-mono">65° / 11°</td><td class="py-2 px-3 font-mono">65° / 7°</td><td class="py-2 px-3 font-mono">65° / 6.5°</td><td class="py-2 px-3">Standard macro panel aperture used when VBW is unrecorded.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">Blank Sector (S1/S2/S3)</td><td colspan="3" class="py-2 px-3">If Azimuth + Freq + EIRP are all blank, sector is skipped (2-sector site). If Azimuth is blank on active cell, <code>0°/120°/240°</code> dashed placeholder is drawn.</td><td class="py-2 px-3">Logged in <strong>Unmapped &amp; Assumed RF Audit</strong> drawer for L1 field verification.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">Horizontal / Vertical BW</td><td class="py-2 px-3 font-mono">65° / 11°</td><td class="py-2 px-3 font-mono">65° / 7°</td><td class="py-2 px-3 font-mono">65° / 6.5°</td><td class="py-2 px-3">65° shows main lobe (-3 dB) for sharp azimuth check; toggle 115° for full sector overlap.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">Blank Sector (S1/S2/S3)</td><td colspan="3" class="py-2 px-3">If Azimuth + Freq + EIRP are all blank, sector is skipped (2-sector site). If Azimuth is blank on active cell, <code>0°/120°/240°</code> dashed placeholder is drawn.</td><td class="py-2 px-3">Logged in <strong>Audit</strong> drawer for L1 field verification.</td></tr>
               </tbody>
             </table>
           </div>
@@ -875,6 +924,9 @@
 
     let gisMapInstance = null;
     let gisLayerGroup = null;
+    let customerOverlayGroup = null;
+    let basemapLayers = {};
+    let currentBasemapKey = "HYBRID";
     let isGisMapInitialized = false;
 
     const BAND_COLORS = { B28: "#10b981", B01: "#0ea5e9", B41: "#a855f7" };
@@ -2439,6 +2491,8 @@
         modeBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
       }
 
+      // Master 7-Day Date Axis (ISO -> DMY)
+      const masterIsoDates = trend.map(t => t.isoDate || t.date);
       const labels = trend.map(t => t.date);
 
       const SERIES_COLORS = [
@@ -2467,13 +2521,22 @@
         if (hasMultiSeries) {
           datasets = seriesList.map((sItem, idx) => {
             const col = SERIES_COLORS[idx % SERIES_COLORS.length];
-            const pts = (sItem.trend7Days || []).slice().sort((a, b) => parseDateTimestamp(a.isoDate || a.date) - parseDateTimestamp(b.isoDate || b.date));
+            const ptsByDate = {};
+            (sItem.trend7Days || []).forEach(p => {
+              const dKey = p.isoDate || p.date;
+              if (dKey) ptsByDate[dKey] = p[cfg.prop];
+            });
+            const alignedValues = masterIsoDates.map(dKey => {
+              const val = ptsByDate[dKey];
+              return (val === undefined || val === null || val === "") ? null : Number(val);
+            });
             return {
               label: sItem.seriesName,
-              data: pts.map(p => p[cfg.prop]),
+              data: alignedValues,
               borderColor: col,
               backgroundColor: cfg.type === "bar" ? col : `${col}18`,
               fill: false,
+              spanGaps: true,
               tension: 0.3,
               borderWidth: 2,
               pointRadius: 3,
@@ -2483,10 +2546,11 @@
         } else {
           datasets = [{
             label: cfg.label,
-            data: trend.map(t => t[cfg.prop]),
+            data: trend.map(t => (t[cfg.prop] === undefined || t[cfg.prop] === null) ? null : Number(t[cfg.prop])),
             borderColor: cfg.color,
             backgroundColor: cfg.type === "bar" ? cfg.color : `${cfg.color}22`,
             fill: cfg.type === "line",
+            spanGaps: true,
             tension: 0.3,
             borderRadius: 4
           }];
@@ -2512,7 +2576,6 @@
         });
       });
 
-      // Render Full Site Profile & 7-Day Health Card Below the 6 Graphs
       renderSite7DFullDetailCard(data);
     }
 
@@ -2682,7 +2745,7 @@
       switchMainTab("GIS_MAP");
       setTimeout(() => {
         if (gisMapInstance) {
-          gisMapInstance.setView([lat, lng], 14);
+          gisMapInstance.setView([lat, lng], 15);
         }
       }, 300);
     }
@@ -2718,14 +2781,65 @@
       }
     }
 
-    // ================= MODULE 3B: LEAFLET GIS RF MAP & DATA AUDIT =================
+    // ================= MODULE 3B: LEAFLET GIS RF MAP (REAL CLUTTER + LAT/LONG SEARCH) =================
     function initGisMap() {
       gisMapInstance = L.map("gisMap").setView([33.45, 75.35], 8);
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        maxZoom: 18,
-        attribution: "&copy; OpenStreetMap &copy; CARTO"
-      }).addTo(gisMapInstance);
+
+      // Layer 1: Real Satellite Imagery Clutter + Town/Road Labels Overlay (Default)
+      const esriSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19,
+        attribution: "Tiles &copy; Esri"
+      });
+      const esriLabels = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19,
+        pane: "overlayPane"
+      });
+      basemapLayers.HYBRID = L.layerGroup([esriSat, esriLabels]);
+
+      // Layer 2: OpenStreetMap Standard Street & Clutter Map
+      basemapLayers.STREET = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      });
+
+      // Layer 3: OpenTopoMap Terrain & Elevation Contours (Crucial for J&K Hills/Valleys)
+      basemapLayers.TOPO = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+        maxZoom: 17,
+        attribution: "&copy; OpenTopoMap (CC-BY-SA)"
+      });
+
+      basemapLayers.HYBRID.addTo(gisMapInstance);
+
+      L.control.layers({
+        "Satellite Clutter + Labels": basemapLayers.HYBRID,
+        "Street Map (OSM)": basemapLayers.STREET,
+        "Terrain Contours (Topo)": basemapLayers.TOPO
+      }, null, { position: "topright" }).addTo(gisMapInstance);
+
       gisLayerGroup = L.layerGroup().addTo(gisMapInstance);
+      customerOverlayGroup = L.layerGroup().addTo(gisMapInstance);
+    }
+
+    function setGisBasemap(modeKey) {
+      if (!gisMapInstance || !basemapLayers[modeKey]) return;
+      Object.keys(basemapLayers).forEach(k => {
+        if (gisMapInstance.hasLayer(basemapLayers[k])) {
+          gisMapInstance.removeLayer(basemapLayers[k]);
+        }
+      });
+      basemapLayers[modeKey].addTo(gisMapInstance);
+      currentBasemapKey = modeKey;
+
+      const btns = {
+        HYBRID: document.getElementById("btnBasemapHybrid"),
+        STREET: document.getElementById("btnBasemapStreet"),
+        TOPO: document.getElementById("btnBasemapTopo")
+      };
+      const act = "px-2.5 py-1 rounded font-semibold bg-emerald-600 text-white transition";
+      const inact = "px-2.5 py-1 rounded font-semibold text-slate-400 hover:text-white transition";
+      Object.keys(btns).forEach(k => {
+        if (btns[k]) btns[k].className = (k === modeKey) ? act : inact;
+      });
     }
 
     function buildSectorWedgeLatLngs(lat, lng, radiusMeters, azimuth, beamwidth = 65) {
@@ -2736,7 +2850,7 @@
       const endAngle = (azimuth + beamwidth / 2) * (Math.PI / 180);
 
       const pts = [[lat, lng]];
-      const steps = 12;
+      const steps = 16;
       for (let i = 0; i <= steps; i++) {
         const theta = startAngle + (i / steps) * (endAngle - startAngle);
         const pLat = lat + (dLat * Math.cos(theta)) * (180 / Math.PI);
@@ -2754,13 +2868,13 @@
       const showB01 = document.getElementById("chkGisB01")?.checked;
       const showB41 = document.getElementById("chkGisB41")?.checked;
       const showAssumed = document.getElementById("chkGisShowAssumed")?.checked;
+      const wedgeAngle = parseFloat(document.getElementById("gisWedgeAngleSelect")?.value || "65") || 65;
 
       const enabledBands = { B28: showB28, B01: showB01, B41: showB41 };
 
       cachedGisTowers.forEach(tower => {
         if (!tower.lat || !tower.lng) return;
 
-        // Render outer-to-inner bands (B28 -> B01 -> B41) so smaller wedges remain clickable
         ["B28", "B01", "B41"].forEach(bandKey => {
           if (!enabledBands[bandKey]) return;
           const bandData = tower.bands[bandKey];
@@ -2773,17 +2887,19 @@
             const isAssumed = sec.confidence !== "verified";
             if (isAssumed && !showAssumed) return;
 
-            const wedgePts = buildSectorWedgeLatLngs(tower.lat, tower.lng, radius, sec.azimuth, 65);
+            const wedgePts = buildSectorWedgeLatLngs(tower.lat, tower.lng, radius, sec.azimuth, wedgeAngle);
             const style = isAssumed
-              ? { color: color, weight: 1.5, fillColor: color, fillOpacity: 0.12, dashArray: "6, 6" }
-              : { color: color, weight: 1.5, fillColor: color, fillOpacity: 0.34 };
+              ? { color: color, weight: 1.8, fillColor: color, fillOpacity: 0.14, dashArray: "6, 6" }
+              : { color: color, weight: 1.8, fillColor: color, fillOpacity: 0.32 };
 
             const wedge = L.polygon(wedgePts, style);
-            const confLabel = isAssumed ? `<span style="color:#fbbf24;">⚠️ Assumed (${(sec.missingFields || []).join(", ")})</span>` : `<span style="color:#34d399;">✓ Verified Static RF</span>`;
+            const confLabel = isAssumed
+              ? `<span style="color:#fbbf24;">⚠️ Assumed (${(sec.missingFields || []).join(", ")})</span>`
+              : `<span style="color:#34d399;">✓ Verified Static RF</span>`;
             wedge.bindTooltip(`
               <strong>${tower.siteName}</strong> (${tower.siteType})<br>
               Band: <b>${bandKey}</b> | Sector: <b>${sec.sector}</b> (${bandData.siteId})<br>
-              Azimuth: <b>${sec.azimuth}°</b> | Tilt: <b>${sec.totalTilt}°</b> | Ht: <b>${sec.antennaHt}m</b><br>
+              Azimuth: <b>${sec.azimuth}°</b> (Wedge ${wedgeAngle}°) | Tilt: <b>${sec.totalTilt}°</b> | Ht: <b>${sec.antennaHt}m</b><br>
               ${confLabel}
             `);
             wedge.on("click", () => {
@@ -2795,14 +2911,13 @@
           });
         });
 
-        // Tower Center Marker
         const beaconColor = tower.healthState === "crit" ? "#f43f5e" : (tower.healthState === "warn" ? "#f59e0b" : "#38bdf8");
         const marker = L.circleMarker([tower.lat, tower.lng], {
-          color: "#0f172a",
+          color: "#ffffff",
           weight: 1.5,
           fillColor: beaconColor,
           fillOpacity: 1,
-          radius: tower.healthState === "crit" ? 6 : 4.5
+          radius: tower.healthState === "crit" ? 6.5 : 5
         });
 
         const primaryBand = tower.bands.B28 || tower.bands.B01 || tower.bands.B41;
@@ -2821,6 +2936,208 @@
         });
         gisLayerGroup.addLayer(marker);
       });
+    }
+
+    // Haversine Distance (meters) & Bearing (0-360 deg from Tower -> Customer)
+    function computeDistanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = d => d * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function computeBearingDeg(lat1, lon1, lat2, lon2) {
+      const toRad = d => d * Math.PI / 180;
+      const toDeg = r => r * 180 / Math.PI;
+      const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function angularDiffDeg(a, b) {
+      const diff = Math.abs((a - b + 540) % 360 - 180);
+      return diff;
+    }
+
+    function parseLatLongInput(raw) {
+      if (!raw) return null;
+      const nums = String(raw).match(/[-+]?\d+(?:\.\d+)?/g);
+      if (!nums || nums.length < 2) return null;
+      const lat = parseFloat(nums[0]);
+      const lng = parseFloat(nums[1]);
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+      return { lat, lng };
+    }
+
+    function searchCustomerLatLong() {
+      const rawInput = document.getElementById("gisLatLongInput")?.value || "";
+      const coords = parseLatLongInput(rawInput);
+      if (!coords) {
+        alert("Please enter valid Latitude and Longitude (e.g., 32.7266, 74.8570).");
+        return;
+      }
+
+      if (!isGisMapInitialized) {
+        initGisMap();
+        isGisMapInitialized = true;
+      }
+
+      if (customerOverlayGroup) customerOverlayGroup.clearLayers();
+
+      const { lat: cLat, lng: cLng } = coords;
+
+      // Drop Customer Complaint Pin & Reference Range Rings (500m, 1km, 2km)
+      const custMarker = L.circleMarker([cLat, cLng], {
+        color: "#ffffff",
+        weight: 2.5,
+        fillColor: "#e11d48",
+        fillOpacity: 1,
+        radius: 8
+      }).bindTooltip(`<strong>Customer Complaint Location</strong><br>${cLat.toFixed(6)}, ${cLng.toFixed(6)}`, { permanent: false });
+
+      customerOverlayGroup.addLayer(custMarker);
+
+      [500, 1000, 2000].forEach(rad => {
+        customerOverlayGroup.addLayer(L.circle([cLat, cLng], {
+          radius: rad,
+          color: rad === 1000 ? "#fb7185" : "#94a3b8",
+          weight: 1,
+          dashArray: "4, 6",
+          fill: false,
+          interactive: false
+        }));
+      });
+
+      // Evaluate nearest sectors across active GIS towers
+      const candidateSectors = [];
+      (cachedGisTowers || []).forEach(tower => {
+        if (!tower.lat || !tower.lng) return;
+        const distM = computeDistanceMeters(tower.lat, tower.lng, cLat, cLng);
+        const bearingToCust = computeBearingDeg(tower.lat, tower.lng, cLat, cLng);
+
+        Object.keys(tower.bands || {}).forEach(bandKey => {
+          const bandObj = tower.bands[bandKey];
+          (bandObj.sectors || []).forEach(sec => {
+            const offset = angularDiffDeg(sec.azimuth, bearingToCust);
+            const inMainLobe = offset <= 35;
+            candidateSectors.push({
+              siteId: bandObj.siteId,
+              siteName: tower.siteName,
+              ssa: tower.ssa,
+              l1: formatL1Display(tower.l1).name,
+              band: bandKey,
+              sector: sec.sector,
+              azimuth: sec.azimuth,
+              tilt: sec.totalTilt,
+              height: sec.antennaHt,
+              confidence: sec.confidence,
+              distM,
+              bearingToCust,
+              offset,
+              inMainLobe,
+              towerLat: tower.lat,
+              towerLng: tower.lng
+            });
+          });
+        });
+      });
+
+      // Rank primarily by distance (weighted slightly for main-lobe alignment)
+      candidateSectors.sort((a, b) => {
+        const scoreA = a.distM * (a.inMainLobe ? 0.85 : 1.15);
+        const scoreB = b.distM * (b.inMainLobe ? 0.85 : 1.15);
+        return scoreA - scoreB;
+      });
+
+      const topSectors = candidateSectors.slice(0, 6);
+
+      // Draw line from top serving sector to customer pin
+      if (topSectors.length > 0) {
+        const best = topSectors[0];
+        customerOverlayGroup.addLayer(L.polyline([
+          [best.towerLat, best.towerLng],
+          [cLat, cLng]
+        ], {
+          color: "#fbbf24",
+          weight: 2.5,
+          dashArray: "6, 4"
+        }));
+      }
+
+      gisMapInstance.setView([cLat, cLng], 14);
+      document.getElementById("btnClearCustomerPin")?.classList.remove("hidden");
+
+      const resCard = document.getElementById("customerComplaintResultCard");
+      if (resCard) {
+        resCard.classList.remove("hidden");
+        const best = topSectors[0];
+        const verdictText = !best
+          ? "No mapped towers in current filter scope."
+          : best.inMainLobe
+            ? `Customer is <strong>${(best.distM / 1000).toFixed(2)} km</strong> away inside <strong>${best.siteName} (${best.band} ${best.sector}, Azimuth ${best.azimuth}°, Δ${best.offset.toFixed(0)}°)</strong> main lobe. Inspect live KPI/alarms or terrain blockage.`
+            : `Nearest sector is <strong>${best.siteName} (${best.band} ${best.sector}, Azimuth ${best.azimuth}°)</strong> at <strong>${(best.distM / 1000).toFixed(2)} km</strong>, but customer is <strong>${best.offset.toFixed(0)}° off-boresight</strong> (bearing ${best.bearingToCust.toFixed(0)}°). Check sector azimuth / coverage shadow.`;
+
+        resCard.innerHTML = `
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-mono font-bold">
+                PIN: ${cLat.toFixed(6)}, ${cLng.toFixed(6)}
+              </span>
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider">Customer Complaint Serving-Sector Diagnostic</h3>
+            </div>
+            <span class="text-[11px] text-slate-400">Rings: 500m / 1km / 2km</span>
+          </div>
+          <p class="text-xs text-slate-200 leading-relaxed">${verdictText}</p>
+          <div class="overflow-x-auto border border-slate-700 rounded-lg">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase">
+                <tr>
+                  <th class="py-2 px-3">Site Name &amp; ID</th>
+                  <th class="py-2 px-3">Band / Sec</th>
+                  <th class="py-2 px-3 text-right">Distance</th>
+                  <th class="py-2 px-3 text-right">Bearing</th>
+                  <th class="py-2 px-3 text-right">Azimuth</th>
+                  <th class="py-2 px-3 text-right">Δ Offset</th>
+                  <th class="py-2 px-3">Beam Alignment</th>
+                  <th class="py-2 px-3">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-700/60">
+                ${topSectors.map(s => {
+                  const alignBadge = s.inMainLobe
+                    ? `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-sans text-[10px] font-bold">Inside Lobe</span>`
+                    : `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-sans text-[10px]">Off-Axis</span>`;
+                  return `
+                    <tr>
+                      <td class="py-1.5 px-3 font-sans"><strong class="text-white">${s.siteName}</strong> <span class="text-[10px] text-cyan-400 font-mono">(${s.siteId})</span></td>
+                      <td class="py-1.5 px-3 text-cyan-300">${s.band} ${s.sector}${s.confidence !== 'verified' ? '~' : ''}</td>
+                      <td class="py-1.5 px-3 text-right">${(s.distM / 1000).toFixed(2)} km</td>
+                      <td class="py-1.5 px-3 text-right">${s.bearingToCust.toFixed(0)}°</td>
+                      <td class="py-1.5 px-3 text-right">${s.azimuth}°</td>
+                      <td class="py-1.5 px-3 text-right ${s.inMainLobe ? 'text-emerald-400' : 'text-amber-300'}">${s.offset.toFixed(0)}°</td>
+                      <td class="py-1.5 px-3">${alignBadge}</td>
+                      <td class="py-1.5 px-3 font-sans">
+                        <button onclick="switchMainTab('SITE_ANALYSIS'); document.getElementById('siteAnalysisInput').value='${s.siteId}'; runSiteAnalysisSearch();" class="px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-semibold">
+                          7D KPI
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+    }
+
+    function clearCustomerPin() {
+      if (customerOverlayGroup) customerOverlayGroup.clearLayers();
+      document.getElementById("customerComplaintResultCard")?.classList.add("hidden");
+      document.getElementById("btnClearCustomerPin")?.classList.add("hidden");
     }
 
     function renderGisAuditTables() {
@@ -3398,7 +3715,7 @@
         if (col === "CQI" && val > 0) return val < 7.0 ? "critical" : val < 8.0 ? "warning" : "normal";
         if (col === "PRB Util DL (%)" || col === "PRB Util UL (%)") return val > 80.0 ? "critical" : val > 70.0 ? "warning" : "normal";
         if (col === "Avg User DL Tput (Mbps)") return val < 3.0 ? "critical" : val < 5.0 ? "warning" : "normal";
-        if (col === "Intra-Freq HO SR (%)" || col === "Inter-Freq HO SR (%)") return val < 92.0 ? "critical" : val < 95.0 ? "warning" : "normal";
+        if ((col === "Intra-Freq HO SR (%)" || col === "Inter-Freq HO SR (%)") && val < 92.0) return val < 92.0 ? "critical" : val < 95.0 ? "warning" : "normal";
         if (col === "Call Drop (%)") return val > 2.0 ? "critical" : val > 1.0 ? "warning" : "normal";
         if (col === "Current Value") return "critical";
         if (col === "Consecutive Days") return val >= 5 ? "critical" : val >= 3 ? "warning" : "normal";
