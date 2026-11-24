@@ -13,6 +13,9 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Leaflet GIS Map Assets -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -20,6 +23,15 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     .sortable-th { cursor: pointer; user-select: none; transition: background-color 0.15s, color 0.15s; }
     .sortable-th:hover { background-color: rgba(51, 65, 85, 0.95); color: #ffffff; }
+    #gisMap { height: 520px; width: 100%; border-radius: 0.75rem; z-index: 10; border: 1px solid #334155; }
+    .leaflet-tooltip { background: #0f172a; color: #f8fafc; border: 1px solid #334155; font-family: 'Inter', sans-serif; font-size: 11px; }
+    .leaflet-tooltip-left::before { border-left-color: #334155; }
+    .leaflet-tooltip-right::before { border-right-color: #334155; }
+    @keyframes beaconPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.45); opacity: 0.65; }
+    }
+    .gis-beacon-crit { animation: beaconPulse 1.5s infinite ease-in-out; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
@@ -32,7 +44,7 @@
         <span>BSNL J&K</span>
       </div>
       <div>
-        <h1 class="text-base font-semibold leading-none">4G LTE Operational Quality & RF Optimization Portal</h1>
+        <h1 class="text-base font-semibold leading-none">4G LTE Operational Quality &amp; RF Optimization Portal</h1>
         <p class="text-xs text-slate-400 mt-1">Active Report Date: <span id="lblLatestDate" class="text-emerald-400 font-mono font-semibold">--</span></p>
       </div>
     </div>
@@ -49,8 +61,12 @@
       <button id="tabSiteBtn" onclick="switchMainTab('SITE_ANALYSIS')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5">
         <i data-lucide="line-chart" class="w-3.5 h-3.5 text-cyan-400"></i> Site Analysis (7D)
       </button>
+      <button id="tabGisBtn" onclick="switchMainTab('GIS_MAP')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5">
+        <i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-400"></i> GIS RF Map
+        <span id="gisUnmappedBadge" class="ml-1 px-1.5 py-0.2 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full text-[10px]" title="Unmapped / Missing RF Sites">0</span>
+      </button>
       <button id="tabOptBtn" onclick="switchMainTab('OPTIMIZATION')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5">
-        <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-purple-400"></i> RF & VoLTE Optimization
+        <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-purple-400"></i> RF &amp; VoLTE Optimization
         <span id="optTabBadge" class="ml-1 px-1.5 py-0.2 bg-purple-500/20 text-purple-300 border border-purple-500/40 rounded-full text-[10px]">0</span>
       </button>
     </div>
@@ -90,11 +106,20 @@
         </span>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
         <div>
           <label class="block text-[10px] text-slate-400 uppercase mb-1">Report Date</label>
           <select id="filterDate" onchange="applyGlobalFilters()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-emerald-300 font-mono focus:outline-none focus:border-blue-500">
             <option value="">Latest Date</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase mb-1">Site Type</label>
+          <select id="filterSiteType" onchange="applyGlobalFilters()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 font-semibold focus:outline-none focus:border-blue-500">
+            <option value="ALL">All (DBN + NDBN)</option>
+            <option value="DBN">DBN Only</option>
+            <option value="NDBN">NDBN Only</option>
           </select>
         </div>
 
@@ -200,12 +225,11 @@
 
     <!-- ================= MODULE 1: KPI OVERVIEW & TRENDS ================= -->
     <div id="viewHome" class="space-y-6">
-      <!-- Sequential Trend Charts -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <i data-lucide="trending-up" class="w-4 h-4 text-blue-400"></i> Availability & Drop Rate Trend
+              <i data-lucide="trending-up" class="w-4 h-4 text-blue-400"></i> Availability &amp; Drop Rate Trend
             </h2>
             <span class="text-xs text-slate-400">Chronological Sequence</span>
           </div>
@@ -227,7 +251,7 @@
         </div>
       </section>
 
-      <!-- SSA-Wise Summary Table (Sortable + Excel Export + Total J&K Circle Row) -->
+      <!-- SSA-Wise Summary Table -->
       <section id="ssaSummaryCard" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -235,7 +259,7 @@
               <i data-lucide="building-2" class="w-4 h-4 text-cyan-400"></i>
               SSA-wise KPI Summary (<span id="ssaTableDateLbl" class="text-emerald-400 font-mono">--</span>) — Click Any Header to Sort ▲/▼
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Total Sites, Availability, Payload, Call Drop, RRC Success Rate & Zero Cell Count (Sites Affected)</p>
+            <p class="text-xs text-slate-400 mt-0.5">Total Sites, Availability, Payload, Call Drop, RRC Success Rate &amp; Zero Cell Count (Sites Affected)</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button onclick="exportSsaSummaryToExcel()" class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
@@ -272,7 +296,7 @@
         </div>
       </section>
 
-      <!-- Aggregated Network Performance Table (Clickable Column Sorting + Color-Coded Excel Export) -->
+      <!-- Aggregated Network Performance Table -->
       <section class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -337,10 +361,25 @@
           </div>
           <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
             <strong class="text-cyan-400">TCS / Tejas Team Responsibility:</strong>
-            If Availability is <strong>100%</strong> but Data is &le; 5 MB, it is a <strong>"Sleeping Cell"</strong> — perform remote Cell Lock/Unlock or eNodeB soft reset, verify S1-U tunnel, or replace faulty Tejas RRU/SFP.
+            If Availability is <strong>&gt; 98%</strong> (excluding Jail/Halted sites), it is an actionable <strong>TCS OEM / Sleeping Cell</strong> issue — perform remote Cell Lock/Unlock, verify S1-U tunnel, or replace faulty RRU/SFP.
           </div>
         </div>
       </div>
+
+      <!-- NEW: Exclude Jail/Halted + TCS Actionable (>98% Avail) Filter Bar Directly Above Zero-GB Table -->
+      <section class="bg-slate-800 border border-amber-500/40 p-3.5 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-5">
+          <label class="cursor-pointer text-xs font-semibold text-slate-200 hover:text-white flex items-center gap-2">
+            <input type="checkbox" id="chkExcludeJailHalted" checked onchange="renderZeroGbModule()" class="w-4 h-4 rounded accent-blue-600">
+            Exclude Jail / Halted Sites (from Remarks)
+          </label>
+          <label class="cursor-pointer text-xs font-semibold text-amber-300 hover:text-amber-200 flex items-center gap-2">
+            <input type="checkbox" id="chkHighAvailTcs" onchange="renderZeroGbModule()" class="w-4 h-4 rounded accent-amber-500">
+            Availability &gt; 98% Only (TCS Action Required)
+          </label>
+        </div>
+        <span id="zeroGbTcsBadge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold">TCS Actionable: 0</span>
+      </section>
 
       <!-- Sequence: Cellwise [Default] -> Sitewise -> Locationwise -->
       <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-4">
@@ -376,7 +415,7 @@
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 class="text-sm font-semibold text-white">Zero GB Cells (&le; 5 MB Data Volume) — Click Any Column Header to Sort ▲/▼</h2>
-            <p class="text-xs text-slate-400 mt-0.5">Filtered by active Report Date, SSA, L1, L2 & Search criteria</p>
+            <p class="text-xs text-slate-400 mt-0.5">Filtered by active Report Date, Site Type, SSA, L1, L2 &amp; Remarks criteria</p>
           </div>
           <span id="zeroGbCountSummary" class="text-xs font-mono px-2.5 py-1 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">0 Records</span>
         </div>
@@ -397,7 +436,7 @@
           <div>
             <h2 class="text-sm font-semibold text-white flex items-center gap-2">
               <i data-lucide="radar" class="w-4 h-4 text-cyan-400"></i>
-              Site-wise (3-Cell) &amp; Location-wise (Band-wise B01/B28) 7-Day Historical KPI Trend Analysis
+              Site-wise (3-Cell) &amp; Location-wise (Band-wise B01/B28/B41) 7-Day Historical KPI Trend Analysis
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">
               <strong>Site-wise</strong> plots all 3 Cells (<span class="text-emerald-400">Cell 0</span>, <span class="text-cyan-400">Cell 1</span>, <span class="text-amber-400">Cell 2</span>) |
@@ -406,7 +445,6 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-2.5">
-            <!-- Site-wise vs Location-wise Toggle -->
             <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-700">
               <button id="btnSaModeSite" onclick="setSiteAnalysisMode('SITE')" class="px-3 py-1 rounded-md text-xs font-semibold bg-cyan-600 text-white transition">
                 Site-wise (3-Cell View)
@@ -416,7 +454,6 @@
               </button>
             </div>
 
-            <!-- Screenshot Button -->
             <button onclick="captureSiteAnalysisScreenshot()" class="px-3.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-semibold transition flex items-center gap-1.5 border border-slate-600 shadow">
               <i data-lucide="camera" class="w-3.5 h-3.5 text-cyan-400"></i> Screenshot 7D Report
             </button>
@@ -447,12 +484,12 @@
         </div>
       </section>
 
-      <!-- Screenshot Wrapper Area (Captures Banner + All 6 Graphs) -->
+      <!-- Screenshot Wrapper Area (Captures Banner + All 6 Graphs + Full Site Profile Card) -->
       <div id="siteAnalysisScreenshotArea" class="space-y-5 bg-slate-900 p-2 rounded-xl">
         <!-- Active Scope / Site Banner -->
         <div id="siteAnalysisMetaBanner" class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-4 text-xs shadow-sm">
           <div>
-            <span class="text-slate-400">Scope / Site Name:</span> <strong id="saSiteName" class="text-white ml-1">J&K Circle (Filtered Scope)</strong>
+            <span class="text-slate-400">Scope / Site Name:</span> <strong id="saSiteName" class="text-white ml-1">J&amp;K Circle (Filtered Scope)</strong>
             <span class="mx-2 text-slate-600">|</span>
             <span class="text-slate-400">Site ID(s):</span> <strong id="saSiteId" class="text-cyan-400 font-mono ml-1">All Filtered Sites</strong>
             <span class="mx-2 text-slate-600">|</span>
@@ -468,7 +505,7 @@
           </div>
         </div>
 
-        <!-- 6 Graphs Grid for 7-Day Trends (VoLTE Traffic Erlang at #5, Max Cell Throughput at #6) -->
+        <!-- 6 Graphs Grid for 7-Day Trends -->
         <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm">
             <h3 class="text-xs font-semibold text-emerald-400 mb-2">1. Availability (%) - Target &ge; 99.5%</h3>
@@ -495,10 +532,58 @@
             <div class="h-56 relative"><canvas id="saChartTput"></canvas></div>
           </div>
         </section>
+
+        <!-- NEW: Full Infrastructure Metadata, 7-Day Availability, 7D Alarms & RF Sector Specs Below 6 Graphs -->
+        <section id="site7dFullDetailCard" class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-sm">
+          <div class="text-xs text-slate-400 text-center py-4">
+            Search and select any site or location above to view complete Infrastructure Profile (Site ID, IP ID, NEP ID, On-Air / SCFT / Take Over Dates, L1/L2), Last 7-Day Availability, 7-Day Alarms, and Sector RF Specs.
+          </div>
+        </section>
       </div>
     </div>
 
-    <!-- ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (5 SUB-MODULES INCLUDING CHRONIC 3D/5D/7D) ================= -->
+    <!-- ================= MODULE 3B: GIS RF MAP & DATA AUDIT MODULE ================= -->
+    <div id="viewGisMap" class="hidden space-y-5">
+      <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-4 text-xs">
+          <span class="font-bold text-white flex items-center gap-1.5">
+            <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i> GIS Layer Controls:
+          </span>
+          <label class="cursor-pointer flex items-center gap-1.5 text-emerald-300 font-semibold">
+            <input type="checkbox" id="chkGisB28" checked onchange="renderGisMapFeatures()" class="rounded accent-emerald-500"> B28 (700 MHz)
+          </label>
+          <label class="cursor-pointer flex items-center gap-1.5 text-sky-300 font-semibold">
+            <input type="checkbox" id="chkGisB01" checked onchange="renderGisMapFeatures()" class="rounded accent-sky-500"> B01 (2100 MHz)
+          </label>
+          <label class="cursor-pointer flex items-center gap-1.5 text-purple-300 font-semibold">
+            <input type="checkbox" id="chkGisB41" checked onchange="renderGisMapFeatures()" class="rounded accent-purple-500"> B41 (2500 MHz)
+          </label>
+          <label class="cursor-pointer flex items-center gap-1.5 text-amber-300 font-semibold border-l border-slate-600 pl-4">
+            <input type="checkbox" id="chkGisShowAssumed" checked onchange="renderGisMapFeatures()" class="rounded accent-amber-500"> Show Assumed RF Wedges (~)
+          </label>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="openGisAuditDrawer()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition flex items-center gap-1.5">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Unmapped &amp; Assumed RF Audit (<span id="gisAuditCountLbl">0</span>)
+          </button>
+        </div>
+      </section>
+
+      <section class="bg-slate-800 border border-slate-700 p-3 rounded-xl shadow-sm relative">
+        <div class="absolute top-6 right-6 z-20 bg-slate-900/90 backdrop-blur border border-slate-600 p-3 rounded-xl text-[11px] text-slate-200 space-y-1.5 shadow-xl pointer-events-none">
+          <div class="font-bold text-slate-300 border-b border-slate-700 pb-1 mb-1">GIS Legend &amp; Data Confidence</div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 bg-[#10b981] inline-block rounded-sm"></span> B28 (700 MHz — Verified)</div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 bg-[#0ea5e9] inline-block rounded-sm"></span> B01 (2100 MHz — Verified)</div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 bg-[#a855f7] inline-block rounded-sm"></span> B41 (2500 MHz — Verified)</div>
+          <div class="flex items-center gap-2 pt-1 border-t border-slate-700"><span class="w-3 h-3 border border-dashed border-amber-400 inline-block rounded-sm"></span> Dashed (~): Assumed Tilt/Ht/EIRP</div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span> Crimson Tower: KPI/Swap Alert</div>
+        </div>
+        <div id="gisMap"></div>
+      </section>
+    </div>
+
+    <!-- ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (3-TIER YELLOW/RED + 5 SUB-MODULES) ================= -->
     <div id="viewOptimization" class="hidden space-y-5">
       <section class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
@@ -525,7 +610,6 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <!-- Quick Days Filter Pills for Chronic Tab -->
           <div id="chronicDaysFilterBar" class="hidden inline-flex rounded-lg bg-slate-900 p-1 border border-slate-700 mr-1">
             <button id="btnChr3" onclick="setChronicDaysFilter(3)" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-rose-600 text-white transition">&ge;3 Days</button>
             <button id="btnChr5" onclick="setChronicDaysFilter(5)" class="px-2.5 py-1 rounded text-[11px] font-semibold text-slate-400 hover:text-white transition">&ge;5 Days</button>
@@ -544,7 +628,7 @@
         <div class="p-4 border-b border-slate-700 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 id="optTableTitle" class="text-sm font-semibold text-white">VoLTE Quality Watchlist</h2>
-            <p id="optTableSubtitle" class="text-xs text-slate-400 mt-0.5">Click any column header to sort ▲/▼ — Exported Excel preserves sort order &amp; enables AutoFilter</p>
+            <p id="optTableSubtitle" class="text-xs text-slate-400 mt-0.5">Yellow = Marginal Warning (Just Out of Range) | Red = Critical Breach — Click any header to sort ▲/▼</p>
           </div>
           <span id="optRecordCount" class="text-xs font-mono px-2.5 py-1 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30">0 Cells</span>
         </div>
@@ -560,15 +644,79 @@
 
   </main>
 
-  <!-- ================= 4G KPI HANDBOOK & RESPONSIBILITY MATRIX MODAL ================= -->
+  <!-- ================= UNMAPPED & ASSUMED STATIC RF AUDIT MODAL ================= -->
+  <div id="gisAuditModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-5xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-4 bg-slate-900 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400"></i>
+          <div>
+            <h3 class="text-sm font-bold text-white">GIS Data Audit: Unmapped Sites &amp; Assumed Static RF Parameters</h3>
+            <p class="text-[11px] text-slate-400">Sites excluded from map due to missing Lat/Long, or rendered with dashed (~) fallback assumptions</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="exportGisAuditCsv()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Audit CSV
+          </button>
+          <button onclick="closeGisAuditDrawer()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-5 overflow-y-auto custom-scrollbar space-y-6 text-xs">
+        <div>
+          <h4 class="font-bold text-rose-400 uppercase tracking-wider mb-2">1. Unmapped Sites (Missing / Invalid Latitude or Longitude)</h4>
+          <div class="overflow-x-auto border border-slate-700 rounded-xl max-h-60">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] sticky top-0">
+                <tr>
+                  <th class="py-2 px-3">Site ID</th>
+                  <th class="py-2 px-3">Site Name</th>
+                  <th class="py-2 px-3">SSA</th>
+                  <th class="py-2 px-3">Type</th>
+                  <th class="py-2 px-3">Band</th>
+                  <th class="py-2 px-3">Reason</th>
+                  <th class="py-2 px-3">L1 In-Charge</th>
+                </tr>
+              </thead>
+              <tbody id="gisUnmappedTbody" class="divide-y divide-slate-700/60 font-mono"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-amber-300 uppercase tracking-wider mb-2">2. Sectors Rendered With Fallback Assumptions (Dashed ~ Polygons)</h4>
+          <div class="overflow-x-auto border border-slate-700 rounded-xl max-h-60">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] sticky top-0">
+                <tr>
+                  <th class="py-2 px-3">Site ID</th>
+                  <th class="py-2 px-3">Site Name</th>
+                  <th class="py-2 px-3">SSA</th>
+                  <th class="py-2 px-3">Band / Sector</th>
+                  <th class="py-2 px-3">Assumed Fields</th>
+                  <th class="py-2 px-3">L1 In-Charge</th>
+                </tr>
+              </thead>
+              <tbody id="gisAssumedTbody" class="divide-y divide-slate-700/60 font-mono"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= UPDATED 4G KPI HANDBOOK & FIELD GUIDE MODAL ================= -->
   <div id="kpiHandbookModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
       <div class="p-4 bg-slate-900 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2.5">
           <i data-lucide="book-open" class="w-5 h-5 text-amber-400"></i>
           <div>
-            <h3 class="text-sm font-bold text-white">BSNL 4G LTE Field Engineer KPI Handbook & Responsibility Matrix</h3>
-            <p class="text-[11px] text-slate-400">Reference Benchmarks & Action Guide for Site In-Charges (L1/L2) and TCS/Tejas Teams</p>
+            <h3 class="text-sm font-bold text-white">BSNL 4G LTE Field Engineer KPI Handbook, GIS Assumptions &amp; Responsibility Matrix</h3>
+            <p class="text-[11px] text-slate-400">3-Tier Severity Benchmarks, GIS RF Assumptions, Zero-GB TCS Rules &amp; L1/TCS Action Guide</p>
           </div>
         </div>
 
@@ -584,29 +732,51 @@
 
       <div id="kpiHandbookPrintable" class="p-5 overflow-y-auto custom-scrollbar space-y-6 text-xs bg-slate-800 text-slate-100">
         <div>
-          <h4 class="font-bold text-amber-300 uppercase tracking-wider mb-2">1. BSNL 4G LTE Operational Target Benchmarks</h4>
+          <h4 class="font-bold text-amber-300 uppercase tracking-wider mb-2">1. BSNL 4G LTE 3-Tier Operational Benchmarks (Green / Yellow Warning / Red Critical)</h4>
           <div class="overflow-x-auto border border-slate-700 rounded-xl">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-900 text-slate-400 uppercase text-[10px]">
                 <tr>
                   <th class="py-2.5 px-3">4G KPI Parameter</th>
-                  <th class="py-2.5 px-3 text-emerald-400">Healthy Target</th>
-                  <th class="py-2.5 px-3 text-amber-400">Warning Zone</th>
-                  <th class="py-2.5 px-3 text-rose-400">Critical Threshold</th>
-                  <th class="py-2.5 px-3">What It Means for Field Staff</th>
+                  <th class="py-2.5 px-3 text-emerald-400">Healthy (Green)</th>
+                  <th class="py-2.5 px-3 text-amber-400">Warning (Yellow)</th>
+                  <th class="py-2.5 px-3 text-rose-400">Critical (Red)</th>
+                  <th class="py-2.5 px-3">Field Interpretation &amp; Action</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-700/60 text-slate-200">
-                <tr><td class="py-2 px-3 font-semibold">Cell Availability (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 99.5%</td><td class="py-2 px-3 font-mono">95.0% – 99.4%</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 95.0%</td><td class="py-2 px-3">Percentage of time cell is radiating. Drops due to power outage, OFC/DMW break, or BBU/RRU fault.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">RRC Connection SR (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 98.5%</td><td class="py-2 px-3 font-mono">95.0% – 98.4%</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 95.0%</td><td class="py-2 px-3">Ability of mobile phones to latch to 4G cell. Degrades with high UL interference or sleeping cell.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">Call Drop Rate (DCR %)</td><td class="py-2 px-3 text-emerald-400 font-mono">&le; 1.0%</td><td class="py-2 px-3 font-mono">1.1% – 2.0%</td><td class="py-2 px-3 text-rose-400 font-mono">&gt; 2.0%</td><td class="py-2 px-3">Calls/sessions disconnected abnormally due to poor coverage, missing neighbors, or backhaul flap.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">Zero-GB / Sleeping Cell</td><td class="py-2 px-3 text-emerald-400 font-mono">&gt; 5 MB/day</td><td class="py-2 px-3 font-mono">1 – 5 MB/day</td><td class="py-2 px-3 text-rose-400 font-mono">&le; 5 MB/day</td><td class="py-2 px-3">Cell carrying almost zero user data. If Availability = 100%, cell is hung ("Sleeping") and needs reset.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">VoLTE Packet Loss (DL/UL)</td><td class="py-2 px-3 text-emerald-400 font-mono">&le; 0.5%</td><td class="py-2 px-3 font-mono">0.6% – 1.5%</td><td class="py-2 px-3 text-rose-400 font-mono">&gt; 1.5%</td><td class="py-2 px-3">Causes voice muting, robotic sound, or one-way audio. Check DMW/OFC transmission packet drops.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">SINR (PUSCH Uplink)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 5.0 dB</td><td class="py-2 px-3 font-mono">2.0 – 4.9 dB</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 2.0 dB</td><td class="py-2 px-3">Uplink signal clarity at tower. Low SINR means loose RF jumper, VSWR, or external interference booster.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">UL IBLER (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&le; 10.0%</td><td class="py-2 px-3 font-mono">10.1% – 15.0%</td><td class="py-2 px-3 text-rose-400 font-mono">&gt; 15.0%</td><td class="py-2 px-3">Uplink block error rate. High values (>15%) confirm RF interference or damaged feeder/connector.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">CQI (Channel Quality)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 9.0</td><td class="py-2 px-3 font-mono">7.0 – 8.9</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 7.0</td><td class="py-2 px-3">Reported by handset (1 to 15). Low CQI (<7) means cell is overshooting far away or blocked by obstacles.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">PRB Utilisation DL (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&le; 70.0%</td><td class="py-2 px-3 font-mono">70.1% – 80.0%</td><td class="py-2 px-3 text-rose-400 font-mono">&gt; 80.0%</td><td class="py-2 px-3">Radio capacity usage. >80% with User Speed <3 Mbps means sector is congested and needs load balancing.</td></tr>
-                <tr><td class="py-2 px-3 font-semibold">Handover Success Rate (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 96.0%</td><td class="py-2 px-3 font-mono">92.0% – 95.9%</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 92.0%</td><td class="py-2 px-3">Smooth transfer of call between sectors/bands (B1/B28). Low SR causes call drops while travelling.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">Cell Availability (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 99.5%</td><td class="py-2 px-3 text-amber-300 font-mono">98.0% – 99.49%</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 98.0%</td><td class="py-2 px-3">Drops due to power outage, OFC/DMW break, or BBU/RRU fault.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">RRC Connection SR (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 98.5%</td><td class="py-2 px-3 text-amber-300 font-mono">97.0% – 98.49%</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 97.0%</td><td class="py-2 px-3">Handset latching rate; degrades with UL noise or sleeping cell.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">Call Drop Rate (DCR %)</td><td class="py-2 px-3 text-emerald-400 font-mono">&le; 1.0%</td><td class="py-2 px-3 text-amber-300 font-mono">1.01% – 2.0%</td><td class="py-2 px-3 text-rose-400 font-mono">&gt; 2.0%</td><td class="py-2 px-3">Disconnected calls due to coverage holes, missing neighbors, or flap.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">Zero-GB / TCS Action</td><td class="py-2 px-3 text-emerald-400 font-mono">&gt; 5 MB/day</td><td class="py-2 px-3 text-amber-300 font-mono">&le; 5 MB (Avail &le;98%)</td><td class="py-2 px-3 text-rose-400 font-mono">&le; 5 MB &amp; Avail &gt;98%</td><td class="py-2 px-3">Exclude Jail/Halted sites via Remarks. Avail &gt;98% + 0 GB = TCS OEM action.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">VoLTE Packet Loss (DL/UL)</td><td class="py-2 px-3 text-emerald-400 font-mono">&le; 0.5%</td><td class="py-2 px-3 text-amber-300 font-mono">0.51% – 1.5%</td><td class="py-2 px-3 text-rose-400 font-mono">&gt; 1.5%</td><td class="py-2 px-3">Causes voice muting or one-way audio; check DMW/OFC packet drops.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">SINR (PUSCH Uplink)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 5.0 dB</td><td class="py-2 px-3 text-amber-300 font-mono">2.0 – 4.9 dB</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 2.0 dB</td><td class="py-2 px-3">Low SINR indicates loose RF jumper, VSWR, or external repeater noise.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">UL IBLER (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&le; 10.0%</td><td class="py-2 px-3 text-amber-300 font-mono">10.1% – 15.0%</td><td class="py-2 px-3 text-rose-400 font-mono">&gt; 15.0%</td><td class="py-2 px-3">Uplink block error rate; confirms RF interference or damaged feeder.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">CQI (Channel Quality)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 9.0</td><td class="py-2 px-3 text-amber-300 font-mono">7.0 – 8.9</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 7.0</td><td class="py-2 px-3">Low CQI indicates overshooting cell or physical obstacle blockage.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">PRB Utilisation DL/UL (%)</td><td class="py-2 px-3 text-emerald-400 font-mono">&le; 70.0%</td><td class="py-2 px-3 text-amber-300 font-mono">70.1% – 80.0%</td><td class="py-2 px-3 text-rose-400 font-mono">&gt; 80.0%</td><td class="py-2 px-3">Sector capacity saturation; enable B1/B28 load balancing or downtilt.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">Handover SR (Intra/Inter)</td><td class="py-2 px-3 text-emerald-400 font-mono">&ge; 95.0%</td><td class="py-2 px-3 text-amber-300 font-mono">92.0% – 94.99%</td><td class="py-2 px-3 text-rose-400 font-mono">&lt; 92.0%</td><td class="py-2 px-3">&lt;85% Intra-HO SR indicates likely Swapped Sector / crossed RF jumpers.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-cyan-300 uppercase tracking-wider mb-2">2. GIS RF Map Assumptions &amp; Confidence Rules (When Static Cells Are Blank)</h4>
+          <div class="overflow-x-auto border border-slate-700 rounded-xl">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900 text-slate-400 uppercase text-[10px]">
+                <tr>
+                  <th class="py-2 px-3">RF Parameter / State</th>
+                  <th class="py-2 px-3">B28 (700 MHz)</th>
+                  <th class="py-2 px-3">B01 (2100 MHz)</th>
+                  <th class="py-2 px-3">B41 (2500 MHz)</th>
+                  <th class="py-2 px-3">Visual &amp; Diagnostic Rule</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-700/60 text-slate-200">
+                <tr><td class="py-2 px-3 font-semibold">Antenna Height / Total Tilt</td><td class="py-2 px-3 font-mono">30 m / 4°</td><td class="py-2 px-3 font-mono">30 m / 5°</td><td class="py-2 px-3 font-mono">30 m / 6°</td><td class="py-2 px-3">Rendered with <strong>dashed border (~)</strong> and tagged <code>(Assumed)</code> in popup.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">Horizontal / Vertical BW</td><td class="py-2 px-3 font-mono">65° / 11°</td><td class="py-2 px-3 font-mono">65° / 7°</td><td class="py-2 px-3 font-mono">65° / 6.5°</td><td class="py-2 px-3">Standard macro panel aperture used when VBW is unrecorded.</td></tr>
+                <tr><td class="py-2 px-3 font-semibold">Blank Sector (S1/S2/S3)</td><td colspan="3" class="py-2 px-3">If Azimuth + Freq + EIRP are all blank, sector is skipped (2-sector site). If Azimuth is blank on active cell, <code>0°/120°/240°</code> dashed placeholder is drawn.</td><td class="py-2 px-3">Logged in <strong>Unmapped &amp; Assumed RF Audit</strong> drawer for L1 field verification.</td></tr>
               </tbody>
             </table>
           </div>
@@ -618,11 +788,10 @@
               <i data-lucide="wrench" class="w-4 h-4"></i> BSNL L1 Field In-Charge Responsibilities
             </h4>
             <ul class="list-disc list-inside text-slate-300 space-y-1.5 leading-relaxed">
-              <li><strong>Site Power & Infra:</strong> Maintain EB supply, DG set, SMPS rectifiers, and battery backup to prevent Availability drops (<95%).</li>
-              <li><strong>Backhaul Media (OFC / DMW):</strong> Check OFC patch cords, CPAN/MPLS ports, and microwave link alignment when IP Latency (>60ms) or VoLTE Packet Loss (>1.5%) occurs.</li>
-              <li><strong>Physical RF & Antenna Checks:</strong> Inspect jumper connectors, weatherproofing, and physical antenna tilt/azimuth if SINR (<2 dB) or UL IBLER (>15%) degrades.</li>
-              <li><strong>External Interference Hunting:</strong> Identify illegal mobile signal repeaters/boosters near site causing uplink noise.</li>
-              <li><strong>Site Access & Coordination:</strong> Provide immediate gate access and coordination to TCS/Tejas field engineers for hardware replacement.</li>
+              <li><strong>Site Power &amp; Infra:</strong> Maintain EB supply, DG set, SMPS rectifiers, and battery backup to prevent Availability drops (&lt;98%).</li>
+              <li><strong>Backhaul Media (OFC / DMW):</strong> Check OFC patch cords, CPAN/MPLS ports, and microwave link alignment when IP Latency (&gt;60ms) or VoLTE Packet Loss (&gt;1.5%) occurs.</li>
+              <li><strong>Physical RF &amp; Compass Audit:</strong> Inspect jumper connectors, weatherproofing, physical antenna tilt/azimuth, and verify crossed feeders on swap alerts.</li>
+              <li><strong>Static Data Completion:</strong> Measure and submit missing Lat/Long, Azimuth, Height, and Tilt for sites flagged in the GIS Audit drawer.</li>
             </ul>
           </div>
 
@@ -631,11 +800,10 @@
               <i data-lucide="cpu" class="w-4 h-4"></i> TCS / Tejas Team Responsibilities
             </h4>
             <ul class="list-disc list-inside text-slate-300 space-y-1.5 leading-relaxed">
-              <li><strong>Sleeping Cell & Remote Reset:</strong> Execute remote Cell Lock/Unlock or eNodeB soft reset for Zero-GB cells (&le;5 MB) showing 100% availability.</li>
-              <li><strong>Tejas RAN Hardware (BBU / RRU / SFP):</strong> Diagnose CPRI optical alarms, BBU card hangs, and replace faulty RRUs, BBUs, or SFPs under AMC/Project scope.</li>
-              <li><strong>RF Optimization & Neighbor Tuning:</strong> Define missing B01 (2100 MHz) &harr; B28 (700 MHz) neighbor relations (ANR) and fix PCI clashes when Handover SR (<92%) or Drop Rate (>2%) degrades.</li>
-              <li><strong>Capacity & Tilt Balancing:</strong> Adjust electrical tilt (RET), transmit power, and handover offsets (CIO) to relieve PRB Congested (>80%) sectors.</li>
-              <li><strong>Core / IMS Escalation:</strong> Resolve S1/X2 interface drops and VoLTE IMS core call setup issues.</li>
+              <li><strong>Actionable Zero-GB (&gt;98% Avail):</strong> Execute remote Cell Lock/Unlock, S1-U/PGW check, or eNodeB reset for non-halted sites carrying &le;5 MB with &gt;98% availability.</li>
+              <li><strong>Tejas RAN Hardware (BBU / RRU / SFP):</strong> Diagnose CPRI optical alarms and replace faulty RRUs, BBUs, or SFPs under AMC/Project scope.</li>
+              <li><strong>RF Optimization &amp; Neighbor Tuning:</strong> Define missing B01 &harr; B28 neighbor relations (ANR) and fix PCI clashes when Handover SR (&lt;92%) degrades.</li>
+              <li><strong>Capacity &amp; Tilt Balancing:</strong> Adjust electrical tilt (RET) and handover offsets (CIO) to relieve PRB Congested (&gt;80%) sectors.</li>
             </ul>
           </div>
         </div>
@@ -677,8 +845,7 @@
       </button>
     </div>
   </div>
-
-  <!-- ================= JAVASCRIPT LOGIC ================= -->
+<!-- ================= JAVASCRIPT LOGIC ================= -->
   <script>
     // -----------------------------------------------------------------
     // PASTE YOUR DEPLOYED APPS SCRIPT WEB APP URL (ENDING IN /exec) HERE
@@ -701,6 +868,17 @@
     let cachedPrbList = [];
     let cachedHoList = [];
     let cachedChronicList = [];
+
+    let cachedGisTowers = [];
+    let cachedUnmappedSites = [];
+    let cachedAuditLog = [];
+
+    let gisMapInstance = null;
+    let gisLayerGroup = null;
+    let isGisMapInitialized = false;
+
+    const BAND_COLORS = { B28: "#10b981", B01: "#0ea5e9", B41: "#a855f7" };
+    const BAND_RADII  = { B28: 1500, B01: 800, B41: 600 };
 
     let currentPerfMode = "SITE";       // SITE | LOCATION
     let perfSortCol = "avail";
@@ -756,6 +934,14 @@
       document.getElementById("kpiHandbookModal").classList.add("hidden");
     }
 
+    function openGisAuditDrawer() {
+      renderGisAuditTables();
+      document.getElementById("gisAuditModal").classList.remove("hidden");
+    }
+    function closeGisAuditDrawer() {
+      document.getElementById("gisAuditModal").classList.add("hidden");
+    }
+
     function downloadKpiHandbookPdf() {
       const element = document.getElementById("kpiHandbookPrintable");
       const opt = {
@@ -773,12 +959,14 @@
         HOME: document.getElementById("viewHome"),
         ZEROGB: document.getElementById("viewZeroGb"),
         SITE_ANALYSIS: document.getElementById("viewSiteAnalysis"),
+        GIS_MAP: document.getElementById("viewGisMap"),
         OPTIMIZATION: document.getElementById("viewOptimization")
       };
       const btns = {
         HOME: document.getElementById("tabHomeBtn"),
         ZEROGB: document.getElementById("tabZeroBtn"),
         SITE_ANALYSIS: document.getElementById("tabSiteBtn"),
+        GIS_MAP: document.getElementById("tabGisBtn"),
         OPTIMIZATION: document.getElementById("tabOptBtn")
       };
 
@@ -786,6 +974,7 @@
       const inactiveCls = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
 
       Object.keys(views).forEach(k => {
+        if (!views[k] || !btns[k]) return;
         if (k === tab) {
           views[k].classList.remove("hidden");
           btns[k].className = activeCls;
@@ -798,6 +987,16 @@
       if (tab === "ZEROGB") renderZeroGbModule();
       if (tab === "SITE_ANALYSIS" && !isCustomSiteSearched) {
         renderDefaultFilterScope7DayCharts();
+      }
+      if (tab === "GIS_MAP") {
+        if (!isGisMapInitialized) {
+          initGisMap();
+          isGisMapInitialized = true;
+        }
+        setTimeout(() => {
+          if (gisMapInstance) gisMapInstance.invalidateSize();
+          renderGisMapFeatures();
+        }, 250);
       }
       if (tab === "OPTIMIZATION") renderOptimizationModule();
     }
@@ -838,6 +1037,58 @@
       if (stateKey === "SSA") renderSsaSummaryTable();
       else if (stateKey.startsWith("ZEROGB")) renderZeroGbModule();
       else if (stateKey.startsWith("OPT")) renderOptimizationModule();
+    }
+
+    // 3-Tier KPI Severity Classifier (Green = Healthy, Yellow = Warning/Just Out of Range, Red = Critical)
+    function getKpiTierClass(metric, rawVal) {
+      const v = parseFloat(rawVal);
+      if (isNaN(v)) return "text-slate-300";
+
+      switch (metric) {
+        case "avail":
+          if (v >= 99.5) return "text-emerald-400";
+          if (v >= 98.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "rrc":
+        case "cssrVolte":
+          if (v >= 98.5) return "text-emerald-400";
+          if (v >= 97.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "drop":
+          if (v <= 1.0) return "text-emerald-400";
+          if (v <= 2.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "erabDropVolte":
+          if (v <= 1.0) return "text-emerald-400";
+          if (v <= 2.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "pktLoss":
+          if (v <= 0.5) return "text-emerald-400";
+          if (v <= 1.5) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "sinr":
+          if (v >= 5.0) return "text-emerald-400";
+          if (v >= 2.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "ulIbler":
+          if (v <= 10.0) return "text-emerald-400";
+          if (v <= 15.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "cqi":
+          if (v >= 8.0) return "text-emerald-400";
+          if (v >= 7.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "prb":
+          if (v <= 70.0) return "text-emerald-400";
+          if (v <= 80.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        case "ho":
+          if (v >= 95.0) return "text-emerald-400";
+          if (v >= 92.0) return "text-amber-300 font-semibold";
+          return "text-rose-400 font-bold";
+        default:
+          return "text-slate-300";
+      }
     }
 
     async function performLogin() {
@@ -892,6 +1143,7 @@
     function getActiveFilters() {
       return {
         date: document.getElementById("filterDate").value,
+        siteType: document.getElementById("filterSiteType").value,
         ssa: document.getElementById("filterSSA").value,
         l1: document.getElementById("filterL1").value,
         l2: document.getElementById("filterL2").value,
@@ -909,6 +1161,7 @@
 
     function resetGlobalFilters() {
       document.getElementById("filterDate").value = "";
+      document.getElementById("filterSiteType").value = "ALL";
       document.getElementById("filterSSA").value = "";
       document.getElementById("filterL1").value = "";
       document.getElementById("filterL2").value = "";
@@ -968,6 +1221,16 @@
       cachedHoList = (apiData.handoverWatchlist || []).map(r => ({ ...r, consecutiveDays: r.consecutiveDays || 1 }));
       cachedChronicList = apiData.chronicWatchlist || [];
 
+      cachedGisTowers = apiData.gisTowers || [];
+      cachedUnmappedSites = apiData.unmappedSites || [];
+      cachedAuditLog = apiData.auditLog || [];
+
+      const totalAuditItems = cachedUnmappedSites.length + cachedAuditLog.length;
+      const unmappedBadge = document.getElementById("gisUnmappedBadge");
+      const auditCountLbl = document.getElementById("gisAuditCountLbl");
+      if (unmappedBadge) unmappedBadge.textContent = cachedUnmappedSites.length;
+      if (auditCountLbl) auditCountLbl.textContent = totalAuditItems;
+
       const zeroBySsa = {};
       cachedZeroGbCells.forEach(c => {
         const s = c.ssa || "UNKNOWN";
@@ -993,10 +1256,10 @@
       const dirMap = {};
       (apiData.siteDirectory || []).forEach(s => { dirMap[s.siteId] = s; });
       cachedSitePerf.forEach(s => {
-        if (!dirMap[s.keyId]) dirMap[s.keyId] = { siteId: s.keyId, siteName: s.siteName, btsIpId: s.btsIpId, ssa: s.ssa, l1: s.l1 };
+        if (!dirMap[s.keyId]) dirMap[s.keyId] = { siteId: s.keyId, siteName: s.siteName, btsIpId: s.btsIpId, ssa: s.ssa, l1: s.l1, siteType: s.siteType };
       });
       cachedZeroGbCells.forEach(c => {
-        if (!dirMap[c.siteId]) dirMap[c.siteId] = { siteId: c.siteId, siteName: c.siteName, btsIpId: c.btsIpId, ssa: c.ssa, l1: c.l1 };
+        if (!dirMap[c.siteId]) dirMap[c.siteId] = { siteId: c.siteId, siteName: c.siteName, btsIpId: c.btsIpId, ssa: c.ssa, l1: c.l1, siteType: c.siteType };
       });
       cachedSiteDirectory = Object.values(dirMap).sort((a, b) => (a.siteName || "").localeCompare(b.siteName || ""));
     }
@@ -1109,7 +1372,6 @@
       const range = XLSX.utils.decode_range(ws["!ref"]);
       const headers = Object.keys(rows[0]);
 
-      // Enable Native Excel Sort/Filter Dropdowns on Header Row
       ws["!autofilter"] = { ref: ws["!ref"] };
 
       ws["!cols"] = headers.map(h => {
@@ -1247,6 +1509,7 @@
       renderPerformanceTable();
       renderZeroGbModule();
       renderOptimizationModule();
+      if (isGisMapInitialized) renderGisMapFeatures();
 
       if (!isCustomSiteSearched) {
         renderDefaultFilterScope7DayCharts();
@@ -1315,10 +1578,10 @@
           <tr class="hover:bg-slate-700/40 transition">
             <td class="py-2.5 px-4 font-bold text-white font-sans">${s.ssa}</td>
             <td class="py-2.5 px-3 text-center text-slate-200 font-semibold">${totalSites}</td>
-            <td class="py-2.5 px-3 text-right ${s.avail < 95 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${s.avail}%</td>
+            <td class="py-2.5 px-3 text-right ${getKpiTierClass('avail', s.avail)}">${s.avail}%</td>
             <td class="py-2.5 px-3 text-right text-cyan-300">${s.payloadGb} GB</td>
-            <td class="py-2.5 px-3 text-right ${s.drop > 2 ? 'text-rose-400 font-bold' : ''}">${s.drop}%</td>
-            <td class="py-2.5 px-3 text-right">${s.rrc}%</td>
+            <td class="py-2.5 px-3 text-right ${getKpiTierClass('drop', s.drop)}">${s.drop}%</td>
+            <td class="py-2.5 px-3 text-right ${getKpiTierClass('rrc', s.rrc)}">${s.rrc}%</td>
             <td class="py-2.5 px-4 text-center">
               <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                 ${zCells} (${zSites} Sites)
@@ -1333,10 +1596,10 @@
         <tr class="bg-slate-900 text-white font-bold">
           <td class="py-3 px-4 font-sans text-amber-300">Total (J&amp;K Circle)</td>
           <td class="py-3 px-3 text-center text-white">${tot.siteCount}</td>
-          <td class="py-3 px-3 text-right text-emerald-400">${tot.avail}%</td>
+          <td class="py-3 px-3 text-right ${getKpiTierClass('avail', tot.avail)}">${tot.avail}%</td>
           <td class="py-3 px-3 text-right text-cyan-300">${tot.payloadGb} GB</td>
-          <td class="py-3 px-3 text-right">${tot.drop}%</td>
-          <td class="py-3 px-3 text-right">${tot.rrc}%</td>
+          <td class="py-3 px-3 text-right ${getKpiTierClass('drop', tot.drop)}">${tot.drop}%</td>
+          <td class="py-3 px-3 text-right ${getKpiTierClass('rrc', tot.rrc)}">${tot.rrc}%</td>
           <td class="py-3 px-4 text-center">
             <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
               ${tot.zeroCellCount} (${tot.zeroSiteCount} Sites)
@@ -1378,7 +1641,7 @@
 
       const ws = XLSX.utils.json_to_sheet(exportRows);
       applyConditionalExcelFormatting(ws, exportRows, (col, val) => {
-        if (col === "Availability (%)") return val < 95 ? "critical" : val < 99.5 ? "warning" : "healthy";
+        if (col === "Availability (%)") return val < 98.0 ? "critical" : val < 99.5 ? "warning" : "healthy";
         if (col === "Call Drop (%)") return val > 2.0 ? "critical" : val > 1.0 ? "warning" : "normal";
         if (col === "Zero-GB Cells" && val > 0) return "warning";
         return "normal";
@@ -1512,11 +1775,11 @@
               <div class="text-white">${l1.name}</div>
               <div class="text-[10px] text-slate-400">${l1.phone}</div>
             </td>
-            <td class="py-2.5 px-3 text-right ${row.avail < 95 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${row.avail}%</td>
-            <td class="py-2.5 px-3 text-right ${row.drop > 2 ? 'text-rose-400 font-bold' : ''}">${row.drop}%</td>
+            <td class="py-2.5 px-3 text-right ${getKpiTierClass('avail', row.avail)}">${row.avail}%</td>
+            <td class="py-2.5 px-3 text-right ${getKpiTierClass('drop', row.drop)}">${row.drop}%</td>
             <td class="py-2.5 px-3 text-right text-cyan-300">${row.dataGb}</td>
             <td class="py-2.5 px-3 text-right">${row.voiceErl}</td>
-            <td class="py-2.5 px-3 text-right">${row.rrc}%</td>
+            <td class="py-2.5 px-3 text-right ${getKpiTierClass('rrc', row.rrc)}">${row.rrc}%</td>
             <td class="py-2.5 px-3 text-right">${row.userCount}</td>
             <td class="py-2.5 px-4 text-right text-purple-300">${row.maxDlTput}</td>
           </tr>
@@ -1534,6 +1797,7 @@
       const exportRows = dataList.map(r => ({
         [currentPerfMode === "SITE" ? "Site ID" : "Location (BTS IP ID)"]: r.keyId,
         "Site Name": r.siteName,
+        "Site Type": r.siteType || "NDBN",
         "SSA": r.ssa,
         "L1 In-Charge": (r.l1 || "").replace(/\t/g, " "),
         "Availability (%) [Avg]": r.avail,
@@ -1548,7 +1812,7 @@
       const ws = XLSX.utils.json_to_sheet(exportRows);
       applyConditionalExcelFormatting(ws, exportRows, (col, val) => {
         if (col === "Availability (%) [Avg]") {
-          if (val < 95.0) return "critical";
+          if (val < 98.0) return "critical";
           if (val < 99.5) return "warning";
           return "healthy";
         }
@@ -1557,7 +1821,7 @@
           if (val > 1.0) return "warning";
         }
         if (col === "RRC Connection SR (%) [Avg]") {
-          if (val < 95.0) return "critical";
+          if (val < 97.0) return "critical";
           if (val < 98.5) return "warning";
         }
         if (col === "Data (GB) [Sum]" && val <= 0.005) return "critical";
@@ -1570,7 +1834,7 @@
       XLSX.writeFile(wb, `BSNL_4G_${currentPerfMode}_KPI_${dt}.xlsx`);
     }
 
-    // ================= MODULE 2: ZERO GB CELLS (SORTABLE IN ALL 3 MODES + EXCEL AUTOFILTER) =================
+    // ================= MODULE 2: ZERO GB CELLS (JAIL/HALTED EXCLUSION + >98% AVAIL TCS FILTER) =================
     function setZeroGbViewMode(mode) {
       currentZeroGbMode = mode;
       const btnCell = document.getElementById("btnModeCell");
@@ -1587,27 +1851,46 @@
       renderZeroGbModule();
     }
 
+    function getFilteredZeroGbBaseList() {
+      const excJail = document.getElementById("chkExcludeJailHalted")?.checked;
+      const tcsOnly = document.getElementById("chkHighAvailTcs")?.checked;
+
+      const list = (cachedZeroGbCells || []).filter(c => {
+        if (excJail && c.isJailOrHalted) return false;
+        if (tcsOnly && Number(c.avail) <= 98.0) return false;
+        return true;
+      });
+
+      const tcsCount = (cachedZeroGbCells || []).filter(c => !c.isJailOrHalted && Number(c.avail) > 98.0).length;
+      const tcsBadge = document.getElementById("zeroGbTcsBadge");
+      if (tcsBadge) tcsBadge.textContent = `TCS Actionable (>98% Avail): ${tcsCount}`;
+
+      return list;
+    }
+
     function getZeroGbGroupedData() {
+      const baseList = getFilteredZeroGbBaseList();
+
       if (currentZeroGbMode === "CELL") {
-        return sortArrayByState(cachedZeroGbCells, "ZEROGB_CELL");
+        return sortArrayByState(baseList, "ZEROGB_CELL");
       } else if (currentZeroGbMode === "SITE") {
         const siteMap = {};
-        cachedZeroGbCells.forEach(c => {
+        baseList.forEach(c => {
           if (!siteMap[c.siteId]) {
-            siteMap[c.siteId] = { siteId: c.siteId, btsIpId: c.btsIpId, siteName: c.siteName, ssa: c.ssa, l1: c.l1, cells: [], count: 0 };
+            siteMap[c.siteId] = { siteId: c.siteId, btsIpId: c.btsIpId, siteName: c.siteName, ssa: c.ssa, l1: c.l1, remarks: c.remarks || "", cells: [], count: 0 };
           }
-          siteMap[c.siteId].cells.push(`Cell ${c.cellId} (${c.dataMb}MB, ${c.consecutiveDays}d)`);
+          siteMap[c.siteId].cells.push(`Cell ${c.cellId} (${c.dataMb}MB, Avail ${c.avail}%, ${c.consecutiveDays}d)`);
           siteMap[c.siteId].count++;
         });
         return sortArrayByState(Object.values(siteMap), "ZEROGB_SITE");
       } else {
         const locMap = {};
-        cachedZeroGbCells.forEach(c => {
+        baseList.forEach(c => {
           const key = c.btsIpId || "UNMAPPED_BTS_IP";
           if (!locMap[key]) {
-            locMap[key] = { btsIpId: key, siteName: c.siteName, ssa: c.ssa, l1: c.l1, cells: [], count: 0 };
+            locMap[key] = { btsIpId: key, siteName: c.siteName, ssa: c.ssa, l1: c.l1, remarks: c.remarks || "", cells: [], count: 0 };
           }
-          locMap[key].cells.push(`${c.siteId} [Cell ${c.cellId}: ${c.dataMb}MB, ${c.consecutiveDays}d]`);
+          locMap[key].cells.push(`${c.siteId} [Cell ${c.cellId}: ${c.dataMb}MB, Avail ${c.avail}%, ${c.consecutiveDays}d]`);
           locMap[key].count++;
         });
         return sortArrayByState(Object.values(locMap), "ZEROGB_LOC");
@@ -1619,9 +1902,11 @@
       const tbody = document.getElementById("zeroGbTbody");
       const countLbl = document.getElementById("zeroGbCountSummary");
 
-      if (!cachedZeroGbCells || cachedZeroGbCells.length === 0) {
+      const baseList = getFilteredZeroGbBaseList();
+
+      if (!baseList || baseList.length === 0) {
         thead.innerHTML = "";
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400 font-sans">No Zero-GB (&le; 5 MB) cells found for the selected filter.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 font-sans">No Zero-GB (&le; 5 MB) cells found matching active filters and checkboxes.</td></tr>`;
         countLbl.textContent = "0 Records";
         return;
       }
@@ -1639,6 +1924,7 @@
             <th onclick="sortTableBy('ZEROGB_CELL', 'avail', 'num')" class="py-3 px-3 text-right sortable-th">Avail (%) ${getSortArrowHtml('ZEROGB_CELL', 'avail')}</th>
             <th onclick="sortTableBy('ZEROGB_CELL', 'dataMb', 'num')" class="py-3 px-3 text-right sortable-th">Data Volume (MB) ${getSortArrowHtml('ZEROGB_CELL', 'dataMb')}</th>
             <th onclick="sortTableBy('ZEROGB_CELL', 'consecutiveDays', 'num')" class="py-3 px-3 text-center sortable-th">Consecutive Days ${getSortArrowHtml('ZEROGB_CELL', 'consecutiveDays')}</th>
+            <th class="py-3 px-3">Remarks</th>
             <th class="py-3 px-3">Field Diagnosis &amp; Action</th>
             <th onclick="sortTableBy('ZEROGB_CELL', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('ZEROGB_CELL', 'l1')}</th>
           </tr>
@@ -1652,9 +1938,9 @@
               ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
               : "bg-slate-700 text-slate-200 border-slate-600";
 
-          const diag = c.avail >= 99
-            ? `<span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-sans text-[10px]">Sleeping Cell &rarr; TCS Remote Reset</span>`
-            : `<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-sans text-[10px]">Cell Outage &rarr; L1 Power/Media Check</span>`;
+          const diag = c.avail > 98.0
+            ? `<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-sans text-[10px] font-bold">TCS OEM Action (Avail &gt;98%)</span>`
+            : `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-sans text-[10px]">Cell Outage &rarr; L1 Power/Media Check</span>`;
 
           return `
             <tr class="hover:bg-slate-700/40 transition">
@@ -1662,13 +1948,14 @@
               <td class="py-2.5 px-3 text-cyan-400 font-bold">Cell ${c.cellId}</td>
               <td class="py-2.5 px-3 font-sans text-slate-200">${c.siteName || "-"}</td>
               <td class="py-2.5 px-3 text-amber-300">${c.btsIpId}</td>
-              <td class="py-2.5 px-3 text-right ${c.avail < 95 ? 'text-rose-400' : 'text-emerald-400'}">${c.avail !== undefined ? c.avail + '%' : '-'}</td>
+              <td class="py-2.5 px-3 text-right ${c.avail > 98.0 ? 'text-rose-400 font-bold' : 'text-amber-300'}">${c.avail !== undefined ? c.avail + '%' : '-'}</td>
               <td class="py-2.5 px-3 text-right">${c.dataMb} MB</td>
               <td class="py-2.5 px-3 text-center">
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${badgeColor}">
                   ${c.consecutiveDays} ${c.consecutiveDays === 1 ? 'Day' : 'Days'}
                 </span>
               </td>
+              <td class="py-2.5 px-3 font-sans text-[11px] text-slate-300">${c.remarks || "-"}</td>
               <td class="py-2.5 px-3">${diag}</td>
               <td class="py-2.5 px-3 font-sans">
                 <div class="text-white">${l1.name}</div>
@@ -1679,7 +1966,7 @@
         }).join("");
 
       } else if (currentZeroGbMode === "SITE") {
-        countLbl.textContent = `${rows.length} Sites (${cachedZeroGbCells.length} Zero-GB Cells)`;
+        countLbl.textContent = `${rows.length} Sites (${baseList.length} Zero-GB Cells)`;
         thead.innerHTML = `
           <tr>
             <th onclick="sortTableBy('ZEROGB_SITE', 'siteId', 'str')" class="py-3 px-4 sortable-th">Site ID ${getSortArrowHtml('ZEROGB_SITE', 'siteId')}</th>
@@ -1687,6 +1974,7 @@
             <th onclick="sortTableBy('ZEROGB_SITE', 'btsIpId', 'str')" class="py-3 px-3 sortable-th">Location (BTS IP ID) ${getSortArrowHtml('ZEROGB_SITE', 'btsIpId')}</th>
             <th onclick="sortTableBy('ZEROGB_SITE', 'count', 'num')" class="py-3 px-3 text-center sortable-th">No. of Zero-GB Cells ${getSortArrowHtml('ZEROGB_SITE', 'count')}</th>
             <th class="py-3 px-3">Cells with Zero GB at Site</th>
+            <th class="py-3 px-3">Remarks</th>
             <th onclick="sortTableBy('ZEROGB_SITE', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('ZEROGB_SITE', 'l1')}</th>
           </tr>
         `;
@@ -1702,6 +1990,7 @@
                 <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">${g.count}</span>
               </td>
               <td class="py-3 px-3 text-[11px] text-slate-300">${g.cells.join(" | ")}</td>
+              <td class="py-3 px-3 font-sans text-[11px] text-slate-300">${g.remarks || "-"}</td>
               <td class="py-3 px-3 font-sans">
                 <div class="text-white">${l1.name}</div>
                 <div class="text-[10px] text-slate-400">${l1.phone}</div>
@@ -1711,7 +2000,7 @@
         }).join("");
 
       } else {
-        countLbl.textContent = `${rows.length} Locations (${cachedZeroGbCells.length} Zero-GB Cells)`;
+        countLbl.textContent = `${rows.length} Locations (${baseList.length} Zero-GB Cells)`;
         thead.innerHTML = `
           <tr>
             <th onclick="sortTableBy('ZEROGB_LOC', 'btsIpId', 'str')" class="py-3 px-4 sortable-th">Location (BTS IP ID) ${getSortArrowHtml('ZEROGB_LOC', 'btsIpId')}</th>
@@ -1719,6 +2008,7 @@
             <th onclick="sortTableBy('ZEROGB_LOC', 'ssa', 'str')" class="py-3 px-3 sortable-th">SSA ${getSortArrowHtml('ZEROGB_LOC', 'ssa')}</th>
             <th onclick="sortTableBy('ZEROGB_LOC', 'count', 'num')" class="py-3 px-3 text-center sortable-th">No. of Zero-GB Cells ${getSortArrowHtml('ZEROGB_LOC', 'count')}</th>
             <th class="py-3 px-3">Cells with Zero GB at Location</th>
+            <th class="py-3 px-3">Remarks</th>
             <th onclick="sortTableBy('ZEROGB_LOC', 'l1', 'str')" class="py-3 px-3 sortable-th">L1 In-Charge ${getSortArrowHtml('ZEROGB_LOC', 'l1')}</th>
           </tr>
         `;
@@ -1734,6 +2024,7 @@
                 <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">${g.count}</span>
               </td>
               <td class="py-3 px-3 text-[11px] text-slate-300 max-w-md break-words">${g.cells.join(", ")}</td>
+              <td class="py-3 px-3 font-sans text-[11px] text-slate-300">${g.remarks || "-"}</td>
               <td class="py-3 px-3 font-sans">
                 <div class="text-white">${l1.name}</div>
                 <div class="text-[10px] text-slate-400">${l1.phone}</div>
@@ -1745,7 +2036,8 @@
     }
 
     function exportZeroGbToExcel() {
-      if (!cachedZeroGbCells || cachedZeroGbCells.length === 0) {
+      const baseList = getFilteredZeroGbBaseList();
+      if (!baseList || baseList.length === 0) {
         alert("No Zero-GB cells to export.");
         return;
       }
@@ -1760,6 +2052,7 @@
           "SSA": g.ssa,
           "Zero-GB Cell Count": g.count,
           "Affected Cells": g.cells.join(", "),
+          "Remarks": g.remarks || "-",
           "L1 In-Charge": (g.l1 || "").replace(/\t/g, " ")
         }));
       } else if (currentZeroGbMode === "SITE") {
@@ -1770,6 +2063,7 @@
           "SSA": g.ssa,
           "Zero-GB Cell Count": g.count,
           "Affected Cells at Site": g.cells.join(" | "),
+          "Remarks": g.remarks || "-",
           "L1 In-Charge": (g.l1 || "").replace(/\t/g, " ")
         }));
       } else {
@@ -1779,10 +2073,12 @@
           "Site Name": c.siteName,
           "Location (BTS IP ID)": c.btsIpId,
           "SSA": c.ssa,
+          "Site Type": c.siteType || "NDBN",
           "Availability (%)": c.avail,
           "Data Volume (MB)": c.dataMb,
           "Consecutive Days (<=5MB)": c.consecutiveDays,
-          "Field Diagnosis & Action": c.avail >= 99 ? "Sleeping Cell -> TCS Remote Reset" : "Cell Outage -> L1 Power/Media Check",
+          "Remarks": c.remarks || "-",
+          "Field Diagnosis & Action": c.avail > 98.0 ? "TCS OEM Action (Avail >98%)" : "Cell Outage -> L1 Power/Media Check",
           "L1 In-Charge": (c.l1 || "").replace(/\t/g, " ")
         }));
       }
@@ -1791,9 +2087,9 @@
       applyConditionalExcelFormatting(ws, exportRows, (col, val) => {
         if (col === "Consecutive Days (<=5MB)") return val >= 5 ? "critical" : val >= 3 ? "warning" : "normal";
         if (col === "Zero-GB Cell Count") return val >= 3 ? "critical" : val >= 2 ? "warning" : "normal";
-        if (col === "Availability (%)") return val < 95.0 ? "critical" : "healthy";
+        if (col === "Availability (%)") return val > 98.0 ? "critical" : "warning";
         if (col === "Data Volume (MB)") return "critical";
-        if (col === "Field Diagnosis & Action") return String(val).includes("Outage") ? "critical" : "warning";
+        if (col === "Field Diagnosis & Action") return String(val).includes("TCS") ? "critical" : "warning";
         return "normal";
       });
 
@@ -1804,7 +2100,8 @@
     }
 
     function shareZeroGbWhatsAppSummary() {
-      if (!cachedZeroGbCells || cachedZeroGbCells.length === 0) {
+      const baseList = getFilteredZeroGbBaseList();
+      if (!baseList || baseList.length === 0) {
         alert("No Zero-GB cells in current filter to share.");
         return;
       }
@@ -1816,10 +2113,11 @@
         totalCells: cellsArray.length,
         sites: new Set(cellsArray.map(c => c.siteId)).size,
         locations: new Set(cellsArray.map(c => c.btsIpId)).size,
+        tcsAction: cellsArray.filter(c => c.avail > 98.0).length,
         chronic: cellsArray.filter(c => c.consecutiveDays >= 5).length
       });
 
-      const overall = calcStats(cachedZeroGbCells);
+      const overall = calcStats(baseList);
       const hasSsaFilter = Boolean(f.ssa);
       const hasL1Filter = Boolean(f.l1);
       const hasL2Filter = Boolean(f.l2);
@@ -1834,27 +2132,27 @@
         if (hasL2Filter) msg += `👤 L2 In-Charge: *${formatL1Display(f.l2).name}*\n`;
         msg += `--------------------------------\n`;
         msg += `• Total Zero GB Cells: *${overall.totalCells}*\n`;
+        msg += `• TCS Actionable (>98% Avail): *${overall.tcsAction}*\n`;
         msg += `• Affected Sites: *${overall.sites}*\n`;
-        msg += `• Affected Locations: *${overall.locations}*\n`;
         msg += `• Chronic (>= 5 Days): *${overall.chronic}*\n`;
       } else if (hasSsaFilter) {
         msg += `📍 Scope: *${f.ssa} SSA*\n`;
         msg += `--------------------------------\n`;
         msg += `• Total Zero GB Cells: *${overall.totalCells}*\n`;
+        msg += `• TCS Actionable (>98% Avail): *${overall.tcsAction}*\n`;
         msg += `• Affected Sites: *${overall.sites}*\n`;
-        msg += `• Affected Locations: *${overall.locations}*\n`;
         msg += `• Chronic (>= 5 Days): *${overall.chronic}*\n`;
       } else {
         msg += `📍 Scope: *J&K Circle*\n`;
         msg += `• Total Zero GB Cells: *${overall.totalCells}*\n`;
+        msg += `• TCS Actionable (>98% Avail): *${overall.tcsAction}*\n`;
         msg += `• Affected Sites: *${overall.sites}*\n`;
-        msg += `• Affected Locations: *${overall.locations}*\n`;
         msg += `• Chronic (>= 5 Days): *${overall.chronic}*\n`;
         msg += `--------------------------------\n`;
         msg += `*SSA-WISE BREAKDOWN:*\n\n`;
 
         const ssaGroups = {};
-        cachedZeroGbCells.forEach(c => {
+        baseList.forEach(c => {
           const s = c.ssa || "UNKNOWN";
           if (!ssaGroups[s]) ssaGroups[s] = [];
           ssaGroups[s].push(c);
@@ -1863,10 +2161,8 @@
         Object.keys(ssaGroups).sort().forEach(ssaName => {
           const st = calcStats(ssaGroups[ssaName]);
           msg += `*${ssaName} SSA*\n`;
-          msg += `• Total Zero GB Cells: ${st.totalCells}\n`;
-          msg += `• Affected Sites: ${st.sites}\n`;
-          msg += `• Affected Locations: ${st.locations}\n`;
-          msg += `• Chronic (>= 5 Days): ${st.chronic}\n\n`;
+          msg += `• Total Zero GB: ${st.totalCells} (TCS >98%: ${st.tcsAction})\n`;
+          msg += `• Affected Sites: ${st.sites} | Chronic (>=5d): ${st.chronic}\n\n`;
         });
       }
 
@@ -1877,30 +2173,31 @@
     }
 
     function shareZeroGbDetailedEmail() {
-      if (!cachedZeroGbCells || cachedZeroGbCells.length === 0) {
+      const baseList = getFilteredZeroGbBaseList();
+      if (!baseList || baseList.length === 0) {
         alert("No Zero-GB cells in current filter to share.");
         return;
       }
 
       const reportDate = document.getElementById("lblLatestDate").textContent;
-      const subject = `BSNL 4G Zero-GB Cells (<=5 MB) Detailed Report - ${reportDate} (${cachedZeroGbCells.length} Cells)`;
+      const subject = `BSNL 4G Zero-GB Cells (<=5 MB) Detailed Report - ${reportDate} (${baseList.length} Cells)`;
 
-      let header = `BSNL J&K 4G Zero-GB Cells Detailed List (Data Volume <= 5 MB)\nReport Date: ${reportDate}\nTotal Zero-GB Cells: ${cachedZeroGbCells.length}\n\n`;
-      header += `S.No | Site ID | Cell ID | BTS IP ID | Site Name | SSA | Data (MB) | Consecutive Days | L1 In-Charge\n`;
-      header += `---------------------------------------------------------------------------------------------------------\n`;
+      let header = `BSNL J&K 4G Zero-GB Cells Detailed List (Data Volume <= 5 MB)\nReport Date: ${reportDate}\nTotal Zero-GB Cells: ${baseList.length}\n\n`;
+      header += `S.No | Site ID | Cell ID | BTS IP ID | Site Name | SSA | Avail % | Data (MB) | Consecutive Days | L1 In-Charge\n`;
+      header += `-------------------------------------------------------------------------------------------------------------------\n`;
 
-      const rowsText = cachedZeroGbCells.map((c, i) => {
+      const rowsText = baseList.map((c, i) => {
         const l1 = formatL1Display(c.l1);
-        return `${i + 1} | ${c.siteId} | Cell ${c.cellId} | ${c.btsIpId} | ${c.siteName} | ${c.ssa} | ${c.dataMb} MB | ${c.consecutiveDays} Days | ${l1.name} (${l1.phone})`;
+        return `${i + 1} | ${c.siteId} | Cell ${c.cellId} | ${c.btsIpId} | ${c.siteName} | ${c.ssa} | ${c.avail}% | ${c.dataMb} MB | ${c.consecutiveDays} Days | ${l1.name} (${l1.phone})`;
       }).join("\n");
 
       const fullBody = header + rowsText + `\n\nPlease restore faults at zero data cells in coordination with TCS/Tejas team.`;
       navigator.clipboard.writeText(fullBody).catch(() => {});
 
-      const mailBodyPreview = header + cachedZeroGbCells.slice(0, 25).map((c, i) => {
+      const mailBodyPreview = header + baseList.slice(0, 25).map((c, i) => {
         const l1 = formatL1Display(c.l1);
-        return `${i + 1} | ${c.siteId} | Cell ${c.cellId} | ${c.btsIpId} | ${c.siteName} | ${c.dataMb} MB | ${c.consecutiveDays}d | ${l1.name}`;
-      }).join("\n") + (cachedZeroGbCells.length > 25 ? `\n\n[Full list of ${cachedZeroGbCells.length} cells COPIED to clipboard — press Ctrl+V to paste]` : "") + `\n\nPlease restore faults at zero data cells in coordination with TCS/Tejas team.`;
+        return `${i + 1} | ${c.siteId} | Cell ${c.cellId} | ${c.btsIpId} | ${c.siteName} | ${c.avail}% | ${c.dataMb} MB | ${c.consecutiveDays}d | ${l1.name}`;
+      }).join("\n") + (baseList.length > 25 ? `\n\n[Full list of ${baseList.length} cells COPIED to clipboard — press Ctrl+V to paste]` : "") + `\n\nPlease restore faults at zero data cells in coordination with TCS/Tejas team.`;
 
       window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBodyPreview)}`;
     }
@@ -1929,6 +2226,7 @@
     function renderDefaultFilterScope7DayCharts() {
       const f = getActiveFilters();
       const scopeParts = [];
+      if (f.siteType && f.siteType !== "ALL") scopeParts.push(f.siteType);
       if (f.ssa) scopeParts.push(`${f.ssa} SSA`);
       if (f.l1) scopeParts.push(`L1: ${formatL1Display(f.l1).name}`);
       if (f.l2) scopeParts.push(`L2: ${formatL1Display(f.l2).name}`);
@@ -1956,6 +2254,7 @@
           ssa: f.ssa || "All Permitted SSAs",
           l1: f.l1 ? formatL1Display(f.l1).name : "All L1 Officers"
         },
+        alarms7D: [],
         trend7Days: trend7,
         seriesTrends: []
       });
@@ -1983,7 +2282,7 @@
         cachedSiteDirectory.forEach(s => {
           const ipKey = (s.btsIpId && s.btsIpId !== "N/A") ? String(s.btsIpId) : s.siteId;
           if (!locMap[ipKey]) {
-            const cleanLocName = (s.siteName || s.siteId).replace(/_B01|_B28/gi, "");
+            const cleanLocName = (s.siteName || s.siteId).replace(/_B01|_B28|_B41/gi, "");
             locMap[ipKey] = {
               btsIpId: ipKey,
               locName: cleanLocName,
@@ -2041,7 +2340,7 @@
         }
 
         dropEl.innerHTML = matches.map(s => {
-          const bandTag = s.siteId.includes("28") ? "B28 (700 MHz)" : s.siteId.includes("01") ? "B01 (2100 MHz)" : "4G Band";
+          const bandTag = s.siteId.includes("28") ? "B28 (700 MHz)" : s.siteId.includes("01") ? "B01 (2100 MHz)" : s.siteId.includes("41") ? "B41 (2500 MHz)" : "4G Band";
           return `
             <div onclick="selectSiteFromDropdown('${s.siteId}')" class="px-4 py-2.5 hover:bg-blue-600/30 cursor-pointer transition flex items-center justify-between gap-2">
               <div>
@@ -2142,17 +2441,15 @@
 
       const labels = trend.map(t => t.date);
 
-      // Distinct Palette for Multi-Series (Cell 0 / Cell 1 / Cell 2 OR B01 / B28)
       const SERIES_COLORS = [
         "#10b981", // Emerald Green (Cell 0 / B28)
         "#06b6d4", // Cyan Blue     (Cell 1 / B01)
         "#f59e0b", // Amber Orange  (Cell 2)
-        "#a855f7", // Purple        (Cell 3 / Extra Carrier)
+        "#a855f7", // Purple        (Cell 3 / B41)
         "#f43f5e", // Rose          (Cell 4)
         "#3b82f6"  // Royal Blue    (Cell 5)
       ];
 
-      // 6 Charts Config (Position 5 = VoLTE Erlang, Position 6 = Max Cell Throughput DL)
       const chartConfigs = [
         { id: "saChartAvail", prop: "avail", label: "Availability (%)", color: "#10b981", type: "line" },
         { id: "saChartDataGb", prop: "dataGb", label: "Data (GB)", color: "#06b6d4", type: "bar" },
@@ -2214,6 +2511,197 @@
           }
         });
       });
+
+      // Render Full Site Profile & 7-Day Health Card Below the 6 Graphs
+      renderSite7DFullDetailCard(data);
+    }
+
+    function renderSite7DFullDetailCard(data) {
+      const container = document.getElementById("site7dFullDetailCard");
+      if (!container) return;
+
+      const meta = data.siteMeta || {};
+      if (!data.mode || data.mode === "SCOPE") {
+        container.innerHTML = `
+          <div class="text-xs text-slate-400 text-center py-4">
+            Search and select any specific site or location above to view complete Infrastructure Profile (Site ID, IP ID, NEP ID, On-Air / SCFT / Take Over Dates, L1/L2), Last 7-Day Availability, 7-Day Alarms, and Sector RF Specs.
+          </div>
+        `;
+        return;
+      }
+
+      const l1 = formatL1Display(meta.l1);
+      const l2 = formatL1Display(meta.l2);
+      const availVal = meta.avgAvail7D !== null && meta.avgAvail7D !== undefined ? meta.avgAvail7D : null;
+      const availBadgeCls = availVal === null
+        ? "bg-slate-700 text-slate-300 border-slate-600"
+        : availVal >= 99.5
+          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+          : availVal >= 98.0
+            ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+            : "bg-rose-500/20 text-rose-300 border-rose-500/40";
+
+      const alarms = data.alarms7D || [];
+      const alarmsHtml = alarms.length > 0
+        ? alarms.map(a => {
+            const cls = a.level === "crit"
+              ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+              : "bg-amber-500/20 text-amber-300 border-amber-500/40";
+            return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${cls}"><strong>${a.type}:</strong> ${a.text}</span>`;
+          }).join(" ")
+        : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-500/20 text-emerald-300 border-emerald-500/40">No Zero Data, Handover, or RF Alarms in Last 7 Days</span>`;
+
+      const sectors = meta.sectors || [];
+      const sectorTableHtml = sectors.length > 0
+        ? `
+          <div class="mt-4 pt-4 border-t border-slate-700">
+            <h4 class="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2">Antenna &amp; Static RF Sector Parameters</h4>
+            <div class="overflow-x-auto border border-slate-700 rounded-lg">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase">
+                  <tr>
+                    <th class="py-2 px-3">Sector</th>
+                    <th class="py-2 px-3">Azimuth</th>
+                    <th class="py-2 px-3">Total Tilt</th>
+                    <th class="py-2 px-3">Antenna Ht.</th>
+                    <th class="py-2 px-3">EIRP / BW</th>
+                    <th class="py-2 px-3">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/60">
+                  ${sectors.map(s => {
+                    const confBadge = s.confidence === "verified"
+                      ? `<span class="text-emerald-400">Verified Static</span>`
+                      : `<span class="text-amber-300">Assumed (${(s.missingFields || []).join(", ")})</span>`;
+                    return `
+                      <tr>
+                        <td class="py-1.5 px-3 font-bold text-white">${s.sector}</td>
+                        <td class="py-1.5 px-3">${s.azimuth}°</td>
+                        <td class="py-1.5 px-3">${s.totalTilt}°</td>
+                        <td class="py-1.5 px-3">${s.antennaHt} m</td>
+                        <td class="py-1.5 px-3">${s.eirp ? s.eirp + ' dBm' : 'Assumed'} / ${s.bandwidth}</td>
+                        <td class="py-1.5 px-3 font-sans text-[11px]">${confBadge}</td>
+                      </tr>
+                    `;
+                  }).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `
+        : "";
+
+      const mapJumpBtn = (meta.lat && meta.lng)
+        ? `<button onclick="jumpToSiteOnGisMap(${meta.lat}, ${meta.lng})" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5">
+             <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Locate on GIS Map
+           </button>`
+        : "";
+
+      window.latest7DSiteSnapshot = { meta, alarms };
+
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-700 pb-3">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-base font-bold text-white">${meta.siteName || "--"}</h3>
+                <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 text-[10px] font-bold">${meta.siteType || "NDBN"}</span>
+                <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-bold">${meta.media || "-"}</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                SSA: <strong class="text-white">${meta.ssa || "-"}</strong> |
+                BA: <strong class="text-white">${meta.ba || "-"}</strong> |
+                SDCA: <strong class="text-white">${meta.sdca || "-"}</strong>
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+              <span class="px-3 py-1.5 rounded-lg text-xs font-mono font-bold border ${availBadgeCls}">
+                Last 7D Avg Avail: ${availVal !== null ? availVal + "%" : "N/A"}
+              </span>
+              ${mapJumpBtn}
+              <button onclick="copySite7DWhatsAppAlert()" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-semibold transition flex items-center gap-1.5 border border-slate-600">
+                <i data-lucide="copy" class="w-3.5 h-3.5 text-cyan-400"></i> Copy L1 Summary
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-[10px] text-slate-400 uppercase block">Site ID</span>
+              <strong class="text-cyan-400 font-mono">${meta.siteId || "-"}</strong>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-[10px] text-slate-400 uppercase block">BTS IP ID</span>
+              <strong class="text-amber-300 font-mono">${meta.btsIpId || "-"}</strong>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-[10px] text-slate-400 uppercase block">NEP ID</span>
+              <strong class="text-white font-mono">${meta.nepId || "-"}</strong>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-[10px] text-slate-400 uppercase block">L1 In-Charge</span>
+              <strong class="text-emerald-300">${l1.name}</strong> <span class="text-[10px] text-slate-400">${l1.phone}</span>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-[10px] text-slate-400 uppercase block">L2 In-Charge</span>
+              <strong class="text-white">${l2.name}</strong>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-[10px] text-slate-400 uppercase block">On-Air Date</span>
+              <strong class="text-white font-mono">${meta.onAirDate || "-"}</strong>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-[10px] text-slate-400 uppercase block">SCFT Date</span>
+              <strong class="text-white font-mono">${meta.scftDate || "-"}</strong>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-[10px] text-slate-400 uppercase block">Take Over Date</span>
+              <strong class="text-white font-mono">${meta.takeOverDate || "-"}</strong>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700 col-span-2 sm:col-span-3 lg:col-span-4">
+              <span class="text-[10px] text-slate-400 uppercase block">Static Remarks</span>
+              <strong class="${meta.remarks ? 'text-amber-300' : 'text-slate-400'}">${meta.remarks || "No special remarks"}</strong>
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700 space-y-2">
+            <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <i data-lucide="bell-ring" class="w-4 h-4 text-rose-400"></i> Last 7-Day Triggered Alarms (Zero Data Cells, Handover &amp; RF Alerts)
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">${alarmsHtml}</div>
+          </div>
+
+          ${sectorTableHtml}
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    function jumpToSiteOnGisMap(lat, lng) {
+      switchMainTab("GIS_MAP");
+      setTimeout(() => {
+        if (gisMapInstance) {
+          gisMapInstance.setView([lat, lng], 14);
+        }
+      }, 300);
+    }
+
+    function copySite7DWhatsAppAlert() {
+      if (!window.latest7DSiteSnapshot) return;
+      const { meta, alarms } = window.latest7DSiteSnapshot;
+      let text = `*BSNL J&K 4G SITE 7-DAY HEALTH REPORT*\n`;
+      text += `• *Site Name:* ${meta.siteName}\n`;
+      text += `• *Site ID:* ${meta.siteId} | *IP ID:* ${meta.btsIpId} | *NEP ID:* ${meta.nepId}\n`;
+      text += `• *SSA:* ${meta.ssa} | *L1:* ${formatL1Display(meta.l1).name}\n`;
+      text += `• *On-Air:* ${meta.onAirDate} | *SCFT:* ${meta.scftDate} | *Take Over:* ${meta.takeOverDate}\n`;
+      text += `• *Last 7D Avg Avail:* ${meta.avgAvail7D !== null ? meta.avgAvail7D + "%" : "N/A"}\n`;
+      if (alarms.length > 0) {
+        text += `• *7D Alarms:*\n` + alarms.slice(0, 6).map(a => `  - [${a.type}] ${a.text}`).join("\n");
+      } else {
+        text += `• *7D Alarms:* None (Healthy)`;
+      }
+      navigator.clipboard.writeText(text).then(() => alert("Site 7-Day summary copied to clipboard!"));
     }
 
     async function captureSiteAnalysisScreenshot() {
@@ -2230,7 +2718,183 @@
       }
     }
 
-    // ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (5 SUB-MODULES + SORTING + COLOR EXCEL) =================
+    // ================= MODULE 3B: LEAFLET GIS RF MAP & DATA AUDIT =================
+    function initGisMap() {
+      gisMapInstance = L.map("gisMap").setView([33.45, 75.35], 8);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        maxZoom: 18,
+        attribution: "&copy; OpenStreetMap &copy; CARTO"
+      }).addTo(gisMapInstance);
+      gisLayerGroup = L.layerGroup().addTo(gisMapInstance);
+    }
+
+    function buildSectorWedgeLatLngs(lat, lng, radiusMeters, azimuth, beamwidth = 65) {
+      const earthRadius = 6378137;
+      const dLat = radiusMeters / earthRadius;
+      const dLng = radiusMeters / (earthRadius * Math.cos(Math.PI * lat / 180));
+      const startAngle = (azimuth - beamwidth / 2) * (Math.PI / 180);
+      const endAngle = (azimuth + beamwidth / 2) * (Math.PI / 180);
+
+      const pts = [[lat, lng]];
+      const steps = 12;
+      for (let i = 0; i <= steps; i++) {
+        const theta = startAngle + (i / steps) * (endAngle - startAngle);
+        const pLat = lat + (dLat * Math.cos(theta)) * (180 / Math.PI);
+        const pLng = lng + (dLng * Math.sin(theta)) * (180 / Math.PI);
+        pts.push([pLat, pLng]);
+      }
+      return pts;
+    }
+
+    function renderGisMapFeatures() {
+      if (!gisLayerGroup) return;
+      gisLayerGroup.clearLayers();
+
+      const showB28 = document.getElementById("chkGisB28")?.checked;
+      const showB01 = document.getElementById("chkGisB01")?.checked;
+      const showB41 = document.getElementById("chkGisB41")?.checked;
+      const showAssumed = document.getElementById("chkGisShowAssumed")?.checked;
+
+      const enabledBands = { B28: showB28, B01: showB01, B41: showB41 };
+
+      cachedGisTowers.forEach(tower => {
+        if (!tower.lat || !tower.lng) return;
+
+        // Render outer-to-inner bands (B28 -> B01 -> B41) so smaller wedges remain clickable
+        ["B28", "B01", "B41"].forEach(bandKey => {
+          if (!enabledBands[bandKey]) return;
+          const bandData = tower.bands[bandKey];
+          if (!bandData || !bandData.sectors) return;
+
+          const color = BAND_COLORS[bandKey] || "#38bdf8";
+          const radius = BAND_RADII[bandKey] || 800;
+
+          bandData.sectors.forEach(sec => {
+            const isAssumed = sec.confidence !== "verified";
+            if (isAssumed && !showAssumed) return;
+
+            const wedgePts = buildSectorWedgeLatLngs(tower.lat, tower.lng, radius, sec.azimuth, 65);
+            const style = isAssumed
+              ? { color: color, weight: 1.5, fillColor: color, fillOpacity: 0.12, dashArray: "6, 6" }
+              : { color: color, weight: 1.5, fillColor: color, fillOpacity: 0.34 };
+
+            const wedge = L.polygon(wedgePts, style);
+            const confLabel = isAssumed ? `<span style="color:#fbbf24;">⚠️ Assumed (${(sec.missingFields || []).join(", ")})</span>` : `<span style="color:#34d399;">✓ Verified Static RF</span>`;
+            wedge.bindTooltip(`
+              <strong>${tower.siteName}</strong> (${tower.siteType})<br>
+              Band: <b>${bandKey}</b> | Sector: <b>${sec.sector}</b> (${bandData.siteId})<br>
+              Azimuth: <b>${sec.azimuth}°</b> | Tilt: <b>${sec.totalTilt}°</b> | Ht: <b>${sec.antennaHt}m</b><br>
+              ${confLabel}
+            `);
+            wedge.on("click", () => {
+              switchMainTab("SITE_ANALYSIS");
+              document.getElementById("siteAnalysisInput").value = bandData.siteId;
+              runSiteAnalysisSearch();
+            });
+            gisLayerGroup.addLayer(wedge);
+          });
+        });
+
+        // Tower Center Marker
+        const beaconColor = tower.healthState === "crit" ? "#f43f5e" : (tower.healthState === "warn" ? "#f59e0b" : "#38bdf8");
+        const marker = L.circleMarker([tower.lat, tower.lng], {
+          color: "#0f172a",
+          weight: 1.5,
+          fillColor: beaconColor,
+          fillOpacity: 1,
+          radius: tower.healthState === "crit" ? 6 : 4.5
+        });
+
+        const primaryBand = tower.bands.B28 || tower.bands.B01 || tower.bands.B41;
+        const defaultQueryId = primaryBand ? primaryBand.siteId : tower.phySiteId;
+
+        marker.bindTooltip(`
+          <strong>${tower.siteName}</strong> [${tower.siteType}]<br>
+          SSA: ${tower.ssa} | IP ID: ${tower.btsIpId}<br>
+          ${tower.hasAssumed ? '<span style="color:#fbbf24;">~ Contains Assumed RF Fields</span><br>' : ''}
+          <em>Click to open 7-Day Site Analysis &amp; Full Profile</em>
+        `);
+        marker.on("click", () => {
+          switchMainTab("SITE_ANALYSIS");
+          document.getElementById("siteAnalysisInput").value = defaultQueryId;
+          runSiteAnalysisSearch();
+        });
+        gisLayerGroup.addLayer(marker);
+      });
+    }
+
+    function renderGisAuditTables() {
+      const unmappedTbody = document.getElementById("gisUnmappedTbody");
+      const assumedTbody = document.getElementById("gisAssumedTbody");
+
+      if (unmappedTbody) {
+        if (!cachedUnmappedSites.length) {
+          unmappedTbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-emerald-400 font-sans">All sites in active scope have valid coordinates.</td></tr>`;
+        } else {
+          unmappedTbody.innerHTML = cachedUnmappedSites.map(u => `
+            <tr>
+              <td class="py-2 px-3 font-bold text-white">${u.siteId}</td>
+              <td class="py-2 px-3 font-sans">${u.siteName}</td>
+              <td class="py-2 px-3">${u.ssa}</td>
+              <td class="py-2 px-3">${u.siteType}</td>
+              <td class="py-2 px-3 text-cyan-300">${u.band}</td>
+              <td class="py-2 px-3 text-rose-400 font-sans">${u.reason}</td>
+              <td class="py-2 px-3 font-sans">${formatL1Display(u.l1).name}</td>
+            </tr>
+          `).join("");
+        }
+      }
+
+      if (assumedTbody) {
+        if (!cachedAuditLog.length) {
+          assumedTbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-emerald-400 font-sans">All mapped sectors have 100% verified static RF parameters.</td></tr>`;
+        } else {
+          assumedTbody.innerHTML = cachedAuditLog.map(a => `
+            <tr>
+              <td class="py-2 px-3 font-bold text-white">${a.siteId}</td>
+              <td class="py-2 px-3 font-sans">${a.siteName}</td>
+              <td class="py-2 px-3">${a.ssa}</td>
+              <td class="py-2 px-3 text-cyan-300">${a.band} (${a.sector})</td>
+              <td class="py-2 px-3 text-amber-300 font-sans">${a.issue}</td>
+              <td class="py-2 px-3 font-sans">${formatL1Display(a.l1).name}</td>
+            </tr>
+          `).join("");
+        }
+      }
+    }
+
+    function exportGisAuditCsv() {
+      const rows = [
+        ...cachedUnmappedSites.map(u => ({
+          Category: "Unmapped Site",
+          Site_ID: u.siteId,
+          Site_Name: u.siteName,
+          SSA: u.ssa,
+          Band_Sector: u.band,
+          Issue: u.reason,
+          L1_InCharge: (u.l1 || "").replace(/\t/g, " ")
+        })),
+        ...cachedAuditLog.map(a => ({
+          Category: "Assumed Static RF",
+          Site_ID: a.siteId,
+          Site_Name: a.siteName,
+          SSA: a.ssa,
+          Band_Sector: `${a.band} - ${a.sector}`,
+          Issue: a.issue,
+          L1_InCharge: (a.l1 || "").replace(/\t/g, " ")
+        }))
+      ];
+      if (!rows.length) {
+        alert("No unmapped or assumed RF items to export.");
+        return;
+      }
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "GIS_Static_Audit");
+      XLSX.writeFile(wb, `BSNL_JK_GIS_Static_Audit_${document.getElementById("lblLatestDate").textContent}.xlsx`);
+    }
+
+    // ================= MODULE 4: RF & VOLTE NETWORK OPTIMIZATION (3-TIER YELLOW/RED + 5 SUB-MODULES) =================
     function getVolteDiagnosisText(r) {
       if (r.pktLossDl > 1.5 && r.pktLossUl > 1.5) return `Backhaul Jitter (DL & UL Loss) -> L1 Check Media (${r.media})`;
       if (r.pktLossUl > 1.5) return `UL Voice Muting (UL Loss ${r.pktLossUl}%) -> Check UL RF / B1 Edge`;
@@ -2313,13 +2977,13 @@
       if (currentOptSubModule === "VOLTE") {
         const rows = sortArrayByState(cachedVolteList, "OPT_VOLTE");
         titleEl.textContent = "1. VoLTE Audio Quality & Call Muting Watchlist";
-        subEl.textContent = "Active Cells with VoLTE Packet Loss > 1.5%, VoLTE Drop > 2.0%, or VoLTE CSSR < 95% (Click any header to sort)";
+        subEl.textContent = "Yellow = Warning (Just Out of Range) | Red = Critical Breach — Click any header to sort";
         countEl.textContent = `${rows.length} Cells Flagged`;
 
         guideEl.innerHTML = `
           <div class="flex items-center justify-between">
-            <span class="font-bold text-purple-300">VoLTE Quality Field Guide (Voice Muting / One-Way Audio / Call Drops)</span>
-            <span class="font-mono text-[11px] text-emerald-400">Target: Packet Loss &le; 0.5% (Critical &gt; 1.5%) | VoLTE Drop &le; 1.0% (Critical &gt; 2.0%) | CSSR &ge; 98%</span>
+            <span class="font-bold text-purple-300">VoLTE Quality Field Guide (Green = Healthy | Yellow = Marginal Warning | Red = Critical)</span>
+            <span class="font-mono text-[11px] text-emerald-400">Packet Loss: &le;0.5% (Warn 0.51–1.5%, Crit &gt;1.5%) | VoLTE Drop: &le;1.0% (Warn 1.01–2.0%, Crit &gt;2.0%)</span>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-700">
@@ -2363,10 +3027,10 @@
               <td class="py-2.5 px-4"><div class="font-bold text-white">${r.siteId}</div><div class="text-[10px] text-cyan-400">Cell ${r.cellId}</div></td>
               <td class="py-2.5 px-3 font-sans text-slate-200">${r.siteName}</td>
               <td class="py-2.5 px-3 font-sans">${r.media}</td>
-              <td class="py-2.5 px-3 text-right ${r.pktLossDl > 1.5 ? 'text-rose-400 font-bold' : ''}">${r.pktLossDl}%</td>
-              <td class="py-2.5 px-3 text-right ${r.pktLossUl > 1.5 ? 'text-rose-400 font-bold' : ''}">${r.pktLossUl}%</td>
-              <td class="py-2.5 px-3 text-right ${r.erabDropVolte > 2.0 ? 'text-rose-400 font-bold' : ''}">${r.erabDropVolte}%</td>
-              <td class="py-2.5 px-3 text-right ${r.cssrVolte < 95.0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${r.cssrVolte}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('pktLoss', r.pktLossDl)}">${r.pktLossDl}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('pktLoss', r.pktLossUl)}">${r.pktLossUl}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('erabDropVolte', r.erabDropVolte)}">${r.erabDropVolte}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('cssrVolte', r.cssrVolte)}">${r.cssrVolte}%</td>
               <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
               <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded ${badgeCls} font-sans text-[10px]">${diagText}</span></td>
               <td class="py-2.5 px-3 font-sans"><div class="text-white">${l1.name}</div><div class="text-[10px] text-slate-400">${l1.phone}</div></td>
@@ -2377,13 +3041,13 @@
       } else if (currentOptSubModule === "RF") {
         const rows = sortArrayByState(cachedRfList, "OPT_RF");
         titleEl.textContent = "2. RF Interference, Uplink Noise & Poor CQI Watchlist";
-        subEl.textContent = "Active Cells with SINR (PUSCH) < 2.0 dB, UL IBLER > 15.0%, or CQI < 7.0 (Click any header to sort)";
+        subEl.textContent = "Yellow = Warning (Just Out of Range) | Red = Critical Breach — Click any header to sort";
         countEl.textContent = `${rows.length} Cells Flagged`;
 
         guideEl.innerHTML = `
           <div class="flex items-center justify-between">
-            <span class="font-bold text-rose-300">RF Interference &amp; Antenna Health Guide (SINR / UL IBLER / CQI)</span>
-            <span class="font-mono text-[11px] text-emerald-400">Target: SINR &ge; 5 dB (Critical &lt; 2 dB) | UL IBLER &le; 10% (Critical &gt; 15%) | CQI &ge; 9 (Critical &lt; 7)</span>
+            <span class="font-bold text-rose-300">RF Interference &amp; Antenna Health Guide (Green = Healthy | Yellow = Marginal Warning | Red = Critical)</span>
+            <span class="font-mono text-[11px] text-emerald-400">SINR: &ge;5 dB (Warn 2–4.9, Crit &lt;2) | UL IBLER: &le;10% (Warn 10.1–15%, Crit &gt;15%) | CQI: &ge;8 (Warn 7–7.9, Crit &lt;7)</span>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-700">
@@ -2427,9 +3091,9 @@
               <td class="py-2.5 px-4"><div class="font-bold text-white">${r.siteId}</div><div class="text-[10px] text-cyan-400">Cell ${r.cellId}</div></td>
               <td class="py-2.5 px-3 font-sans text-slate-200">${r.siteName}</td>
               <td class="py-2.5 px-3 text-amber-300">${r.btsIpId}</td>
-              <td class="py-2.5 px-3 text-right ${r.sinr < 2.0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${r.sinr} dB</td>
-              <td class="py-2.5 px-3 text-right ${r.ulIbler > 15.0 ? 'text-rose-400 font-bold' : ''}">${r.ulIbler}%</td>
-              <td class="py-2.5 px-3 text-right ${r.cqi < 7.0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${r.cqi}</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('sinr', r.sinr)}">${r.sinr} dB</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('ulIbler', r.ulIbler)}">${r.ulIbler}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('cqi', r.cqi)}">${r.cqi}</td>
               <td class="py-2.5 px-3 text-right">${r.latency} ms</td>
               <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
               <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded ${badgeCls} font-sans text-[10px]">${diagText}</span></td>
@@ -2441,13 +3105,13 @@
       } else if (currentOptSubModule === "PRB") {
         const rows = sortArrayByState(cachedPrbList, "OPT_PRB");
         titleEl.textContent = "3. PRB Capacity Congestion & Throughput Bottleneck Tracker";
-        subEl.textContent = "Active Cells with Downlink or Uplink PRB Utilisation > 80.0% (Click any header to sort)";
+        subEl.textContent = "Yellow = Warning (70.1–80% PRB) | Red = Critical (>80% PRB) — Click any header to sort";
         countEl.textContent = `${rows.length} Cells Flagged`;
 
         guideEl.innerHTML = `
           <div class="flex items-center justify-between">
             <span class="font-bold text-amber-300">PRB Capacity &amp; Sector Load Balancing Guide</span>
-            <span class="font-mono text-[11px] text-emerald-400">Target: PRB DL/UL &le; 70% (Critical &gt; 80%) | Per-User DL Throughput &ge; 5 Mbps</span>
+            <span class="font-mono text-[11px] text-emerald-400">PRB DL/UL: &le;70% (Warn 70.1–80%, Crit &gt;80%) | Per-User DL Throughput &ge; 5 Mbps</span>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-700">
@@ -2491,9 +3155,9 @@
               <td class="py-2.5 px-4"><div class="font-bold text-white">${r.siteId}</div><div class="text-[10px] text-cyan-400">Cell ${r.cellId}</div></td>
               <td class="py-2.5 px-3 font-sans text-slate-200">${r.siteName}</td>
               <td class="py-2.5 px-3 text-amber-300">${r.btsIpId}</td>
-              <td class="py-2.5 px-3 text-right ${r.prbDl > 80 ? 'text-rose-400 font-bold' : ''}">${r.prbDl}%</td>
-              <td class="py-2.5 px-3 text-right ${r.prbUl > 80 ? 'text-rose-400 font-bold' : ''}">${r.prbUl}%</td>
-              <td class="py-2.5 px-3 text-right ${r.userDlTput < 3 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${r.userDlTput} Mbps</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('prb', r.prbDl)}">${r.prbDl}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('prb', r.prbUl)}">${r.prbUl}%</td>
+              <td class="py-2.5 px-3 text-right ${r.userDlTput < 3 ? 'text-rose-400 font-bold' : (r.userDlTput < 5 ? 'text-amber-300 font-semibold' : 'text-emerald-400')}">${r.userDlTput} Mbps</td>
               <td class="py-2.5 px-3 text-right text-cyan-300">${r.userCount}</td>
               <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
               <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded ${badgeCls} font-sans text-[10px]">${diagText}</span></td>
@@ -2505,13 +3169,13 @@
       } else if (currentOptSubModule === "HO") {
         const rows = sortArrayByState(cachedHoList, "OPT_HO");
         titleEl.textContent = "4. Mobility & Handover Failure Matrix";
-        subEl.textContent = "Active Cells with Intra/Inter Frequency Handover SR < 92.0% or Call Drop Rate > 2.0% (Click any header to sort)";
+        subEl.textContent = "Yellow = Warning (92–94.99% HO SR / 1–2% Drop) | Red = Critical (<92% HO SR / >2% Drop)";
         countEl.textContent = `${rows.length} Cells Flagged`;
 
         guideEl.innerHTML = `
           <div class="flex items-center justify-between">
-            <span class="font-bold text-cyan-300">Handover &amp; Mobility Optimization Guide (Intra / Inter Frequency HO)</span>
-            <span class="font-mono text-[11px] text-emerald-400">Target: Intra/Inter HO SR &ge; 96% (Critical &lt; 92%) | Drop Rate &le; 1.0% (Critical &gt; 2.0%)</span>
+            <span class="font-bold text-cyan-300">Handover &amp; Mobility Optimization Guide (Green = Healthy | Yellow = Marginal Warning | Red = Critical)</span>
+            <span class="font-mono text-[11px] text-emerald-400">HO SR: &ge;95% (Warn 92–94.99%, Crit &lt;92%) | Drop Rate: &le;1.0% (Warn 1.01–2.0%, Crit &gt;2.0%)</span>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-700">
@@ -2555,10 +3219,10 @@
               <td class="py-2.5 px-4"><div class="font-bold text-white">${r.siteId}</div><div class="text-[10px] text-cyan-400">Cell ${r.cellId}</div></td>
               <td class="py-2.5 px-3 font-sans text-slate-200">${r.siteName}</td>
               <td class="py-2.5 px-3 font-sans">${r.ssa}</td>
-              <td class="py-2.5 px-3 text-right ${r.intraHoSr < 92.0 ? 'text-rose-400 font-bold' : ''}">${r.intraHoSr}%</td>
-              <td class="py-2.5 px-3 text-right ${r.interHoSr < 92.0 ? 'text-rose-400 font-bold' : ''}">${r.interHoSr}%</td>
-              <td class="py-2.5 px-3 text-right">${r.volteHoSr}%</td>
-              <td class="py-2.5 px-3 text-right ${r.dropRate > 2.0 ? 'text-rose-400 font-bold' : ''}">${r.dropRate}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('ho', r.intraHoSr)}">${r.intraHoSr}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('ho', r.interHoSr)}">${r.interHoSr}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('ho', r.volteHoSr)}">${r.volteHoSr}%</td>
+              <td class="py-2.5 px-3 text-right ${getKpiTierClass('drop', r.dropRate)}">${r.dropRate}%</td>
               <td class="py-2.5 px-3 text-center">${getDaysBadgeHtml(r.consecutiveDays)}</td>
               <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded ${badgeCls} font-sans text-[10px]">${diagText}</span></td>
               <td class="py-2.5 px-3 font-sans"><div class="text-white">${l1.name}</div><div class="text-[10px] text-slate-400">${l1.phone}</div></td>
@@ -2567,7 +3231,6 @@
         }).join("");
 
       } else {
-        // Sub-Module 5: Dedicated Chronic Degradation Watchlist (3D / 5D / 7D)
         const filteredChronic = cachedChronicList.filter(r => r.consecutiveDays >= chronicMinDaysFilter);
         const rows = sortArrayByState(filteredChronic, "OPT_CHRONIC");
 
@@ -2727,16 +3390,16 @@
 
       const ws = XLSX.utils.json_to_sheet(exportRows);
       applyConditionalExcelFormatting(ws, exportRows, (col, val) => {
-        if ((col === "VoLTE Pkt Loss DL (%)" || col === "VoLTE Pkt Loss UL (%)") && val > 1.5) return "critical";
-        if (col === "VoLTE Drop (%)" && val > 2.0) return "critical";
-        if (col === "CSSR VoLTE (%)" && val < 95.0) return "critical";
-        if (col === "SINR (PUSCH) dB" && val < 2.0) return "critical";
-        if (col === "UL IBLER (%)" && val > 15.0) return "critical";
-        if (col === "CQI" && val > 0 && val < 7.0) return "critical";
-        if ((col === "PRB Util DL (%)" || col === "PRB Util UL (%)") && val > 80.0) return "critical";
-        if (col === "Avg User DL Tput (Mbps)" && val < 3.0) return "critical";
-        if ((col === "Intra-Freq HO SR (%)" || col === "Inter-Freq HO SR (%)") && val < 92.0) return "critical";
-        if (col === "Call Drop (%)" && val > 2.0) return "critical";
+        if (col === "VoLTE Pkt Loss DL (%)" || col === "VoLTE Pkt Loss UL (%)") return val > 1.5 ? "critical" : val > 0.5 ? "warning" : "normal";
+        if (col === "VoLTE Drop (%)") return val > 2.0 ? "critical" : val > 1.0 ? "warning" : "normal";
+        if (col === "CSSR VoLTE (%)") return val < 97.0 ? "critical" : val < 98.5 ? "warning" : "normal";
+        if (col === "SINR (PUSCH) dB") return val < 2.0 ? "critical" : val < 5.0 ? "warning" : "normal";
+        if (col === "UL IBLER (%)") return val > 15.0 ? "critical" : val > 10.0 ? "warning" : "normal";
+        if (col === "CQI" && val > 0) return val < 7.0 ? "critical" : val < 8.0 ? "warning" : "normal";
+        if (col === "PRB Util DL (%)" || col === "PRB Util UL (%)") return val > 80.0 ? "critical" : val > 70.0 ? "warning" : "normal";
+        if (col === "Avg User DL Tput (Mbps)") return val < 3.0 ? "critical" : val < 5.0 ? "warning" : "normal";
+        if (col === "Intra-Freq HO SR (%)" || col === "Inter-Freq HO SR (%)") return val < 92.0 ? "critical" : val < 95.0 ? "warning" : "normal";
+        if (col === "Call Drop (%)") return val > 2.0 ? "critical" : val > 1.0 ? "warning" : "normal";
         if (col === "Current Value") return "critical";
         if (col === "Consecutive Days") return val >= 5 ? "critical" : val >= 3 ? "warning" : "normal";
         if (col === "Probable Cause & Action") return "warning";
